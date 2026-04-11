@@ -1,0 +1,8 @@
+node_modules/
+out/
+dist/
+*.log
+.DS_Store
+
+# Personal config — contains absolute paths to the map-tagger data
+config.json
