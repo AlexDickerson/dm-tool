@@ -1,6 +1,6 @@
-import { resolve } from "node:path";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
-import react from "@vitejs/plugin-react";
+import { resolve } from 'node:path';
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+import react from '@vitejs/plugin-react';
 
 // electron-vite gives us one config with three build targets:
 //   - main   : the Electron main process (Node.js, our db/ipc/config code)
@@ -14,13 +14,13 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
-        "@shared": resolve(__dirname, "shared"),
+        '@shared': resolve(__dirname, 'shared'),
       },
     },
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "electron/main.ts"),
+          index: resolve(__dirname, 'electron/main.ts'),
         },
       },
     },
@@ -29,13 +29,13 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: {
-        "@shared": resolve(__dirname, "shared"),
+        '@shared': resolve(__dirname, 'shared'),
       },
     },
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "electron/preload.ts"),
+          index: resolve(__dirname, 'electron/preload.ts'),
         },
       },
     },
@@ -45,14 +45,14 @@ export default defineConfig({
     plugins: [react()],
     resolve: {
       alias: {
-        "@": resolve(__dirname, "src"),
-        "@shared": resolve(__dirname, "shared"),
+        '@': resolve(__dirname, 'src'),
+        '@shared': resolve(__dirname, 'shared'),
       },
     },
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, "index.html"),
+          index: resolve(__dirname, 'index.html'),
         },
       },
     },

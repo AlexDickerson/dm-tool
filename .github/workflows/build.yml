@@ -44,7 +44,7 @@ jobs:
       # -- Python: build the standalone map-tagger.exe --
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - name: Build map-tagger exe
         working-directory: tagger
@@ -95,7 +95,7 @@ jobs:
         with:
           tag_name: v${{ needs.check-version.outputs.version }}
           name: DM Tool v${{ needs.check-version.outputs.version }}
-          files: "*.exe"
+          files: '*.exe'
           draft: false
           prerelease: false
         env:
