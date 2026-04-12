@@ -306,13 +306,34 @@ export function listMonsters(params: MonsterSearchParams): MonsterSummary[] {
     clauses.push(`source IN (${params.sources.map(() => '?').join(',')})`);
     binds.push(...params.sources);
   }
-  if (params.hpMin != null) { clauses.push('hp >= ?'); binds.push(params.hpMin); }
-  if (params.hpMax != null) { clauses.push('hp <= ?'); binds.push(params.hpMax); }
-  if (params.acMin != null) { clauses.push('ac >= ?'); binds.push(params.acMin); }
-  if (params.acMax != null) { clauses.push('ac <= ?'); binds.push(params.acMax); }
-  if (params.fortMin != null) { clauses.push('fort >= ?'); binds.push(params.fortMin); }
-  if (params.refMin != null) { clauses.push('ref >= ?'); binds.push(params.refMin); }
-  if (params.willMin != null) { clauses.push('will >= ?'); binds.push(params.willMin); }
+  if (params.hpMin != null) {
+    clauses.push('hp >= ?');
+    binds.push(params.hpMin);
+  }
+  if (params.hpMax != null) {
+    clauses.push('hp <= ?');
+    binds.push(params.hpMax);
+  }
+  if (params.acMin != null) {
+    clauses.push('ac >= ?');
+    binds.push(params.acMin);
+  }
+  if (params.acMax != null) {
+    clauses.push('ac <= ?');
+    binds.push(params.acMax);
+  }
+  if (params.fortMin != null) {
+    clauses.push('fort >= ?');
+    binds.push(params.fortMin);
+  }
+  if (params.refMin != null) {
+    clauses.push('ref >= ?');
+    binds.push(params.refMin);
+  }
+  if (params.willMin != null) {
+    clauses.push('will >= ?');
+    binds.push(params.willMin);
+  }
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const sortCol = params.sortBy ?? 'level';
@@ -323,7 +344,22 @@ export function listMonsters(params: MonsterSearchParams): MonsterSummary[] {
   const sql = `SELECT name, level, hp, ac, fort, ref, will, rarity, size, creature_type, traits, source, aon_url
     FROM monsters ${where} ${orderBy} LIMIT ?`;
   const rows = d.prepare(sql).all(...binds, limit) as Array<
-    Pick<MonsterRow, 'name' | 'level' | 'hp' | 'ac' | 'fort' | 'ref' | 'will' | 'rarity' | 'size' | 'creature_type' | 'traits' | 'source' | 'aon_url'>
+    Pick<
+      MonsterRow,
+      | 'name'
+      | 'level'
+      | 'hp'
+      | 'ac'
+      | 'fort'
+      | 'ref'
+      | 'will'
+      | 'rarity'
+      | 'size'
+      | 'creature_type'
+      | 'traits'
+      | 'source'
+      | 'aon_url'
+    >
   >;
 
   return rows.map((r) => ({
@@ -347,11 +383,24 @@ export function getMonsterFacets(): MonsterFacets {
   if (facetsCache) return facetsCache;
   const d = requireDb();
 
-  const rarities = (d.prepare('SELECT DISTINCT rarity FROM monsters ORDER BY rarity').all() as Array<{ rarity: string }>).map((r) => r.rarity);
-  const sizes = (d.prepare('SELECT DISTINCT size FROM monsters ORDER BY size').all() as Array<{ size: string }>).map((r) => r.size);
-  const creatureTypes = (d.prepare('SELECT DISTINCT creature_type FROM monsters ORDER BY creature_type').all() as Array<{ creature_type: string }>).map((r) => r.creature_type);
-  const sources = (d.prepare('SELECT DISTINCT source FROM monsters ORDER BY source').all() as Array<{ source: string }>).map((r) => r.source);
-  const levelRow = d.prepare('SELECT MIN(level) as min, MAX(level) as max FROM monsters').get() as { min: number; max: number };
+  const rarities = (
+    d.prepare('SELECT DISTINCT rarity FROM monsters ORDER BY rarity').all() as Array<{ rarity: string }>
+  ).map((r) => r.rarity);
+  const sizes = (d.prepare('SELECT DISTINCT size FROM monsters ORDER BY size').all() as Array<{ size: string }>).map(
+    (r) => r.size,
+  );
+  const creatureTypes = (
+    d.prepare('SELECT DISTINCT creature_type FROM monsters ORDER BY creature_type').all() as Array<{
+      creature_type: string;
+    }>
+  ).map((r) => r.creature_type);
+  const sources = (
+    d.prepare('SELECT DISTINCT source FROM monsters ORDER BY source').all() as Array<{ source: string }>
+  ).map((r) => r.source);
+  const levelRow = d.prepare('SELECT MIN(level) as min, MAX(level) as max FROM monsters').get() as {
+    min: number;
+    max: number;
+  };
 
   // Traits are stored as JSON arrays — collect all unique values.
   const traitRows = d.prepare('SELECT DISTINCT traits FROM monsters').all() as Array<{ traits: string }>;
@@ -458,13 +507,7 @@ export function searchItems(query: string): string {
 
 // --- Item browser queries (used by the Items tab UI) -----------------------
 
-import type {
-  ItemBrowserRow,
-  ItemBrowserDetail,
-  ItemFacets,
-  ItemSearchParams,
-  ItemVariant,
-} from '../shared/types.js';
+import type { ItemBrowserRow, ItemBrowserDetail, ItemFacets, ItemSearchParams, ItemVariant } from '../shared/types.js';
 
 const RARITY_TRAITS = new Set(['COMMON', 'UNCOMMON', 'RARE', 'UNIQUE']);
 
@@ -705,9 +748,9 @@ export function getItemFacets(): ItemFacets {
     .map(([t]) => t);
 
   // Sources
-  const sourceRows = d
-    .prepare('SELECT DISTINCT source FROM items WHERE source IS NOT NULL ORDER BY source')
-    .all() as { source: string }[];
+  const sourceRows = d.prepare('SELECT DISTINCT source FROM items WHERE source IS NOT NULL ORDER BY source').all() as {
+    source: string;
+  }[];
   const sources = sourceRows.map((r) => r.source);
 
   // Usage categories (bucketed)

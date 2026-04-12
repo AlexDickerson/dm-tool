@@ -8,10 +8,7 @@ interface AsyncState<T> {
   error: string | null;
 }
 
-export function useMonsterSearch(
-  params: MonsterSearchParams,
-  debounceMs = 150,
-): AsyncState<MonsterSummary[]> {
+export function useMonsterSearch(params: MonsterSearchParams, debounceMs = 150): AsyncState<MonsterSummary[]> {
   const [state, setState] = useState<AsyncState<MonsterSummary[]>>({
     data: null,
     loading: true,

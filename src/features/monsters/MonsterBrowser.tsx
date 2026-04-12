@@ -37,17 +37,14 @@ export function MonsterBrowser() {
     setTimeout(() => setSelectedMonster(null), 150);
   }, []);
 
-  const handleSort = useCallback(
-    (col: MonsterSearchParams['sortBy']) => {
-      setFilters((f) => {
-        if (f.sortBy === col) {
-          return { ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' };
-        }
-        return { ...f, sortBy: col, sortDir: 'asc' };
-      });
-    },
-    [],
-  );
+  const handleSort = useCallback((col: MonsterSearchParams['sortBy']) => {
+    setFilters((f) => {
+      if (f.sortBy === col) {
+        return { ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' };
+      }
+      return { ...f, sortBy: col, sortDir: 'asc' };
+    });
+  }, []);
 
   const handleFiltersChange = useCallback((next: MonsterSearchParams) => {
     setFilters(next);
