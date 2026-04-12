@@ -19,7 +19,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
