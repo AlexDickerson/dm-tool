@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import type { MonsterSummary } from '@shared/types';
@@ -17,11 +17,11 @@ const RARITY_BORDER: Record<string, string> = {
 interface Props {
   monsters: MonsterSummary[];
   error: string | null;
-  selected: string | null;
-  onSelect: (name: string) => void;
+  onHoverStart?: (name: string, rect: DOMRect) => void;
+  onHoverEnd?: () => void;
 }
 
-export function MonsterCardGrid({ monsters, error, selected, onSelect }: Props) {
+export function MonsterCardGrid({ monsters, error, onHoverStart, onHoverEnd }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(4);
 
@@ -57,7 +57,7 @@ export function MonsterCardGrid({ monsters, error, selected, onSelect }: Props) 
     [columnCount],
   );
 
-  const mod = useCallback((n: number) => (n >= 0 ? `+${n}` : `${n}`), []);
+  const mod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -79,71 +79,69 @@ export function MonsterCardGrid({ monsters, error, selected, onSelect }: Props) 
                   className="absolute left-0 right-0"
                   style={{ ...gridStyle, transform: `translateY(${vRow.start}px)` }}
                 >
-                  {rowItems.map((m) => {
-                    const isSelected = m.name === selected;
-                    return (
-                      <button
-                        key={m.name}
-                        type="button"
-                        onClick={() => onSelect(m.name)}
-                        className={cn(
-                          'flex flex-col rounded-md border border-l-[3px] p-2 text-left text-xs transition-colors',
-                          RARITY_BORDER[m.rarity.toLowerCase()] ?? 'border-l-border',
-                          isSelected ? 'border-primary/50 bg-primary/10' : 'border-border bg-card hover:bg-accent/40',
-                        )}
-                        style={{ height: CARD_H }}
-                      >
-                        {/* Name + level */}
-                        <div className="flex items-start justify-between gap-1">
-                          <span className="min-w-0 truncate font-medium leading-tight">{m.name}</span>
-                          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none">
-                            {m.level}
-                          </span>
-                        </div>
-
-                        {/* Creature type + size */}
-                        <span className="mt-0.5 truncate text-[10px] capitalize text-muted-foreground">
-                          {m.size} {m.creatureType}
+                  {rowItems.map((m) => (
+                    <button
+                      key={m.name}
+                      type="button"
+                      onMouseEnter={(e) => onHoverStart?.(m.name, e.currentTarget.getBoundingClientRect())}
+                      onMouseLeave={() => onHoverEnd?.()}
+                      className={cn(
+                        'flex flex-col rounded-md border border-l-[3px] p-2 text-left text-xs transition-colors',
+                        RARITY_BORDER[m.rarity.toLowerCase()] ?? 'border-l-border',
+                        'border-border bg-card hover:bg-accent/40',
+                      )}
+                      style={{ height: CARD_H }}
+                    >
+                      {/* Name + level */}
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="min-w-0 truncate font-medium leading-tight">{m.name}</span>
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none">
+                          {m.level}
                         </span>
+                      </div>
 
-                        {/* Stats row */}
-                        <div className="mt-auto flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
-                          <span>
-                            <b className="text-foreground/80">HP</b> {m.hp}
-                          </span>
-                          <span>
-                            <b className="text-foreground/80">AC</b> {m.ac}
-                          </span>
-                          <span>
-                            <b className="text-foreground/80">F</b> {mod(m.fort)}
-                          </span>
-                          <span>
-                            <b className="text-foreground/80">R</b> {mod(m.ref)}
-                          </span>
-                          <span>
-                            <b className="text-foreground/80">W</b> {mod(m.will)}
-                          </span>
+                      {/* Creature type + size */}
+                      <span className="mt-0.5 truncate text-[10px] capitalize text-muted-foreground">
+                        {m.size} {m.creatureType}
+                      </span>
+
+                      {/* Stats row */}
+                      <div className="mt-auto flex items-center gap-2 text-[10px] tabular-nums text-muted-foreground">
+                        <span>
+                          <b className="text-foreground/80">HP</b> {m.hp}
+                        </span>
+                        <span>
+                          <b className="text-foreground/80">AC</b> {m.ac}
+                        </span>
+                        <span>
+                          <b className="text-foreground/80">F</b> {mod(m.fort)}
+                        </span>
+                        <span>
+                          <b className="text-foreground/80">R</b> {mod(m.ref)}
+                        </span>
+                        <span>
+                          <b className="text-foreground/80">W</b> {mod(m.will)}
+                        </span>
+                      </div>
+
+                      {/* Traits */}
+                      {m.traits.length > 0 && (
+                        <div className="mt-1 flex items-center gap-1 overflow-hidden">
+                          {m.traits.slice(0, 3).map((t) => (
+                            <span
+                              key={t}
+                              className="shrink-0 rounded bg-accent/60 px-1 py-0.5 text-[9px] leading-none text-foreground/70"
+                            >
+                              {t.toLowerCase()}
+                            </span>
+                          ))}
+                          {m.traits.length > 3 && (
+                            <span className="text-[9px] text-muted-foreground">+{m.traits.length - 3}</span>
+                          )}
                         </div>
-
-                        {/* Traits */}
-                        {m.traits.length > 0 && (
-                          <div className="mt-1 flex items-center gap-1 overflow-hidden">
-                            {m.traits.slice(0, 3).map((t) => (
-                              <span
-                                key={t}
-                                className="shrink-0 rounded bg-accent/60 px-1 py-0.5 text-[9px] leading-none text-foreground/70"
-                              >
-                                {t.toLowerCase()}
-                              </span>
-                            ))}
-                            {m.traits.length > 3 && (
-                              <span className="text-[9px] text-muted-foreground">+{m.traits.length - 3}</span>
-                            )}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                      )}
+                    </button>
+                  ))}
                 </div>
               );
             })}
