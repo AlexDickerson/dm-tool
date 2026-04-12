@@ -17,7 +17,10 @@ interface AsyncState<T> {
  *  shallowly for the debounce key — if we add array fields (which we do,
  *  for tag filters) callers need to pass stable references to avoid
  *  re-firing on every render. */
-export function useMapSearch(params: SearchParams, debounceMs = 150): AsyncState<MapSummary[]> {
+export function useMapSearch(
+  params: SearchParams,
+  debounceMs = 150,
+): AsyncState<MapSummary[]> & { refresh: () => void } {
   const [state, setState] = useState<AsyncState<MapSummary[]>>({
     data: null,
     loading: true,
@@ -25,6 +28,9 @@ export function useMapSearch(params: SearchParams, debounceMs = 150): AsyncState
   });
   // Track the latest request so stale responses don't clobber fresh ones.
   const requestIdRef = useRef(0);
+  // Bumping this key forces a re-fetch even if params haven't changed
+  // (e.g. after the tagger imports new maps into the library).
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const id = ++requestIdRef.current;
@@ -42,12 +48,11 @@ export function useMapSearch(params: SearchParams, debounceMs = 150): AsyncState
     }, debounceMs);
 
     return () => window.clearTimeout(timer);
-    // params is intentionally in the dep list — callers must memoize it
-    // so we don't thrash. The eslint plugin flags this as exhaustive-deps
-    // compliant since `params` and `debounceMs` are the only captured vars.
-  }, [params, debounceMs]);
+  }, [params, debounceMs, refreshKey]);
 
-  return state;
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  return { ...state, refresh };
 }
 
 export function useFacets(): AsyncState<Facets> {

@@ -17,6 +17,8 @@ import type {
   FinalizeIngestArgs,
   MapDetail,
   SearchParams,
+  TaggerRunArgs,
+  TaggerResult,
 } from "../shared/types.js";
 import {
   appendAdditionalHooks,
@@ -30,6 +32,11 @@ import {
   mergePacks,
   parseAndCacheMapping,
 } from "./pack-grouper.js";
+import {
+  runTagger,
+  cancelTagger,
+  isTaggerRunning,
+} from "./tagger.js";
 
 /** Resolved paths for the book cover cache. Computed once at startup so
  *  every handler doesn't have to recompute them. `relative` is the
@@ -45,6 +52,7 @@ export function registerIpcHandlers(
   db: MapDb,
   bookDb: BookDb | null,
   cfg: DmToolConfig,
+  getMainWindow: () => Electron.BrowserWindow | null,
 ): void {
   const coverPaths: CoverPaths = {
     absRoot: join(app.getPath("userData"), "book-covers"),
@@ -193,6 +201,51 @@ export function registerIpcHandlers(
   ipcMain.handle("booksGetCoverUrl", async (_e, id: number): Promise<string> => {
     requireBookDb();
     return `book-file://covers/${id}`;
+  });
+
+  // -----------------------------------------------------------------------
+  // Map tagger (ingest new maps)
+  // -----------------------------------------------------------------------
+
+  ipcMain.handle(
+    "taggerPickSource",
+    async (): Promise<string | null> => {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: "Select folder containing new maps",
+        properties: ["openDirectory"],
+      });
+      if (canceled || filePaths.length === 0) return null;
+      return filePaths[0];
+    },
+  );
+
+  const sendTaggerProgress = (p: { type: string; line: string }) => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("tagger-progress", p);
+    }
+  };
+
+  ipcMain.handle(
+    "taggerPreview",
+    async (_e, args: TaggerRunArgs): Promise<TaggerResult> => {
+      return runTagger(cfg, { ...args, preview: true }, sendTaggerProgress);
+    },
+  );
+
+  ipcMain.handle(
+    "taggerIngest",
+    async (_e, args: TaggerRunArgs): Promise<TaggerResult> => {
+      return runTagger(cfg, { ...args, preview: false }, sendTaggerProgress);
+    },
+  );
+
+  ipcMain.handle("taggerCancel", (): boolean => {
+    return cancelTagger();
+  });
+
+  ipcMain.handle("taggerIsRunning", (): boolean => {
+    return isTaggerRunning();
   });
 
   // -----------------------------------------------------------------------

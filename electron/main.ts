@@ -338,7 +338,7 @@ async function startup(): Promise<void> {
 
   registerMapFileProtocol(cfg);
   registerBookFileProtocol(() => bookDb, coverCacheRoot);
-  registerIpcHandlers(db, bookDb, cfg);
+  registerIpcHandlers(db, bookDb, cfg, () => mainWindow);
 
   // Renderer-driven runtime resize of the native window-control overlay.
   // This lives in main.ts (rather than ipc.ts) because it needs the

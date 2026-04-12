@@ -25,6 +25,15 @@ export interface DmToolConfig {
    *  Rulebooks, etc). Optional — if missing, the book catalog feature is
    *  disabled and the tab shows a friendly "configure me" message. */
   booksPath?: string;
+  /** Staging folder for new maps before they're processed and moved to
+   *  the library. The tagger creates this if it doesn't exist. */
+  inboxPath: string;
+  /** Folder where maps that fail tagging are quarantined with an error
+   *  sidecar. The tagger creates this if it doesn't exist. */
+  quarantinePath: string;
+  /** Absolute path to the map-tagger CLI executable, typically the
+   *  `map-tagger.exe` inside the tagger's venv Scripts/ folder. */
+  taggerBinPath: string;
 }
 
 /** The config file is looked up in this order:
@@ -83,9 +92,21 @@ export function loadConfig(): DmToolConfig {
   if (!cfg.indexDbPath || typeof cfg.indexDbPath !== "string") {
     throw new Error(`dm-tool: config.json missing required string field "indexDbPath"`);
   }
+  if (!cfg.inboxPath || typeof cfg.inboxPath !== "string") {
+    throw new Error(`dm-tool: config.json missing required string field "inboxPath"`);
+  }
+  if (!cfg.quarantinePath || typeof cfg.quarantinePath !== "string") {
+    throw new Error(`dm-tool: config.json missing required string field "quarantinePath"`);
+  }
+  if (!cfg.taggerBinPath || typeof cfg.taggerBinPath !== "string") {
+    throw new Error(`dm-tool: config.json missing required string field "taggerBinPath"`);
+  }
 
   const libraryPath = resolve(cfg.libraryPath);
   const indexDbPath = resolve(cfg.indexDbPath);
+  const inboxPath = resolve(cfg.inboxPath);
+  const quarantinePath = resolve(cfg.quarantinePath);
+  const taggerBinPath = resolve(cfg.taggerBinPath);
 
   if (!existsSync(libraryPath)) {
     throw new Error(`dm-tool: configured libraryPath does not exist: ${libraryPath}`);
@@ -93,6 +114,11 @@ export function loadConfig(): DmToolConfig {
   if (!existsSync(indexDbPath)) {
     throw new Error(
       `dm-tool: configured indexDbPath does not exist: ${indexDbPath}. Run the map-tagger ingest first.`,
+    );
+  }
+  if (!existsSync(taggerBinPath)) {
+    throw new Error(
+      `dm-tool: configured taggerBinPath does not exist: ${taggerBinPath}. Point it at the map-tagger venv's map-tagger.exe.`,
     );
   }
 
@@ -106,5 +132,5 @@ export function loadConfig(): DmToolConfig {
     booksPath = resolve(cfg.booksPath);
   }
 
-  return { libraryPath, indexDbPath, booksPath };
+  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath };
 }

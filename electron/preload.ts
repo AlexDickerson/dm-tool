@@ -16,6 +16,9 @@ import type {
   MapDetail,
   MapSummary,
   SearchParams,
+  TaggerProgress,
+  TaggerRunArgs,
+  TaggerResult,
 } from "../shared/types.js";
 
 const api: ElectronAPI = {
@@ -47,6 +50,23 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("booksGetFileUrl", id),
   booksGetCoverUrl: (id: number): Promise<string> =>
     ipcRenderer.invoke("booksGetCoverUrl", id),
+
+  // Map tagger
+  taggerPickSource: (): Promise<string | null> =>
+    ipcRenderer.invoke("taggerPickSource"),
+  taggerPreview: (args: TaggerRunArgs): Promise<TaggerResult> =>
+    ipcRenderer.invoke("taggerPreview", args),
+  taggerIngest: (args: TaggerRunArgs): Promise<TaggerResult> =>
+    ipcRenderer.invoke("taggerIngest", args),
+  taggerCancel: (): Promise<boolean> =>
+    ipcRenderer.invoke("taggerCancel"),
+  taggerIsRunning: (): Promise<boolean> =>
+    ipcRenderer.invoke("taggerIsRunning"),
+  onTaggerProgress: (callback: (p: TaggerProgress) => void): (() => void) => {
+    const handler = (_event: unknown, p: TaggerProgress) => callback(p);
+    ipcRenderer.on("tagger-progress", handler);
+    return () => ipcRenderer.removeListener("tagger-progress", handler);
+  },
 
   // Pack grouping
   getPackMapping: (): Promise<Record<string, string> | null> =>

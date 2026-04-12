@@ -113,6 +113,27 @@ export interface FinalizeIngestArgs {
   coverPngBytes: Uint8Array;
 }
 
+// ---------------------------------------------------------------------------
+// Map tagger
+// ---------------------------------------------------------------------------
+
+export interface TaggerRunArgs {
+  sourcePath: string;
+  apiKey: string;
+  limit: number;
+  concurrency?: number;
+}
+
+export interface TaggerProgress {
+  type: "stdout" | "stderr";
+  line: string;
+}
+
+export interface TaggerResult {
+  exitCode: number | null;
+  signal: string | null;
+}
+
 /** The IPC surface exposed to the renderer via contextBridge. Every
  *  function here must have a corresponding handler registered in ipc.ts
  *  and a corresponding type declaration on `window.electronAPI` in the
@@ -166,6 +187,27 @@ export interface ElectronAPI {
    *  <img> tag's onError handler will fall back to a placeholder, and
    *  once ingest completes the URL starts resolving. */
   booksGetCoverUrl(id: number): Promise<string>;
+
+  // -----------------------------------------------------------------------
+  // Map tagger (ingest new maps)
+  // -----------------------------------------------------------------------
+
+  /** Open a folder picker and return the selected path, or null if
+   *  cancelled. */
+  taggerPickSource(): Promise<string | null>;
+  /** Spawn the tagger in --preview mode to get a cost estimate without
+   *  calling the API. Progress lines stream via onTaggerProgress. */
+  taggerPreview(args: TaggerRunArgs): Promise<TaggerResult>;
+  /** Spawn the tagger for real ingest. Progress lines stream via
+   *  onTaggerProgress. Resolves when the process exits. */
+  taggerIngest(args: TaggerRunArgs): Promise<TaggerResult>;
+  /** Kill a running tagger process. Returns true if one was running. */
+  taggerCancel(): Promise<boolean>;
+  /** Returns true if a tagger subprocess is currently running. */
+  taggerIsRunning(): Promise<boolean>;
+  /** Subscribe to tagger progress events (stdout/stderr lines). Returns
+   *  an unsubscribe function. */
+  onTaggerProgress(callback: (p: TaggerProgress) => void): () => void;
 
   // -----------------------------------------------------------------------
   // Pack grouping (AI-driven variant clustering)

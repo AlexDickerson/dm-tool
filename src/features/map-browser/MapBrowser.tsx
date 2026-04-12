@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Check, ClipboardCopy, FolderOpen, Info, Layers, Merge, Rows, X } from "lucide-react";
+import { Check, ClipboardCopy, FolderOpen, Info, Layers, Merge, Plus, Rows, X } from "lucide-react";
 import { FilterPanel } from "./FilterPanel";
 import { ThumbnailGrid, type ThumbnailItem } from "./ThumbnailGrid";
 import { DetailPane } from "./DetailPane";
+import { TaggerDialog } from "./TaggerDialog";
 import { useFacets, useMapSearch, usePackMapping } from "./useMaps";
 import { cn } from "@/lib/utils";
 import type { MapSummary, SearchParams } from "@shared/types";
@@ -48,8 +49,14 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
     [filters, keywords],
   );
 
-  const { data: maps, loading, error } = useMapSearch(searchParams);
+  const { data: maps, loading, error, refresh: refreshMaps } = useMapSearch(searchParams);
   const { data: facets } = useFacets();
+
+  // Tagger dialog state.
+  const [taggerOpen, setTaggerOpen] = useState(false);
+  const handleIngestComplete = useCallback(() => {
+    refreshMaps();
+  }, [refreshMaps]);
 
   const packMapping = usePackMapping();
 
@@ -297,6 +304,17 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
               {mergeMode ? "Cancel merge" : "Merge packs"}
             </Button>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setTaggerOpen(true)}
+            className="gap-1.5 whitespace-nowrap"
+            title="Tag and import new battlemaps into the library"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Maps
+          </Button>
           {loading && (
             <span className="text-xs text-muted-foreground">Searching…</span>
           )}
@@ -391,6 +409,13 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
         </div>
       )}
       </div>
+
+      <TaggerDialog
+        open={taggerOpen}
+        onOpenChange={setTaggerOpen}
+        anthropicApiKey={anthropicApiKey}
+        onIngestComplete={handleIngestComplete}
+      />
     </div>
   );
 }
