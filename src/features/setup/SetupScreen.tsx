@@ -45,8 +45,7 @@ export function SetupScreen() {
     !!paths.libraryPath &&
     !!paths.indexDbPath &&
     !!paths.inboxPath &&
-    !!paths.quarantinePath &&
-    !!paths.taggerBinPath;
+    !!paths.quarantinePath;
 
   const handleSave = async () => {
     setSaving(true);
@@ -114,15 +113,6 @@ export function SetupScreen() {
               mode="directory"
               required
             />
-            <PathField
-              label="Tagger Binary"
-              description="Path to map-tagger.exe."
-              value={paths.taggerBinPath}
-              onChange={set("taggerBinPath")}
-              mode="file"
-              required
-              filters={[{ name: "Executable", extensions: ["exe"] }]}
-            />
           </div>
 
           {/* Optional paths */}
@@ -131,6 +121,14 @@ export function SetupScreen() {
               Optional integrations
             </p>
             <div className="space-y-4">
+              <PathField
+                label="Tagger Binary"
+                description="Override path to map-tagger.exe. Leave blank to use the bundled binary."
+                value={paths.taggerBinPath}
+                onChange={set("taggerBinPath")}
+                mode="file"
+                filters={[{ name: "Executable", extensions: ["exe"] }]}
+              />
               <PathField
                 label="Books Root"
                 description="Root folder of TTRPG PDFs (enables the Books tab)."

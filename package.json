@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "rebuild-sqlite": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "build:tagger": "cd tagger && build.bat",
     "package": "electron-vite build && electron-builder --win",
     "package:dir": "electron-vite build && electron-builder --win --dir"
   },
@@ -36,6 +37,12 @@
       "oneClick": true,
       "perMachine": false
     },
+    "extraResources": [
+      {
+        "from": "tagger/dist/map-tagger.exe",
+        "to": "map-tagger.exe"
+      }
+    ],
     "npmRebuild": true,
     "nodeGypRebuild": false,
     "asar": true

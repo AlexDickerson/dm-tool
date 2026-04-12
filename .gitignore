@@ -16,3 +16,6 @@ __pycache__/
 *.egg-info/
 .venv/
 tagger/config.toml
+tagger/build/
+tagger/dist/
+tagger/*.spec

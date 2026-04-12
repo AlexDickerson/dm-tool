@@ -13,8 +13,23 @@
 // fine for a personal tool.
 
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname } from "node:path";
 import { app } from "electron";
+
+/** Resolve the bundled map-tagger.exe path. In production it lives in the
+ *  app's resources directory (via extraResources); in dev it's built locally
+ *  under tagger/dist/. Returns undefined if neither exists. */
+function resolveBundledTagger(): string | undefined {
+  // Production: extraResources puts it at <resources>/map-tagger.exe
+  const prodPath = join(process.resourcesPath, "map-tagger.exe");
+  if (existsSync(prodPath)) return prodPath;
+
+  // Dev: tagger/dist/map-tagger.exe relative to project root
+  const devPath = join(app.isPackaged ? app.getAppPath() : process.cwd(), "tagger", "dist", "map-tagger.exe");
+  if (existsSync(devPath)) return devPath;
+
+  return undefined;
+}
 
 export interface DmToolConfig {
   /** Absolute path to the map-tagger library folder (maps + thumbs + sidecars). */
@@ -31,8 +46,9 @@ export interface DmToolConfig {
   /** Folder where maps that fail tagging are quarantined with an error
    *  sidecar. The tagger creates this if it doesn't exist. */
   quarantinePath: string;
-  /** Absolute path to the map-tagger CLI executable, typically the
-   *  `map-tagger.exe` inside the tagger's venv Scripts/ folder. */
+  /** Absolute path to the map-tagger CLI executable. Optional — if not
+   *  set, the app uses the bundled exe from extraResources (production)
+   *  or tagger/dist/ (dev). */
   taggerBinPath: string;
   /** Absolute path to the Auto-Wall executable. Optional — if missing,
    *  the "Launch Auto-Wall" button is hidden in the detail pane. */
@@ -119,15 +135,26 @@ export function loadConfig(): DmToolConfig {
   if (!cfg.quarantinePath || typeof cfg.quarantinePath !== "string") {
     throw new Error(`dm-tool: config.json missing required string field "quarantinePath"`);
   }
-  if (!cfg.taggerBinPath || typeof cfg.taggerBinPath !== "string") {
-    throw new Error(`dm-tool: config.json missing required string field "taggerBinPath"`);
-  }
-
   const libraryPath = resolve(cfg.libraryPath);
   const indexDbPath = resolve(cfg.indexDbPath);
   const inboxPath = resolve(cfg.inboxPath);
   const quarantinePath = resolve(cfg.quarantinePath);
-  const taggerBinPath = resolve(cfg.taggerBinPath);
+
+  // taggerBinPath: use config value if provided, otherwise fall back to
+  // the bundled exe (extraResources in production, tagger/dist/ in dev).
+  let taggerBinPath: string;
+  if (cfg.taggerBinPath && typeof cfg.taggerBinPath === "string" && cfg.taggerBinPath.trim().length > 0) {
+    taggerBinPath = resolve(cfg.taggerBinPath);
+  } else {
+    const bundled = resolveBundledTagger();
+    if (!bundled) {
+      throw new Error(
+        `dm-tool: no taggerBinPath in config.json and no bundled map-tagger.exe found. ` +
+        `Either set taggerBinPath or run "npm run build:tagger" to build the bundled exe.`,
+      );
+    }
+    taggerBinPath = bundled;
+  }
 
   if (!existsSync(libraryPath)) {
     throw new Error(`dm-tool: configured libraryPath does not exist: ${libraryPath}`);
@@ -139,7 +166,8 @@ export function loadConfig(): DmToolConfig {
   }
   if (!existsSync(taggerBinPath)) {
     throw new Error(
-      `dm-tool: configured taggerBinPath does not exist: ${taggerBinPath}. Point it at the map-tagger venv's map-tagger.exe.`,
+      `dm-tool: configured taggerBinPath does not exist: ${taggerBinPath}. ` +
+      `Run "npm run build:tagger" or set taggerBinPath in config.json.`,
     );
   }
 

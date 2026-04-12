@@ -511,21 +511,19 @@ function SettingsDialog({
                     mode="directory"
                     required
                   />
-                  <PathField
-                    label="Tagger Binary"
-                    description="Path to map-tagger.exe."
-                    value={configPaths.taggerBinPath}
-                    onChange={setPath("taggerBinPath")}
-                    mode="file"
-                    required
-                    filters={[{ name: "Executable", extensions: ["exe"] }]}
-                  />
-
                   <div className="border-t border-border pt-3">
                     <p className="mb-3 text-[11px] font-medium text-muted-foreground">
                       Optional integrations
                     </p>
                     <div className="space-y-4">
+                      <PathField
+                        label="Tagger Binary"
+                        description="Override path to map-tagger.exe. Leave blank to use the bundled binary."
+                        value={configPaths.taggerBinPath}
+                        onChange={setPath("taggerBinPath")}
+                        mode="file"
+                        filters={[{ name: "Executable", extensions: ["exe"] }]}
+                      />
                       <PathField
                         label="Books Root"
                         description="Root folder of TTRPG PDFs (enables the Books tab)."

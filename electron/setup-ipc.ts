@@ -45,7 +45,7 @@ export function registerSetupIpcHandlers(
     "saveConfigAndRestart",
     async (_e, paths: ConfigPaths): Promise<void> => {
       const required = [
-        "libraryPath", "indexDbPath", "inboxPath", "quarantinePath", "taggerBinPath",
+        "libraryPath", "indexDbPath", "inboxPath", "quarantinePath",
       ] as const;
       for (const field of required) {
         if (!paths[field] || typeof paths[field] !== "string" || !paths[field].trim()) {
@@ -58,8 +58,8 @@ export function registerSetupIpcHandlers(
         indexDbPath: paths.indexDbPath,
         inboxPath: paths.inboxPath,
         quarantinePath: paths.quarantinePath,
-        taggerBinPath: paths.taggerBinPath,
       };
+      if (paths.taggerBinPath?.trim()) config.taggerBinPath = paths.taggerBinPath;
       if (paths.booksPath?.trim()) config.booksPath = paths.booksPath;
       if (paths.autoWallBinPath?.trim()) config.autoWallBinPath = paths.autoWallBinPath;
       if (paths.pf2eDbPath?.trim()) config.pf2eDbPath = paths.pf2eDbPath;
