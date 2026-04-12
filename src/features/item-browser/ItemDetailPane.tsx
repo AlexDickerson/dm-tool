@@ -8,8 +8,14 @@ import { useItemDetail } from './useItems';
 
 interface ItemDetailPaneProps {
   itemId: string | null;
+  /** Other grade variants of the same base item (e.g. Lesser, Greater).
+   *  When present, rendered as clickable rows so the user can switch. */
+  siblings?: ItemBrowserRow[] | null;
+  onSelectSibling?: (id: string) => void;
   onClose: () => void;
 }
+
+import type { ItemBrowserRow } from '@shared/types';
 
 const RARITY_CHIP: Record<string, string> = {
   COMMON: 'bg-muted text-foreground border-border',
@@ -18,7 +24,7 @@ const RARITY_CHIP: Record<string, string> = {
   UNIQUE: 'bg-purple-900/40 text-purple-300 border-purple-700/40',
 };
 
-export function ItemDetailPane({ itemId, onClose }: ItemDetailPaneProps) {
+export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: ItemDetailPaneProps) {
   const { data: detail, loading, error } = useItemDetail(itemId);
 
   if (!itemId) return null;
@@ -92,7 +98,46 @@ export function ItemDetailPane({ itemId, onClose }: ItemDetailPaneProps) {
               </div>
             )}
 
-            {/* Variants */}
+            {/* Grade variants (siblings from grouping) */}
+            {siblings && siblings.length > 1 && (
+              <>
+                <Separator />
+                <div>
+                  <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Grades
+                  </h3>
+                  <div className="space-y-0.5">
+                    {siblings.map((s) => {
+                      const isCurrent = s.id === itemId;
+                      // Extract the parenthetical label
+                      const match = s.name.match(/\(([^)]+)\)\s*$/);
+                      const label = match ? match[1] : s.name;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => !isCurrent && onSelectSibling?.(s.id)}
+                          className={cn(
+                            'flex w-full items-center justify-between rounded px-2 py-1 text-xs transition-colors',
+                            isCurrent
+                              ? 'bg-primary/15 text-foreground'
+                              : 'bg-accent/30 text-foreground/80 hover:bg-accent/60',
+                          )}
+                        >
+                          <span className="min-w-0 truncate font-medium">{label}</span>
+                          <div className="flex shrink-0 gap-3 tabular-nums text-muted-foreground">
+                            {s.level != null && <span>Lv {s.level}</span>}
+                            {s.price && <span>{s.price}</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Variants (from item's own variant data) */}
             {detail.variants.length > 0 && (
               <>
                 <Separator />

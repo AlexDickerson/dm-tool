@@ -4,8 +4,13 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ItemBrowserRow, ItemSortField, SortDirection } from '@shared/types';
 
+export interface GroupedItem {
+  representative: ItemBrowserRow;
+  siblings: ItemBrowserRow[];
+}
+
 interface ItemTableProps {
-  items: ItemBrowserRow[];
+  groups: GroupedItem[];
   selectedId: string | null;
   onSelect: (item: ItemBrowserRow) => void;
   sortBy: ItemSortField;
@@ -25,15 +30,31 @@ const RARITY_CHIP: Record<string, string> = {
 
 const TRAIT_CHIP = 'bg-accent/60 text-foreground/80 border-border';
 
-export function ItemTable({ items, selectedId, onSelect, sortBy, sortDir, onSort, loading }: ItemTableProps) {
+/** Strip trailing parenthetical for display. */
+function displayName(name: string): string {
+  return name.replace(/\s*\([^)]+\)\s*$/, '');
+}
+
+/** Format a level range like "1–19" for groups. */
+function levelRange(siblings: ItemBrowserRow[]): string {
+  const levels = siblings.map((s) => s.level).filter((l): l is number => l != null);
+  if (levels.length === 0) return '—';
+  const min = Math.min(...levels);
+  const max = Math.max(...levels);
+  return min === max ? String(min) : `${min}–${max}`;
+}
+
+export function ItemTable({ groups, selectedId, onSelect, sortBy, sortDir, onSort, loading }: ItemTableProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
-    count: items.length,
+    count: groups.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 20,
   });
+
+  const totalItems = groups.reduce((sum, g) => sum + g.siblings.length, 0);
 
   return (
     <div className="flex h-full flex-col">
@@ -56,7 +77,7 @@ export function ItemTable({ items, selectedId, onSelect, sortBy, sortDir, onSort
           sortBy={sortBy}
           sortDir={sortDir}
           onSort={onSort}
-          className="w-10 shrink-0 text-right"
+          className="w-12 shrink-0 text-right"
         />
         <SortHeader
           label="Price"
@@ -72,15 +93,19 @@ export function ItemTable({ items, selectedId, onSelect, sortBy, sortDir, onSort
 
       {/* Body */}
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto">
-        {loading && items.length === 0 ? (
+        {loading && groups.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">Loading items...</div>
-        ) : items.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">No items match your filters</div>
+        ) : groups.length === 0 ? (
+          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+            No items match your filters
+          </div>
         ) : (
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((vRow) => {
-              const item = items[vRow.index];
-              const isSelected = item.id === selectedId;
+              const group = groups[vRow.index];
+              const item = group.representative;
+              const isGroup = group.siblings.length > 1;
+              const isSelected = group.siblings.some((s) => s.id === selectedId);
               return (
                 <div
                   key={item.id}
@@ -95,10 +120,17 @@ export function ItemTable({ items, selectedId, onSelect, sortBy, sortDir, onSort
                   onClick={() => onSelect(item)}
                 >
                   {/* Name */}
-                  <div className="min-w-0 flex-1 truncate pr-2 font-medium">{item.name}</div>
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-2">
+                    <span className="truncate font-medium">{isGroup ? displayName(item.name) : item.name}</span>
+                    {isGroup && (
+                      <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums leading-none text-primary">
+                        {group.siblings.length}
+                      </span>
+                    )}
+                  </div>
                   {/* Level */}
-                  <div className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">
-                    {item.level ?? '—'}
+                  <div className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">
+                    {isGroup ? levelRange(group.siblings) : (item.level ?? '—')}
                   </div>
                   {/* Price */}
                   <div className="w-20 shrink-0 truncate text-right tabular-nums text-muted-foreground">
@@ -106,7 +138,7 @@ export function ItemTable({ items, selectedId, onSelect, sortBy, sortDir, onSort
                   </div>
                   {/* Bulk */}
                   <div className="w-10 shrink-0 text-right text-muted-foreground">{item.bulk ?? '—'}</div>
-                  {/* Traits (rarity chip + first couple traits) */}
+                  {/* Traits */}
                   <div className="flex w-40 shrink-0 items-center gap-1 overflow-hidden pl-3">
                     {item.rarity !== 'COMMON' && (
                       <span
@@ -138,9 +170,10 @@ export function ItemTable({ items, selectedId, onSelect, sortBy, sortDir, onSort
       </div>
 
       {/* Footer with count */}
-      <div className="flex h-7 shrink-0 items-center border-t border-border bg-card px-3">
+      <div className="flex h-7 shrink-0 items-center gap-2 border-t border-border bg-card px-3">
         <span className="text-[10px] tabular-nums text-muted-foreground">
-          {items.length.toLocaleString()} item{items.length !== 1 ? 's' : ''}
+          {groups.length.toLocaleString()} row{groups.length !== 1 ? 's' : ''}
+          {totalItems !== groups.length && ` (${totalItems.toLocaleString()} items)`}
         </span>
       </div>
     </div>

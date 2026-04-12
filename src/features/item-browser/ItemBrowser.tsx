@@ -2,10 +2,42 @@ import { useCallback, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ItemFilterPanel } from './ItemFilterPanel';
-import { ItemTable } from './ItemTable';
+import { ItemTable, type GroupedItem } from './ItemTable';
 import { ItemDetailPane } from './ItemDetailPane';
 import { useItemSearch, useItemFacets } from './useItems';
 import type { ItemBrowserRow, ItemSearchParams, ItemSortField, SortDirection } from '@shared/types';
+
+/** Strip a trailing parenthetical like "(Greater)" to get the base name.
+ *  Returns the original name if there's no parenthetical. */
+function itemBaseName(name: string): string {
+  return name.replace(/\s*\([^)]+\)\s*$/, '');
+}
+
+/** Group items by base name. Each group's representative is the lowest-
+ *  level member; siblings are sorted by level ascending. */
+function groupItems(items: ItemBrowserRow[]): GroupedItem[] {
+  const groups = new Map<string, ItemBrowserRow[]>();
+  for (const item of items) {
+    const base = itemBaseName(item.name);
+    let list = groups.get(base);
+    if (!list) {
+      list = [];
+      groups.set(base, list);
+    }
+    list.push(item);
+  }
+
+  const result: GroupedItem[] = [];
+  for (const members of groups.values()) {
+    // Sort siblings by level ascending
+    members.sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+    result.push({
+      representative: members[0],
+      siblings: members,
+    });
+  }
+  return result;
+}
 
 export function ItemBrowser() {
   const [keywords, setKeywords] = useState('');
@@ -20,13 +52,22 @@ export function ItemBrowser() {
       keywords: keywords.trim() || undefined,
       sortBy,
       sortDir,
-      limit: 2000,
+      limit: 5000,
     }),
     [filters, keywords, sortBy, sortDir],
   );
 
   const { data: items, loading } = useItemSearch(searchParams);
   const { data: facets } = useItemFacets();
+
+  const grouped = useMemo(() => groupItems(items ?? []), [items]);
+
+  // Find siblings for the selected item
+  const selectedSiblings = useMemo(() => {
+    if (!selectedId) return null;
+    const group = grouped.find((g) => g.siblings.some((s) => s.id === selectedId));
+    return group && group.siblings.length > 1 ? group.siblings : null;
+  }, [selectedId, grouped]);
 
   const handleSort = useCallback(
     (field: ItemSortField) => {
@@ -68,7 +109,7 @@ export function ItemBrowser() {
         </div>
 
         <ItemTable
-          items={items ?? []}
+          groups={grouped}
           selectedId={selectedId}
           onSelect={handleSelect}
           sortBy={sortBy}
@@ -79,7 +120,14 @@ export function ItemBrowser() {
       </div>
 
       {/* Detail pane */}
-      {selectedId && <ItemDetailPane itemId={selectedId} onClose={() => setSelectedId(null)} />}
+      {selectedId && (
+        <ItemDetailPane
+          itemId={selectedId}
+          siblings={selectedSiblings}
+          onSelectSibling={setSelectedId}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
     </div>
   );
 }
