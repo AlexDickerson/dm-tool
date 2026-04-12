@@ -50,7 +50,7 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
           <MonsterFilterPanel facets={facets} params={filters} onChange={handleFiltersChange} />
         </ResizableSidebar>
 
-        <div className="relative min-w-0 flex-1 overflow-hidden">
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <MonsterCardGrid monsters={monsters ?? []} error={error} selected={selectedMonster} onSelect={handleSelect} />
 
           {selectedMonster && detail && (

@@ -98,7 +98,7 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
       </ResizableSidebar>
 
       {/* Grid + overlay container */}
-      <div className="relative min-w-0 flex-1 overflow-hidden">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <ItemCardGrid groups={grouped} selectedId={selectedId} onSelect={handleSelect} loading={loading} />
 
         {selectedId && (
