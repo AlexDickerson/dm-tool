@@ -159,7 +159,7 @@ function formatMelee(raw: string): string {
       const dmg = a.damage
         .map((d) => `${d.formula} ${d.type}${d.category === 'persistent' ? ' persistent' : ''}`)
         .join(' plus ');
-      return `${a.name} +${a.bonus}${traits}, Damage ${dmg}`;
+      return `◆ ${a.name} +${a.bonus}${traits}, Damage ${dmg}`;
     })
     .join('; ');
 }

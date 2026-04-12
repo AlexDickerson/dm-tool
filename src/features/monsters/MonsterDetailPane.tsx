@@ -97,18 +97,28 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
                   <section>
                     <SectionLabel>Attacks</SectionLabel>
                     <div className="space-y-1.5 text-xs">
-                      {detail.melee && (
-                        <div>
-                          <span className="font-semibold">Melee </span>
-                          {cleanFoundryMarkup(detail.melee)}
-                        </div>
-                      )}
-                      {detail.ranged && (
-                        <div>
-                          <span className="font-semibold">Ranged </span>
-                          {cleanFoundryMarkup(detail.ranged)}
-                        </div>
-                      )}
+                      {detail.melee &&
+                        cleanFoundryMarkup(detail.melee)
+                          .split(';')
+                          .map((a, i) => a.trim())
+                          .filter(Boolean)
+                          .map((a, i) => (
+                            <div key={`m${i}`}>
+                              <span className="font-semibold text-muted-foreground">Melee </span>
+                              {a}
+                            </div>
+                          ))}
+                      {detail.ranged &&
+                        cleanFoundryMarkup(detail.ranged)
+                          .split(';')
+                          .map((a) => a.trim())
+                          .filter(Boolean)
+                          .map((a, i) => (
+                            <div key={`r${i}`}>
+                              <span className="font-semibold text-muted-foreground">Ranged </span>
+                              {a}
+                            </div>
+                          ))}
                     </div>
                   </section>
                 </>
