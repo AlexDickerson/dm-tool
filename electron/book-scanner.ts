@@ -93,8 +93,12 @@ export function classifyPath(parts: string[]): {
     else if (first === "remastered") ruleset = "remastered";
   }
 
+  // Only the first subfolder matters for taxonomy. Deeper nesting (e.g.
+  // "Adventure Paths/Abomination Vaults/3rd party/") is just folder
+  // organization — the subcategory should still be "Abomination Vaults",
+  // not "Abomination Vaults / 3rd party".
   const subcategory =
-    intermediate.length === 0 ? null : intermediate.join(" / ");
+    intermediate.length === 0 ? null : intermediate[0]!;
 
   return { category, subcategory, ruleset };
 }

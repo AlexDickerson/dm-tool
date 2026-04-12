@@ -19,7 +19,8 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { pdfjsLib } from "@/lib/pdfjs";
-import type { Book } from "@shared/types";
+import { extractCover } from "./useBooks";
+import { partSubtitle, type ApGroup } from "./ap-merge";
 import type { PDFDocumentProxy } from "pdfjs-dist/types/src/display/api";
 
 // ---------------------------------------------------------------------------
@@ -32,12 +33,30 @@ interface OutlineNode {
   items: OutlineNode[];
 }
 
+/** A tagged outline node that knows which doc slot it belongs to. Used by
+ *  the combined TOC so destination resolution targets the right PDF. */
+interface TaggedOutlineNode extends OutlineNode {
+  slotIndex: number;
+  items: TaggedOutlineNode[];
+}
+
 interface ReaderProps {
-  bookId: number;
+  /** Single book mode — open one PDF. */
+  bookId?: number;
+  /** Merged AP mode — open all parts as one combined document. */
+  apGroup?: ApGroup;
   onClose: () => void;
-  /** Called after phase-2 ingest completes so the catalog can refresh its
-   *  cover images and page counts. */
   onIngestComplete?: () => void;
+}
+
+/** One document in a multi-doc view. */
+interface DocSlot {
+  bookId: number;
+  partLabel: string;
+  pageCount: number;
+  globalPageOffset: number;
+  doc: PDFDocumentProxy | null;
+  outline: OutlineNode[];
 }
 
 // ---------------------------------------------------------------------------
@@ -54,8 +73,6 @@ const ZOOM_PRESETS: Array<{ label: string; value: ZoomPreset }> = [
   { label: "200%", value: "200" },
 ];
 
-/** Convert a ZoomPreset + container dimensions + page dimensions to a
- *  CSS-pixel scale factor. */
 function resolveScale(
   preset: ZoomPreset,
   containerWidth: number,
@@ -77,38 +94,38 @@ function resolveScale(
   }
 }
 
+const PAGE_GAP = 8;
+const SEPARATOR_HEIGHT = 48;
+
 // ---------------------------------------------------------------------------
 // Main reader component
 // ---------------------------------------------------------------------------
 
-export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
-  const [book, setBook] = useState<Book | null>(null);
-  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
-  const [outline, setOutline] = useState<OutlineNode[]>([]);
+export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: ReaderProps) {
+  const isMulti = !!apGroup;
+  const [title, setTitle] = useState("");
+  const [totalPages, setTotalPages] = useState(0);
+  const [slots, setSlots] = useState<DocSlot[]>([]);
   const [tocOpen, setTocOpen] = useState(true);
   const [zoom, setZoom] = useState<ZoomPreset>("fit-width");
   const [error, setError] = useState<string | null>(null);
 
-  // Page geometry: we read the first page's dimensions once and assume all
-  // pages are the same size. Good enough for standard PDFs; mixed-size
-  // pages would need per-page measurement but that's rare for RPG books.
   const [pageSize, setPageSize] = useState<{
     width: number;
     height: number;
   } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const containerSizeRef = useRef({ width: 800, height: 600 });
+  const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
 
-  // Track container size for zoom calculations.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const update = () => {
-      containerSizeRef.current = {
-        width: el.clientWidth - 24, // subtract padding
+      setContainerSize({
+        width: el.clientWidth - 24,
         height: el.clientHeight,
-      };
+      });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -116,47 +133,52 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
     return () => ro.disconnect();
   }, []);
 
-  // Load book metadata + open PDF document.
+  // -----------------------------------------------------------------------
+  // Single-book mode
+  // -----------------------------------------------------------------------
   useEffect(() => {
+    if (isMulti || bookId == null) return;
     let cancelled = false;
-    const loadingTask = { current: null as ReturnType<typeof pdfjsLib.getDocument> | null };
+    let loadingTask: ReturnType<typeof pdfjsLib.getDocument> | null = null;
 
     (async () => {
       try {
         const b = await api.booksGet(bookId);
         if (cancelled || !b) return;
-        setBook(b);
+        setTitle(b.title);
 
         const fileUrl = await api.booksGetFileUrl(bookId);
         if (cancelled) return;
 
         const task = pdfjsLib.getDocument({
           url: fileUrl,
-          // Disable auto-fetch and streaming to reduce memory pressure —
-          // the protocol handler supports range requests, so pdfjs will
-          // pull chunks on demand as the user scrolls.
           disableAutoFetch: true,
           disableStream: true,
         });
-        loadingTask.current = task;
-        const pdfDoc = await task.promise;
+        loadingTask = task;
+        const doc = await task.promise;
         if (cancelled) return;
-        setDoc(pdfDoc);
 
-        // Read first page size.
-        const page1 = await pdfDoc.getPage(1);
+        const page1 = await doc.getPage(1);
         if (cancelled) return;
         const vp = page1.getViewport({ scale: 1 });
         setPageSize({ width: vp.width, height: vp.height });
 
-        // Load outline (TOC).
-        const raw = await pdfDoc.getOutline();
+        const outline = ((await doc.getOutline()) as OutlineNode[]) ?? [];
         if (cancelled) return;
-        setOutline((raw as OutlineNode[]) ?? []);
 
-        // Phase-2 ingest: extract cover if not already done.
+        setSlots([{
+          bookId,
+          partLabel: b.title,
+          pageCount: doc.numPages,
+          globalPageOffset: 0,
+          doc,
+          outline,
+        }]);
+        setTotalPages(doc.numPages);
+
         if (!b.ingested) {
-          runIngest(pdfDoc, b.id, onIngestComplete).catch(console.error);
+          extractCover(b.id).then(onIngestComplete).catch(console.error);
         }
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
@@ -165,22 +187,221 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
 
     return () => {
       cancelled = true;
-      loadingTask.current?.destroy();
+      loadingTask?.destroy();
     };
-    // Intentionally re-run only on bookId change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId]);
+  }, [bookId, isMulti]);
 
-  // Computed scale based on zoom preset + container + page dims.
+  // -----------------------------------------------------------------------
+  // Multi-doc AP mode
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    if (!isMulti || !apGroup) return;
+    let cancelled = false;
+
+    setTitle(apGroup.subcategory);
+
+    (async () => {
+      try {
+        // Build initial slots from DB page counts. Parts without a page
+        // count get loaded eagerly to read numPages (fast with disableAutoFetch).
+        const parts = apGroup.parts;
+        const initialSlots: DocSlot[] = [];
+        let offset = 0;
+
+        for (const p of parts) {
+          let pageCount = p.book.pageCount ?? 0;
+          let doc: PDFDocumentProxy | null = null;
+
+          if (!pageCount) {
+            // Need to load this doc to learn its page count.
+            const url = await api.booksGetFileUrl(p.book.id);
+            if (cancelled) return;
+            const task = pdfjsLib.getDocument({
+              url,
+              disableAutoFetch: true,
+              disableStream: true,
+            });
+            doc = await task.promise;
+            if (cancelled) { doc.destroy(); return; }
+            pageCount = doc.numPages;
+          }
+
+          initialSlots.push({
+            bookId: p.book.id,
+            partLabel: `Part ${p.partNumber} — ${partSubtitle(p.book.title)}`,
+            pageCount,
+            globalPageOffset: offset,
+            doc,
+            outline: [],
+          });
+          offset += pageCount;
+        }
+        if (cancelled) return;
+
+        setSlots(initialSlots);
+        setTotalPages(offset);
+
+        // Read page size from first available doc.
+        let firstDoc = initialSlots.find((s) => s.doc)?.doc;
+        if (!firstDoc) {
+          const url = await api.booksGetFileUrl(initialSlots[0]!.bookId);
+          if (cancelled) return;
+          const task = pdfjsLib.getDocument({
+            url,
+            disableAutoFetch: true,
+            disableStream: true,
+          });
+          firstDoc = await task.promise;
+          if (cancelled) { firstDoc.destroy(); return; }
+          initialSlots[0]!.doc = firstDoc;
+          setSlots([...initialSlots]);
+        }
+
+        const page1 = await firstDoc.getPage(1);
+        if (cancelled) return;
+        const vp = page1.getViewport({ scale: 1 });
+        setPageSize({ width: vp.width, height: vp.height });
+
+        // Load outlines for docs we already have open.
+        for (const s of initialSlots) {
+          if (s.doc && cancelled) return;
+          if (s.doc) {
+            s.outline = ((await s.doc.getOutline()) as OutlineNode[]) ?? [];
+          }
+        }
+        if (!cancelled) setSlots([...initialSlots]);
+
+        // Ingest any un-ingested parts.
+        for (const p of parts) {
+          if (cancelled) break;
+          if (!p.book.ingested) {
+            extractCover(p.book.id).catch(console.error);
+          }
+        }
+        onIngestComplete?.();
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message);
+      }
+    })();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apGroup, isMulti]);
+
+  // Lazy-load a doc when the user scrolls near it (called by PageSlot).
+  const loadSlotDoc = useCallback(async (slotIndex: number) => {
+    setSlots((prev) => {
+      const s = prev[slotIndex];
+      if (!s || s.doc) return prev;
+      // Mark as loading by returning same array — the actual load happens below.
+      return prev;
+    });
+
+    // Check if already loaded (race with concurrent calls).
+    const current = slots[slotIndex];
+    if (!current || current.doc) return current?.doc ?? null;
+
+    const url = await api.booksGetFileUrl(current.bookId);
+    const task = pdfjsLib.getDocument({
+      url,
+      disableAutoFetch: true,
+      disableStream: true,
+    });
+    const doc = await task.promise;
+    const outline = ((await doc.getOutline()) as OutlineNode[]) ?? [];
+
+    setSlots((prev) => {
+      const next = [...prev];
+      const slot = next[slotIndex];
+      if (slot && !slot.doc) {
+        next[slotIndex] = { ...slot, doc, outline };
+      }
+      return next;
+    });
+
+    return doc;
+  }, [slots]);
+
+  // Computed scale.
   const scale = useMemo(() => {
     if (!pageSize) return 1;
-    const c = containerSizeRef.current;
-    return resolveScale(zoom, c.width, c.height, pageSize.width, pageSize.height);
-  }, [zoom, pageSize]);
+    return resolveScale(zoom, containerSize.width, containerSize.height, pageSize.width, pageSize.height);
+  }, [zoom, pageSize, containerSize]);
 
-  const numPages = doc?.numPages ?? 0;
+  const pageHeight = pageSize ? Math.round(pageSize.height * scale) : 0;
 
-  // Keyboard shortcuts. Attached to the reader root div.
+  // Precompute the scroll-top offset of each slot's first page using the
+  // same running-counter algorithm the page list layout uses. This is the
+  // single source of truth for both rendering and TOC navigation — no
+  // independent formula that could drift.
+  const slotTopOffsets = useMemo(() => {
+    const offsets: number[] = [];
+    let y = 0;
+    for (let si = 0; si < slots.length; si++) {
+      if (si > 0) y += SEPARATOR_HEIGHT;
+      offsets.push(y);
+      y += slots[si]!.pageCount * (pageHeight + PAGE_GAP);
+    }
+    return offsets;
+  }, [slots, pageHeight]);
+
+  // Combined outline for the TOC sidebar.
+  const combinedOutline = useMemo((): TaggedOutlineNode[] => {
+    if (slots.length === 1 && slots[0]?.outline.length) {
+      return tagNodes(slots[0].outline, 0);
+    }
+    const nodes: TaggedOutlineNode[] = [];
+    for (let i = 0; i < slots.length; i++) {
+      const s = slots[i]!;
+      nodes.push({
+        title: s.partLabel,
+        dest: null,
+        items: tagNodes(s.outline, i),
+        slotIndex: i,
+      });
+    }
+    return nodes;
+  }, [slots]);
+
+  // Resolve a TOC destination to an exact scroll position using the
+  // precomputed slot offsets — no independent formula.
+  const resolveDest = useCallback(
+    async (
+      dest: string | unknown[] | null,
+      slotIndex: number,
+    ): Promise<number | null> => {
+      const slotTop = slotTopOffsets[slotIndex];
+      if (slotTop == null || !pageHeight) return null;
+      const slot = slots[slotIndex];
+      if (!slot) return null;
+
+      // Synthetic part-header node: scroll to the slot's first page.
+      if (!dest) return slotTop;
+
+      let doc = slot.doc;
+      if (!doc) {
+        doc = await loadSlotDoc(slotIndex);
+        if (!doc) return null;
+      }
+
+      let resolved: unknown[] | null = null;
+      if (typeof dest === "string") {
+        resolved = await doc.getDestination(dest);
+      } else if (Array.isArray(dest)) {
+        resolved = dest;
+      }
+      if (!resolved || resolved.length === 0) return null;
+
+      const localPageIndex = await doc.getPageIndex(
+        resolved[0] as { num: number; gen: number },
+      );
+      return slotTop + localPageIndex * (pageHeight + PAGE_GAP);
+    },
+    [slots, slotTopOffsets, pageHeight, loadSlotDoc],
+  );
+
+  // Keyboard shortcuts.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const el = scrollRef.current;
@@ -207,13 +428,6 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
           e.preventDefault();
           el.scrollTop = el.scrollHeight;
           break;
-        case "ArrowDown":
-        case "PageDown":
-          // Let native scroll handle it.
-          break;
-        case "ArrowUp":
-        case "PageUp":
-          break;
       }
     },
     [zoom],
@@ -222,7 +436,13 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-        <p className="text-sm text-destructive">Failed to open book: {error}</p>
+        <p className="text-sm text-destructive">
+          This PDF could not be opened.
+        </p>
+        <p className="max-w-md text-xs text-muted-foreground">
+          The file may be corrupted, password-protected, or not a standard PDF.
+          Common with pregenerated character sheets and form-fillable documents.
+        </p>
         <Button variant="outline" size="sm" onClick={onClose}>
           Back to catalog
         </Button>
@@ -244,11 +464,11 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
         </Button>
         <Separator orientation="vertical" className="mx-1 h-5" />
         <span className="truncate text-xs font-medium">
-          {book?.title ?? "Loading…"}
+          {title || "Loading…"}
         </span>
-        {numPages > 0 && (
+        {totalPages > 0 && (
           <span className="text-[10px] text-muted-foreground">
-            ({numPages} pages)
+            ({totalPages} pages{isMulti ? ` · ${slots.length} parts` : ""})
           </span>
         )}
         <div className="ml-auto flex items-center gap-1">
@@ -278,31 +498,13 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
             </button>
           ))}
           <Separator orientation="vertical" className="mx-1 h-5" />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            title="Zoom out (−)"
-            onClick={() => cycleZoom(-1, zoom, setZoom)}
-          >
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Zoom out" onClick={() => cycleZoom(-1, zoom, setZoom)}>
             <Minus className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            title="Zoom in (+)"
-            onClick={() => cycleZoom(1, zoom, setZoom)}
-          >
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Zoom in" onClick={() => cycleZoom(1, zoom, setZoom)}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            title="Reset zoom (0)"
-            onClick={() => setZoom("fit-width")}
-          >
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Reset zoom" onClick={() => setZoom("fit-width")}>
             <RotateCcw className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -310,16 +512,14 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
 
       {/* Content: TOC sidebar + page area */}
       <div className="flex min-h-0 flex-1">
-        {tocOpen && outline.length > 0 && (
+        {tocOpen && combinedOutline.length > 0 && (
           <div className="w-64 shrink-0 border-r border-border">
             <ScrollArea className="h-full">
               <div className="p-2">
                 <TocTree
-                  nodes={outline}
-                  doc={doc}
+                  nodes={combinedOutline}
+                  resolveDest={resolveDest}
                   scrollRef={scrollRef}
-                  pageSize={pageSize}
-                  scale={scale}
                 />
               </div>
             </ScrollArea>
@@ -332,12 +532,14 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
           className="flex-1 overflow-auto bg-muted/30"
           style={{ outline: "none" }}
         >
-          {doc && pageSize ? (
-            <PageList
-              doc={doc}
-              numPages={numPages}
-              pageSize={pageSize}
+          {slots.length > 0 && pageSize ? (
+            <MultiDocPageList
+              slots={slots}
+              slotTopOffsets={slotTopOffsets}
+              pageHeight={pageHeight}
+              pageWidth={Math.round(pageSize.width * scale)}
               scale={scale}
+              loadSlotDoc={loadSlotDoc}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -346,7 +548,6 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
           )}
         </div>
 
-        {/* Right-side placeholder for future sidebar panels */}
         <div data-slot="reader-sidebar" />
       </div>
     </div>
@@ -354,59 +555,60 @@ export function BookReader({ bookId, onClose, onIngestComplete }: ReaderProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase-2 ingest: render cover + send to main
+// Multi-doc page list
 // ---------------------------------------------------------------------------
 
-async function runIngest(
-  doc: PDFDocumentProxy,
-  bookId: number,
-  onComplete?: () => void,
-): Promise<void> {
-  const page = await doc.getPage(1);
-  const COVER_WIDTH = 300;
-  const vp = page.getViewport({ scale: 1 });
-  const scale = COVER_WIDTH / vp.width;
-  const scaledVp = page.getViewport({ scale });
-
-  const canvas = document.createElement("canvas");
-  canvas.width = scaledVp.width;
-  canvas.height = scaledVp.height;
-  const ctx = canvas.getContext("2d")!;
-  await page.render({ canvasContext: ctx, viewport: scaledVp }).promise;
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/png"),
-  );
-  if (!blob) return;
-  const buf = new Uint8Array(await blob.arrayBuffer());
-
-  await api.booksFinalizeIngest({
-    id: bookId,
-    pageCount: doc.numPages,
-    coverPngBytes: buf,
-  });
-  onComplete?.();
-}
-
-// ---------------------------------------------------------------------------
-// Page list — renders visible pages ± 1 with an IntersectionObserver
-// ---------------------------------------------------------------------------
-
-function PageList({
-  doc,
-  numPages,
-  pageSize,
+function MultiDocPageList({
+  slots,
+  slotTopOffsets,
+  pageHeight,
+  pageWidth,
   scale,
+  loadSlotDoc,
 }: {
-  doc: PDFDocumentProxy;
-  numPages: number;
-  pageSize: { width: number; height: number };
+  slots: DocSlot[];
+  /** Precomputed scroll-top of each slot's first page — shared with the
+   *  TOC resolver so both use identical positions. */
+  slotTopOffsets: number[];
+  pageHeight: number;
+  pageWidth: number;
   scale: number;
+  loadSlotDoc: (idx: number) => Promise<PDFDocumentProxy | null>;
 }) {
-  const pageWidth = Math.round(pageSize.width * scale);
-  const pageHeight = Math.round(pageSize.height * scale);
-  const gap = 8;
-  const totalHeight = numPages * (pageHeight + gap) - gap;
+  // Build a flat list of renderable items (pages + separators) using the
+  // same slotTopOffsets the TOC resolver uses.
+  const items = useMemo(() => {
+    const list: Array<
+      | { kind: "page"; slotIndex: number; localPageNum: number; top: number }
+      | { kind: "separator"; label: string; top: number }
+    > = [];
+    for (let si = 0; si < slots.length; si++) {
+      const slot = slots[si]!;
+      const slotTop = slotTopOffsets[si] ?? 0;
+      if (si > 0) {
+        list.push({
+          kind: "separator",
+          label: slot.partLabel,
+          top: slotTop - SEPARATOR_HEIGHT,
+        });
+      }
+      for (let p = 0; p < slot.pageCount; p++) {
+        list.push({
+          kind: "page",
+          slotIndex: si,
+          localPageNum: p + 1,
+          top: slotTop + p * (pageHeight + PAGE_GAP),
+        });
+      }
+    }
+    return list;
+  }, [slots, slotTopOffsets, pageHeight]);
+
+  // Total height from the last item's bottom edge.
+  const lastItem = items[items.length - 1];
+  const totalHeight = lastItem
+    ? lastItem.top + (lastItem.kind === "page" ? pageHeight : SEPARATOR_HEIGHT)
+    : 0;
 
   return (
     <div
@@ -415,42 +617,72 @@ function PageList({
         width: pageWidth,
         height: totalHeight,
         margin: "0 auto",
-        paddingTop: gap,
+        paddingTop: PAGE_GAP,
       }}
     >
-      {Array.from({ length: numPages }, (_, i) => (
-        <PageSlot
-          key={i}
-          doc={doc}
-          pageNum={i + 1}
-          width={pageWidth}
-          height={pageHeight}
-          scale={scale}
-          top={i * (pageHeight + gap)}
-        />
-      ))}
+      {items.map((item, i) =>
+        item.kind === "separator" ? (
+          <div
+            key={`sep-${i}`}
+            style={{
+              position: "absolute",
+              top: item.top,
+              left: 0,
+              width: pageWidth,
+              height: SEPARATOR_HEIGHT,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-px w-12 bg-border" />
+              <span className="text-xs font-medium text-muted-foreground">
+                {item.label}
+              </span>
+              <div className="h-px w-12 bg-border" />
+            </div>
+          </div>
+        ) : (
+          <PageSlot
+            key={`${item.slotIndex}-${item.localPageNum}`}
+            slots={slots}
+            slotIndex={item.slotIndex}
+            localPageNum={item.localPageNum}
+            width={pageWidth}
+            height={pageHeight}
+            scale={scale}
+            top={item.top}
+            loadSlotDoc={loadSlotDoc}
+          />
+        ),
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Individual page slot: renders canvas + text layer when visible
+// Page slot — renders canvas + text layer when visible
 // ---------------------------------------------------------------------------
 
 function PageSlot({
-  doc,
-  pageNum,
+  slots,
+  slotIndex,
+  localPageNum,
   width,
   height,
   scale,
   top,
+  loadSlotDoc,
 }: {
-  doc: PDFDocumentProxy;
-  pageNum: number;
+  slots: DocSlot[];
+  slotIndex: number;
+  localPageNum: number;
   width: number;
   height: number;
   scale: number;
   top: number;
+  loadSlotDoc: (idx: number) => Promise<PDFDocumentProxy | null>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -459,7 +691,9 @@ function PageSlot({
   const renderingRef = useRef(false);
   const renderedScaleRef = useRef<number | null>(null);
 
-  // IntersectionObserver with 1-page margin for preloading neighbours.
+  const doc = slots[slotIndex]?.doc ?? null;
+
+  // IntersectionObserver with 1-page margin.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -471,9 +705,16 @@ function PageSlot({
     return () => obs.disconnect();
   }, [height]);
 
-  // Render when visible (or when scale changes while visible).
+  // Trigger lazy doc loading when this page becomes visible.
   useEffect(() => {
-    if (!visible) return;
+    if (visible && !doc) {
+      loadSlotDoc(slotIndex).catch(console.error);
+    }
+  }, [visible, doc, slotIndex, loadSlotDoc]);
+
+  // Render when visible + doc loaded + scale changed.
+  useEffect(() => {
+    if (!visible || !doc) return;
     if (renderingRef.current) return;
     if (renderedScaleRef.current === scale) return;
 
@@ -482,14 +723,13 @@ function PageSlot({
 
     (async () => {
       try {
-        const page = await doc.getPage(pageNum);
+        const page = await doc.getPage(localPageNum);
         if (cancelled) return;
 
         const viewport = page.getViewport({ scale });
         const canvas = canvasRef.current;
         if (!canvas || cancelled) return;
 
-        // Use devicePixelRatio for crisp rendering on HiDPI displays.
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.round(viewport.width * dpr);
         canvas.height = Math.round(viewport.height * dpr);
@@ -503,18 +743,13 @@ function PageSlot({
         if (cancelled) return;
         renderedScaleRef.current = scale;
 
-        // Text layer — enables browser-native Ctrl+F and text selection.
         const textDiv = textLayerRef.current;
         if (!textDiv || cancelled) return;
         textDiv.innerHTML = "";
-        // Set the text layer container dimensions to match the viewport
-        // so pdfjs can position text spans correctly.
         textDiv.style.width = `${viewport.width}px`;
         textDiv.style.height = `${viewport.height}px`;
 
         const { TextLayer } = pdfjsLib;
-
-
         const textContent = await page.getTextContent();
         if (cancelled) return;
 
@@ -525,18 +760,16 @@ function PageSlot({
         });
         await textLayer.render();
       } catch (e) {
-        if (!cancelled) console.error(`Page ${pageNum} render error:`, e);
+        if (!cancelled) console.error(`Page render error:`, e);
       } finally {
         renderingRef.current = false;
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, scale, doc, pageNum]);
+    return () => { cancelled = true; };
+  }, [visible, scale, doc, localPageNum]);
 
-  // Cleanup: clear canvas when page scrolls out of view to release memory.
+  // Cleanup on scroll-out.
   useEffect(() => {
     if (visible) return;
     const canvas = canvasRef.current;
@@ -560,42 +793,43 @@ function PageSlot({
         left: 0,
         width,
         height,
-        background: "white",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+        background: doc ? "white" : undefined,
+        boxShadow: doc ? "0 1px 4px rgba(0,0,0,0.15)" : undefined,
       }}
     >
-      <canvas ref={canvasRef} style={{ display: "block" }} />
-      <div
-        ref={textLayerRef}
-        className="textLayer"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          // pdfjs TextLayer CSS must be loaded for text positioning to work.
-          // We inject the necessary styles in index.css.
-        }}
-      />
+      {doc ? (
+        <>
+          <canvas ref={canvasRef} style={{ display: "block" }} />
+          <div
+            ref={textLayerRef}
+            className="textLayer"
+            style={{ position: "absolute", top: 0, left: 0 }}
+          />
+        </>
+      ) : (
+        <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+          Loading…
+        </div>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// TOC tree
+// TOC tree — uses a resolveDest callback for cross-doc navigation
 // ---------------------------------------------------------------------------
 
 function TocTree({
   nodes,
-  doc,
+  resolveDest,
   scrollRef,
-  pageSize,
-  scale,
 }: {
-  nodes: OutlineNode[];
-  doc: PDFDocumentProxy | null;
+  nodes: TaggedOutlineNode[];
+  resolveDest: (
+    dest: string | unknown[] | null,
+    slotIndex: number,
+  ) => Promise<number | null>;
   scrollRef: React.RefObject<HTMLDivElement | null>;
-  pageSize: { width: number; height: number } | null;
-  scale: number;
 }) {
   return (
     <ul className="space-y-0.5 text-xs">
@@ -603,10 +837,8 @@ function TocTree({
         <TocNode
           key={i}
           node={node}
-          doc={doc}
+          resolveDest={resolveDest}
           scrollRef={scrollRef}
-          pageSize={pageSize}
-          scale={scale}
           depth={0}
         />
       ))}
@@ -616,44 +848,28 @@ function TocTree({
 
 function TocNode({
   node,
-  doc,
+  resolveDest,
   scrollRef,
-  pageSize,
-  scale,
   depth,
 }: {
-  node: OutlineNode;
-  doc: PDFDocumentProxy | null;
+  node: TaggedOutlineNode;
+  resolveDest: (
+    dest: string | unknown[] | null,
+    slotIndex: number,
+  ) => Promise<number | null>;
   scrollRef: React.RefObject<HTMLDivElement | null>;
-  pageSize: { width: number; height: number } | null;
-  scale: number;
   depth: number;
 }) {
   const [expanded, setExpanded] = useState(depth < 1);
   const hasChildren = node.items && node.items.length > 0;
 
   const handleClick = useCallback(async () => {
-    if (!doc || !scrollRef.current || !pageSize || !node.dest) return;
-    try {
-      let dest: unknown[] | null = null;
-      if (typeof node.dest === "string") {
-        dest = await doc.getDestination(node.dest);
-      } else if (Array.isArray(node.dest)) {
-        dest = node.dest as unknown[];
-      }
-      if (!dest || dest.length === 0) return;
-      // dest[0] is a page reference object that getPageIndex can resolve.
-      const pageIndex = await doc.getPageIndex(
-        dest[0] as { num: number; gen: number },
-      );
-      const gap = 8;
-      const pageHeight = Math.round(pageSize.height * scale);
-      const targetTop = pageIndex * (pageHeight + gap);
-      scrollRef.current.scrollTop = targetTop;
-    } catch (e) {
-      console.error("TOC navigation error:", e);
+    if (!scrollRef.current) return;
+    const top = await resolveDest(node.dest, node.slotIndex);
+    if (top != null) {
+      scrollRef.current.scrollTop = top;
     }
-  }, [doc, node.dest, scrollRef, pageSize, scale]);
+  }, [node.dest, node.slotIndex, resolveDest, scrollRef]);
 
   return (
     <li>
@@ -677,11 +893,16 @@ function TocNode({
         <button
           type="button"
           onClick={handleClick}
-          className="flex-1 truncate py-0.5 text-left text-muted-foreground transition-colors hover:text-foreground"
+          className={cn(
+            "flex-1 truncate py-0.5 text-left transition-colors hover:text-foreground",
+            depth === 0 && node.items.length > 0
+              ? "font-medium text-foreground/80"
+              : "text-muted-foreground",
+          )}
           style={{ paddingLeft: depth * 8 }}
-          title={node.title}
+          title={cleanTocTitle(node.title)}
         >
-          {node.title}
+          {cleanTocTitle(node.title)}
         </button>
       </div>
       {expanded && hasChildren && (
@@ -690,10 +911,8 @@ function TocNode({
             <TocNode
               key={i}
               node={child}
-              doc={doc}
+              resolveDest={resolveDest}
               scrollRef={scrollRef}
-              pageSize={pageSize}
-              scale={scale}
               depth={depth + 1}
             />
           ))}
@@ -706,6 +925,27 @@ function TocNode({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Strip Paizo bookmark noise from TOC titles. Common patterns:
+ *    "018-031 PZO90152 Chapter 2" → "Chapter 2"
+ *    "032 PZO90152 Appendix" → "Appendix"
+ *    "PZO9015-2 Introduction" → "Introduction"
+ *  Leading page ranges (\d+-\d+ or \d+), product codes (PZO\w+), and
+ *  resulting whitespace are removed. */
+function cleanTocTitle(raw: string): string {
+  return raw
+    .replace(/^\d+(?:-\d+)?\s*/g, "")   // leading page range "018-031 " or "032 "
+    .replace(/^PZO[\w-]+\s*/gi, "")      // product code "PZO90152 "
+    .trim() || raw;                       // fall back to original if nothing remains
+}
+
+function tagNodes(nodes: OutlineNode[], slotIndex: number): TaggedOutlineNode[] {
+  return nodes.map((n) => ({
+    ...n,
+    slotIndex,
+    items: tagNodes(n.items ?? [], slotIndex),
+  }));
+}
 
 function cycleZoom(
   dir: 1 | -1,
