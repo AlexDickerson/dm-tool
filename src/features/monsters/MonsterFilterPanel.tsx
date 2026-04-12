@@ -70,7 +70,7 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
   }, [facets, traitFilter]);
 
   return (
-    <div className="flex h-full flex-col border-r border-border bg-card" style={{ width: 200 }}>
+    <div className="flex h-full flex-col border-r border-border bg-card">
       <div className="flex h-12 shrink-0 items-center justify-between px-3">
         <div className="flex items-center gap-2">
           <span className="text-xs" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>

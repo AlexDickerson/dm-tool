@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { MonsterFilterPanel } from './MonsterFilterPanel';
 import { MonsterTable } from './MonsterTable';
 import { MonsterDetailPane } from './MonsterDetailPane';
@@ -52,7 +53,9 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <MonsterFilterPanel facets={facets} params={filters} onChange={handleFiltersChange} />
+        <ResizableSidebar storageKey="dmtool.sidebar.monsters">
+          <MonsterFilterPanel facets={facets} params={filters} onChange={handleFiltersChange} />
+        </ResizableSidebar>
 
         <MonsterTable
           monsters={monsters ?? []}

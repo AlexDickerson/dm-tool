@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, Info, Layers, Merge, Plus, Rows, X } from 'lucide-react';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { FilterPanel } from './FilterPanel';
 import { ThumbnailGrid, type ThumbnailItem } from './ThumbnailGrid';
 import { DetailPane } from './DetailPane';
@@ -207,9 +208,9 @@ export function MapBrowser({
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
         {/* Left: filter sidebar */}
-        <div className="shrink-0" style={{ width: 200 }}>
+        <ResizableSidebar storageKey="dmtool.sidebar.maps">
           <FilterPanel facets={facets} params={filters} onChange={setFilters} />
-        </div>
+        </ResizableSidebar>
 
         <div className={cn('flex min-w-0 flex-1 flex-col', selectedFileName && 'pr-2')}>
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">

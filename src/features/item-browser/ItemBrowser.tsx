@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { ItemFilterPanel } from './ItemFilterPanel';
 import { ItemTable, type GroupedItem } from './ItemTable';
 import { ItemDetailPane } from './ItemDetailPane';
@@ -96,7 +97,9 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
   return (
     <div className="flex h-full">
       {/* Filter panel */}
-      <ItemFilterPanel facets={facets} params={filters} onChange={handleFilterChange} />
+      <ResizableSidebar storageKey="dmtool.sidebar.items">
+        <ItemFilterPanel facets={facets} params={filters} onChange={handleFilterChange} />
+      </ResizableSidebar>
 
       {/* Center: table */}
       <div className="flex min-w-0 flex-1 flex-col">

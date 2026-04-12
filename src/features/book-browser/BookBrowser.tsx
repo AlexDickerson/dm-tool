@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, Library, Layers, RefreshCw } from 'lucide-react';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -159,61 +160,63 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
         {/* Category rail */}
-        <div className="flex shrink-0 flex-col border-r border-border bg-card" style={{ width: 200 }}>
-          <div className="flex h-12 items-center justify-between px-3">
-            <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
-              Categories
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              title="Rescan PDF folder"
-              onClick={handleRescan}
-              disabled={scanning}
-            >
-              <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
-            </Button>
-          </div>
-          <Separator variant="ornate" />
-          <ScrollArea className="flex-1">
-            <div className="py-1">
-              <CategoryItem
-                name="All Books"
-                count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
-                active={selectedCategory === null}
-                onClick={() => {
-                  setSelectedCategory(null);
-                  setSelectedSubcategory(null);
-                }}
-              />
-              {categories.map((cat) => (
-                <CategoryGroup
-                  key={cat.name}
-                  category={cat}
-                  activeCategory={selectedCategory}
-                  activeSubcategory={selectedSubcategory}
-                  onSelectCategory={() => {
-                    if (selectedCategory === cat.name && !selectedSubcategory) {
-                      setSelectedCategory(null);
-                    } else {
-                      setSelectedCategory(cat.name);
-                      setSelectedSubcategory(null);
-                    }
-                  }}
-                  onSelectSubcategory={(sub) => {
-                    setSelectedCategory(cat.name);
-                    if (selectedSubcategory === sub) {
-                      setSelectedSubcategory(null);
-                    } else {
-                      setSelectedSubcategory(sub);
-                    }
+        <ResizableSidebar storageKey="dmtool.sidebar.books">
+          <div className="flex h-full flex-col border-r border-border bg-card">
+            <div className="flex h-12 items-center justify-between px-3">
+              <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+                Categories
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                title="Rescan PDF folder"
+                onClick={handleRescan}
+                disabled={scanning}
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
+              </Button>
+            </div>
+            <Separator variant="ornate" />
+            <ScrollArea className="flex-1">
+              <div className="py-1">
+                <CategoryItem
+                  name="All Books"
+                  count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
+                  active={selectedCategory === null}
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    setSelectedSubcategory(null);
                   }}
                 />
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
+                {categories.map((cat) => (
+                  <CategoryGroup
+                    key={cat.name}
+                    category={cat}
+                    activeCategory={selectedCategory}
+                    activeSubcategory={selectedSubcategory}
+                    onSelectCategory={() => {
+                      if (selectedCategory === cat.name && !selectedSubcategory) {
+                        setSelectedCategory(null);
+                      } else {
+                        setSelectedCategory(cat.name);
+                        setSelectedSubcategory(null);
+                      }
+                    }}
+                    onSelectSubcategory={(sub) => {
+                      setSelectedCategory(cat.name);
+                      if (selectedSubcategory === sub) {
+                        setSelectedSubcategory(null);
+                      } else {
+                        setSelectedSubcategory(sub);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </ResizableSidebar>
 
         {/* Main area: grid */}
         <div className="flex min-w-0 flex-1 flex-col">
