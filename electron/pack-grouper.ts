@@ -9,11 +9,11 @@
 // prompt into claude.ai, get the JSON back, import it). This sidesteps
 // token limits, timeouts, and API key management for a one-time operation.
 
-import { app } from "electron";
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { mapStem } from "../shared/map-stem.js";
+import { app } from 'electron';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { mapStem } from '../shared/map-stem.js';
 
 // ---------------------------------------------------------------------------
 // Cache
@@ -28,21 +28,16 @@ interface PackMappingCache {
 }
 
 function cachePath(): string {
-  return join(app.getPath("userData"), "pack-mapping.json");
+  return join(app.getPath('userData'), 'pack-mapping.json');
 }
 
 function readCache(): PackMappingCache | null {
   const path = cachePath();
   if (!existsSync(path)) return null;
   try {
-    const raw = readFileSync(path, "utf-8");
+    const raw = readFileSync(path, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<PackMappingCache>;
-    if (
-      !parsed ||
-      typeof parsed.fileListHash !== "string" ||
-      !parsed.mapping ||
-      typeof parsed.mapping !== "object"
-    ) {
+    if (!parsed || typeof parsed.fileListHash !== 'string' || !parsed.mapping || typeof parsed.mapping !== 'object') {
       return null;
     }
     return parsed as PackMappingCache;
@@ -55,12 +50,12 @@ function writeCache(data: PackMappingCache): void {
   const path = cachePath();
   const dir = dirname(path);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(path, JSON.stringify(data, null, 2), "utf-8");
+  writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 function hashFileList(fileNames: string[]): string {
   const sorted = [...fileNames].sort();
-  return createHash("sha256").update(sorted.join("\n")).digest("hex");
+  return createHash('sha256').update(sorted.join('\n')).digest('hex');
 }
 
 // ---------------------------------------------------------------------------
@@ -68,7 +63,7 @@ function hashFileList(fileNames: string[]): string {
 // ---------------------------------------------------------------------------
 
 export function buildGroupingPrompt(fileNames: string[]): string {
-  const list = fileNames.map((f) => `  "${f}"`).join("\n");
+  const list = fileNames.map((f) => `  "${f}"`).join('\n');
   return [
     `You are helping organize a battlemap image library for a tabletop RPG tool.`,
     ``,
@@ -88,7 +83,7 @@ export function buildGroupingPrompt(fileNames: string[]): string {
     ``,
     `Respond with ONLY a downloadable JSON file mapping each filename (exactly as given) to its pack name. No preamble, no commentary — just the file.`,
     `Example format: {"file1.jpg": "Forest Clearing", "file2.jpg": "Forest Clearing", "file3.jpg": "Dark Tavern"}`,
-  ].join("\n");
+  ].join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -98,10 +93,7 @@ export function buildGroupingPrompt(fileNames: string[]): string {
 /** Parse and validate a JSON mapping from user-provided text (e.g. copied
  *  from Claude's response). Strips code fences if present. Fills in
  *  missing filenames as singletons. */
-export function parseAndCacheMapping(
-  rawText: string,
-  fileNames: string[],
-): Record<string, string> {
+export function parseAndCacheMapping(rawText: string, fileNames: string[]): Record<string, string> {
   let text = rawText.trim();
   // Strip code fences if present ([\s\S] spans newlines).
   const fenceMatch = text.match(/^```(?:json)?\s*\n([\s\S]*?)\n\s*```$/);
@@ -111,14 +103,10 @@ export function parseAndCacheMapping(
   try {
     parsed = JSON.parse(text);
   } catch (e) {
-    throw new Error(
-      `Invalid JSON: ${(e as Error).message}`,
-    );
+    throw new Error(`Invalid JSON: ${(e as Error).message}`, { cause: e });
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(
-      `Expected a JSON object, got ${typeof parsed}`,
-    );
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Expected a JSON object, got ${typeof parsed}`);
   }
 
   const mapping = parsed as Record<string, string>;
@@ -128,10 +116,10 @@ export function parseAndCacheMapping(
   const result: Record<string, string> = {};
   for (const fn of fileNames) {
     const pack = mapping[fn];
-    if (typeof pack === "string" && pack.trim().length > 0) {
+    if (typeof pack === 'string' && pack.trim().length > 0) {
       result[fn] = pack.trim();
     } else {
-      result[fn] = fn.replace(/\.[a-zA-Z0-9]+$/, "");
+      result[fn] = fn.replace(/\.[a-zA-Z0-9]+$/, '');
     }
   }
 
@@ -152,9 +140,7 @@ export function parseAndCacheMapping(
  *  heuristic and removed files are pruned — the AI mapping and manual
  *  merges are preserved rather than thrown away. Returns null only when
  *  no cache has ever been written. */
-export function getCachedPackMapping(
-  fileNames: string[],
-): Record<string, string> | null {
+export function getCachedPackMapping(fileNames: string[]): Record<string, string> | null {
   const cache = readCache();
   if (!cache) return null;
   const currentHash = hashFileList(fileNames);
@@ -168,7 +154,7 @@ export function getCachedPackMapping(
     } else {
       // New file: use the stem heuristic so it lands in a reasonable
       // group rather than becoming a singleton.
-      updated[fn] = mapStem(fn) || fn.replace(/\.[a-zA-Z0-9]+$/, "");
+      updated[fn] = mapStem(fn) || fn.replace(/\.[a-zA-Z0-9]+$/, '');
     }
   }
   // Removed files are simply not copied into `updated`.
@@ -182,17 +168,13 @@ export function getCachedPackMapping(
  *
  *  When no cache exists, a baseline mapping is built from the stem
  *  heuristic so manual merges work even without a prior AI import. */
-export function mergePacks(
-  sourcePacks: string[],
-  targetName: string,
-  fileNames: string[],
-): Record<string, string> {
+export function mergePacks(sourcePacks: string[], targetName: string, fileNames: string[]): Record<string, string> {
   let cache = readCache();
   if (!cache) {
     // Bootstrap from the stem heuristic.
     const mapping: Record<string, string> = {};
     for (const fn of fileNames) {
-      mapping[fn] = mapStem(fn) || fn.replace(/\.[a-zA-Z0-9]+$/, "");
+      mapping[fn] = mapStem(fn) || fn.replace(/\.[a-zA-Z0-9]+$/, '');
     }
     cache = { fileListHash: hashFileList(fileNames), mapping };
   }

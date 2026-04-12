@@ -8,9 +8,9 @@
 /** Controlled vocabulary — kept loose on the TS side since the DB is the
  *  source of truth and we don't want to break the app if the Python side
  *  adds a new value. */
-export type InteriorExterior = "interior" | "exterior" | "mixed" | "unknown";
-export type TimeOfDay = "day" | "dusk" | "night" | "dawn" | "unknown";
-export type GridVisible = "gridded" | "gridless" | "unknown";
+export type InteriorExterior = 'interior' | 'exterior' | 'mixed' | 'unknown';
+export type TimeOfDay = 'day' | 'dusk' | 'night' | 'dawn' | 'unknown';
+export type GridVisible = 'gridded' | 'gridless' | 'unknown';
 
 /** A lightweight row used by the browser grid. This is what `searchMaps`
  *  returns — enough to render a thumbnail, title, and a few chips without
@@ -82,7 +82,7 @@ export interface Book {
   title: string;
   category: string;
   subcategory: string | null;
-  ruleset: "legacy" | "remastered" | null;
+  ruleset: 'legacy' | 'remastered' | null;
   pageCount: number | null;
   fileSize: number;
   /** True once phase-2 ingest has run — we have a cached cover PNG and a
@@ -117,24 +117,21 @@ export interface FinalizeIngestArgs {
 // Chat
 // ---------------------------------------------------------------------------
 
-export type ChatModel =
-  | "claude-sonnet-4-6"
-  | "claude-haiku-4-5-20251001"
-  | "claude-opus-4-6";
+export type ChatModel = 'claude-sonnet-4-6' | 'claude-haiku-4-5-20251001' | 'claude-opus-4-6';
 
 export interface ChatMessage {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
 }
 
 export interface ChatChunk {
-  type: "delta" | "done" | "error" | "tool-status";
+  type: 'delta' | 'done' | 'error' | 'tool-status';
   text?: string;
   error?: string;
 }
 
 export interface AonCreaturePreview {
-  type: "creature";
+  type: 'creature';
   name: string;
   level: number;
   hp: number;
@@ -162,7 +159,7 @@ export interface AonCreaturePreview {
 }
 
 export interface AonGenericPreview {
-  type: "generic";
+  type: 'generic';
   name: string;
   category: string;
   text: string;
@@ -188,7 +185,7 @@ export interface ConfigPaths {
 }
 
 export interface PickPathArgs {
-  mode: "directory" | "file";
+  mode: 'directory' | 'file';
   title?: string;
   filters?: { name: string; extensions: string[] }[];
 }
@@ -205,7 +202,7 @@ export interface TaggerRunArgs {
 }
 
 export interface TaggerProgress {
-  type: "stdout" | "stderr";
+  type: 'stdout' | 'stderr';
   line: string;
 }
 
@@ -224,7 +221,7 @@ export interface ElectronAPI {
   // -----------------------------------------------------------------------
 
   /** Returns "setup" on first run (no config.json found), "normal" otherwise. */
-  getAppMode(): Promise<"normal" | "setup">;
+  getAppMode(): Promise<'normal' | 'setup'>;
   /** Current config paths for display in the Settings UI. */
   getConfig(): Promise<ConfigPaths>;
   /** Open a native folder or file picker dialog. */
@@ -247,10 +244,7 @@ export interface ElectronAPI {
    *  local state in one shot. The API key is passed in by the renderer
    *  rather than read from disk in main — the renderer owns persistence
    *  via localStorage and we want to avoid duplicating that. */
-  regenerateEncounterHooks(args: {
-    fileName: string;
-    apiKey: string;
-  }): Promise<string[]>;
+  regenerateEncounterHooks(args: { fileName: string; apiKey: string }): Promise<string[]>;
 
   /** Open a URL in the user's default browser. Only accepts http/https. */
   openExternal(url: string): Promise<void>;
@@ -264,11 +258,7 @@ export interface ElectronAPI {
   /** Send a chat message and begin streaming the assistant response.
    *  Resolves when the stream completes. Text chunks arrive via
    *  onChatChunk before the promise settles. */
-  chatSend(args: {
-    messages: ChatMessage[];
-    apiKey: string;
-    model?: ChatModel;
-  }): Promise<void>;
+  chatSend(args: { messages: ChatMessage[]; apiKey: string; model?: ChatModel }): Promise<void>;
   /** Subscribe to chat stream chunks. Returns an unsubscribe function.
    *  Same push-event pattern as onTaggerProgress. */
   onChatChunk(callback: (chunk: ChatChunk) => void): () => void;
@@ -338,10 +328,7 @@ export interface ElectronAPI {
    *  mapping from it. Returns the mapping, or null if the user cancelled. */
   importPackMappingFromFile(): Promise<Record<string, string> | null>;
   /** Merge multiple pack names into one and persist the change. */
-  mergePacks(args: {
-    sourcePacks: string[];
-    targetName: string;
-  }): Promise<Record<string, string>>;
+  mergePacks(args: { sourcePacks: string[]; targetName: string }): Promise<Record<string, string>>;
 
   // -----------------------------------------------------------------------
   // Auto-Wall (wall detection for VTT import)

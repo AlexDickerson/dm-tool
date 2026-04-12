@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings } from "lucide-react";
-import { MapBrowser } from "./features/map-browser/MapBrowser";
-import { BookBrowser } from "./features/book-browser/BookBrowser";
-import { ChatDrawer } from "./features/chat/ChatDrawer";
-import { SetupScreen } from "./features/setup/SetupScreen";
-import { PathField } from "./components/PathField";
-import { cn } from "./lib/utils";
+import { useCallback, useEffect, useState } from 'react';
+import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings } from 'lucide-react';
+import { MapBrowser } from './features/map-browser/MapBrowser';
+import { BookBrowser } from './features/book-browser/BookBrowser';
+import { ChatDrawer } from './features/chat/ChatDrawer';
+import { SetupScreen } from './features/setup/SetupScreen';
+import { PathField } from './components/PathField';
+import { cn } from './lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -13,19 +13,19 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "./components/ui/dialog";
-import { Button } from "./components/ui/button";
-import { Slider } from "./components/ui/slider";
-import { Label } from "./components/ui/label";
-import { Input } from "./components/ui/input";
-import type { ConfigPaths } from "../shared/types";
+} from './components/ui/dialog';
+import { Button } from './components/ui/button';
+import { Slider } from './components/ui/slider';
+import { Label } from './components/ui/label';
+import { Input } from './components/ui/input';
+import type { ConfigPaths } from '../shared/types';
 
 // UI scale knob — wired through to the root font-size in CSS so every
 // rem-based Tailwind utility responds. Stored in localStorage so the
 // preference survives restarts. The native window-control overlay strip
 // (managed by Electron, not CSS) is also resized via IPC so the OS
 // min/max/close buttons stay flush with the React header.
-const UI_SCALE_KEY = "dmtool.uiScale";
+const UI_SCALE_KEY = 'dmtool.uiScale';
 const UI_DEFAULT = 18;
 const UI_MIN = 14;
 const UI_MAX = 24;
@@ -35,7 +35,7 @@ const HEADER_REMS = 3;
 // Thumbnail size knob — multiplier applied to ThumbnailGrid's base
 // THUMB_WIDTH/HEIGHT constants. Independent of UI_SCALE because the user
 // often wants chrome small and thumbs big (or vice versa).
-const THUMB_SCALE_KEY = "dmtool.thumbScale";
+const THUMB_SCALE_KEY = 'dmtool.thumbScale';
 const THUMB_DEFAULT = 1;
 const THUMB_MIN = 0.7;
 const THUMB_MAX = 2;
@@ -44,15 +44,15 @@ const THUMB_MAX = 2;
 // detail pane. Stored in localStorage rather than the OS keychain because
 // this is a single-user personal tool; if/when this app grows to multi-
 // user we should move it to safeStorage.
-const API_KEY_KEY = "dmtool.anthropicApiKey";
-const MODEL_KEY = "dmtool.chatModel";
-const MODEL_DEFAULT = "claude-sonnet-4-6";
+const API_KEY_KEY = 'dmtool.anthropicApiKey';
+const MODEL_KEY = 'dmtool.chatModel';
+const MODEL_DEFAULT = 'claude-sonnet-4-6';
 
 function loadString(key: string): string {
   try {
-    return localStorage.getItem(key) ?? "";
+    return localStorage.getItem(key) ?? '';
   } catch {
-    return "";
+    return '';
   }
 }
 
@@ -68,38 +68,32 @@ function loadNumber(key: string, fallback: number, min: number, max: number): nu
   }
 }
 
-type ActiveTab = "maps" | "books" | "combat" | "monsters" | "items";
+type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items';
 
 export default function App() {
-  const [appMode, setAppMode] = useState<"loading" | "normal" | "setup">("loading");
+  const [appMode, setAppMode] = useState<'loading' | 'normal' | 'setup'>('loading');
 
   useEffect(() => {
     window.electronAPI.getAppMode().then(setAppMode);
   }, []);
 
-  if (appMode === "loading") return null;
-  if (appMode === "setup") return <SetupScreen />;
+  if (appMode === 'loading') return null;
+  if (appMode === 'setup') return <SetupScreen />;
 
   return <MainApp />;
 }
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("maps");
+  const [activeTab, setActiveTab] = useState<ActiveTab>('maps');
   // Bumped when pack mapping is imported via Settings so MapBrowser
   // knows to re-fetch. Passed as a prop — MapBrowser watches it.
   const [packMappingVersion, setPackMappingVersion] = useState(0);
-  const [uiScale, setUiScale] = useState<number>(() =>
-    loadNumber(UI_SCALE_KEY, UI_DEFAULT, UI_MIN, UI_MAX),
-  );
+  const [uiScale, setUiScale] = useState<number>(() => loadNumber(UI_SCALE_KEY, UI_DEFAULT, UI_MIN, UI_MAX));
   const [thumbScale, setThumbScale] = useState<number>(() =>
     loadNumber(THUMB_SCALE_KEY, THUMB_DEFAULT, THUMB_MIN, THUMB_MAX),
   );
-  const [anthropicApiKey, setAnthropicApiKey] = useState<string>(() =>
-    loadString(API_KEY_KEY),
-  );
-  const [chatModel, setChatModel] = useState<string>(() =>
-    loadString(MODEL_KEY) || MODEL_DEFAULT,
-  );
+  const [anthropicApiKey, setAnthropicApiKey] = useState<string>(() => loadString(API_KEY_KEY));
+  const [chatModel, setChatModel] = useState<string>(() => loadString(MODEL_KEY) || MODEL_DEFAULT);
   const [chatOpen, setChatOpen] = useState(false);
 
   // Apply the UI scale to the root <html> element and tell the main
@@ -115,12 +109,10 @@ function MainApp() {
     // The native min/max/close buttons live outside the DOM, so we have
     // to push their height through IPC. Header is HEADER_REMS rem tall,
     // so the pixel height equals uiScale * HEADER_REMS.
-    window.electronAPI
-      ?.setTitleBarOverlayHeight(uiScale * HEADER_REMS)
-      .catch(() => {
-        // Ignore — older builds without this IPC handler shouldn't crash
-        // the renderer; the overlay will just stay at its default height.
-      });
+    window.electronAPI?.setTitleBarOverlayHeight(uiScale * HEADER_REMS).catch(() => {
+      // Ignore — older builds without this IPC handler shouldn't crash
+      // the renderer; the overlay will just stay at its default height.
+    });
   }, [uiScale]);
 
   // Persist thumb scale separately. ThumbnailGrid reads this via prop
@@ -169,42 +161,41 @@ function MainApp() {
           our own content never slides under the native control buttons. */}
       <header
         className="flex h-12 shrink-0 items-center gap-4 pl-4 pr-[140px]"
-        style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <h1
-          className="flex items-center text-foreground"
-          aria-label="DM Tool"
-        >
+        <h1 className="flex items-center text-foreground" aria-label="DM Tool">
           <D20Icon className="h-7 w-7" />
         </h1>
-        <nav
-          className="flex items-center gap-1"
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-        >
-          <NavTab active={activeTab === "maps"} onClick={() => setActiveTab("maps")}>Maps</NavTab>
-          <NavTab active={activeTab === "books"} onClick={() => setActiveTab("books")}>Books</NavTab>
-          <NavTab active={activeTab === "combat"} onClick={() => setActiveTab("combat")}>Combat</NavTab>
-          <NavTab active={activeTab === "monsters"} onClick={() => setActiveTab("monsters")}>Monsters</NavTab>
-          <NavTab active={activeTab === "items"} onClick={() => setActiveTab("items")}>Items</NavTab>
+        <nav className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <NavTab active={activeTab === 'maps'} onClick={() => setActiveTab('maps')}>
+            Maps
+          </NavTab>
+          <NavTab active={activeTab === 'books'} onClick={() => setActiveTab('books')}>
+            Books
+          </NavTab>
+          <NavTab active={activeTab === 'combat'} onClick={() => setActiveTab('combat')}>
+            Combat
+          </NavTab>
+          <NavTab active={activeTab === 'monsters'} onClick={() => setActiveTab('monsters')}>
+            Monsters
+          </NavTab>
+          <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')}>
+            Items
+          </NavTab>
         </nav>
         {/* Settings gear pushed to the right edge of the draggable
             region (just before the reserved native button strip). The
             Dialog trigger lives inside a `no-drag` wrapper so the click
             actually reaches the button instead of starting a window
             drag. */}
-        <div
-          className="ml-auto flex items-center gap-1"
-          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
-        >
+        <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             type="button"
             aria-label="Toggle chat"
             onClick={() => setChatOpen((o) => !o)}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-              chatOpen
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+              'flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+              chatOpen ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
             )}
           >
             <MessageSquare className="h-4 w-4" />
@@ -237,12 +228,21 @@ function MainApp() {
       <div className="mt-1 h-px shrink-0 bg-border" />
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <main className="h-full overflow-hidden">
-          {activeTab === "maps" && (
-            <MapBrowser thumbScale={thumbScale} anthropicApiKey={anthropicApiKey} packMappingVersion={packMappingVersion} />
+          {activeTab === 'maps' && (
+            <MapBrowser
+              thumbScale={thumbScale}
+              anthropicApiKey={anthropicApiKey}
+              packMappingVersion={packMappingVersion}
+            />
           )}
-          {activeTab === "books" && <BookBrowser />}
+          {activeTab === 'books' && <BookBrowser />}
         </main>
-        <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} anthropicApiKey={anthropicApiKey} chatModel={chatModel} />
+        <ChatDrawer
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          anthropicApiKey={anthropicApiKey}
+          chatModel={chatModel}
+        />
       </div>
     </div>
   );
@@ -282,24 +282,14 @@ function D20Icon({ className }: { className?: string }) {
   );
 }
 
-function NavTab({
-  active,
-  onClick,
-  children,
-}: {
-  active?: boolean;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) {
+function NavTab({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-        active
-          ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+        'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+        active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
       )}
     >
       {children}
@@ -307,7 +297,7 @@ function NavTab({
   );
 }
 
-type SettingsTab = "paths" | "maps" | "books" | "combat" | "monsters" | "items";
+type SettingsTab = 'paths' | 'maps' | 'books' | 'combat' | 'monsters' | 'items';
 
 function SettingsDialog({
   uiScale,
@@ -331,7 +321,7 @@ function SettingsDialog({
   onChatModelChange: (s: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<SettingsTab>("maps");
+  const [tab, setTab] = useState<SettingsTab>('maps');
   const [exportCopied, setExportCopied] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
@@ -359,9 +349,7 @@ function SettingsDialog({
   );
 
   const pathsChanged =
-    configPaths != null &&
-    initialPaths != null &&
-    JSON.stringify(configPaths) !== JSON.stringify(initialPaths);
+    configPaths != null && initialPaths != null && JSON.stringify(configPaths) !== JSON.stringify(initialPaths);
 
   const handleSaveAndRestart = async () => {
     if (!configPaths) return;
@@ -387,7 +375,7 @@ function SettingsDialog({
       setImportStatus(null);
       const mapping = await window.electronAPI.importPackMappingFromFile();
       if (mapping) {
-        setImportStatus("Imported successfully");
+        setImportStatus('Imported successfully');
         onPackMappingImported();
         setTimeout(() => setImportStatus(null), 3000);
       }
@@ -410,9 +398,7 @@ function SettingsDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Configure the app and its tools.
-          </DialogDescription>
+          <DialogDescription>Configure the app and its tools.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
@@ -431,8 +417,7 @@ function SettingsDialog({
               onChange={(e) => onAnthropicApiKeyChange(e.target.value)}
             />
             <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
-              Powers AI features (encounter hooks, map tagging). Stored
-              locally on this machine.
+              Powers AI features (encounter hooks, map tagging). Stored locally on this machine.
             </p>
           </div>
 
@@ -441,9 +426,7 @@ function SettingsDialog({
               <Label htmlFor="ui-scale" className="text-xs font-medium">
                 UI Size
               </Label>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {uiScale}px
-              </span>
+              <span className="text-xs tabular-nums text-muted-foreground">{uiScale}px</span>
             </div>
             <Slider
               id="ui-scale"
@@ -458,16 +441,16 @@ function SettingsDialog({
           {/* Per-page tabs */}
           <div className="border-t border-border pt-4">
             <nav className="flex flex-wrap gap-1">
-              {(["paths", "maps", "books", "combat", "monsters", "items"] as const).map((t) => (
+              {(['paths', 'maps', 'books', 'combat', 'monsters', 'items'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTab(t)}
                   className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                    'rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors',
                     tab === t
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                      ? 'bg-accent text-foreground'
+                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                   )}
                 >
                   {t}
@@ -476,13 +459,13 @@ function SettingsDialog({
             </nav>
 
             <div className="mt-4 space-y-4">
-              {tab === "paths" && configPaths && (
+              {tab === 'paths' && configPaths && (
                 <>
                   <PathField
                     label="Map Library"
                     description="Folder containing tagged map images and thumbnails."
                     value={configPaths.libraryPath}
-                    onChange={setPath("libraryPath")}
+                    onChange={setPath('libraryPath')}
                     mode="directory"
                     required
                   />
@@ -490,16 +473,16 @@ function SettingsDialog({
                     label="Map Index DB"
                     description="SQLite database maintained by the map tagger."
                     value={configPaths.indexDbPath}
-                    onChange={setPath("indexDbPath")}
+                    onChange={setPath('indexDbPath')}
                     mode="file"
                     required
-                    filters={[{ name: "SQLite", extensions: ["sqlite", "sqlite3", "db"] }]}
+                    filters={[{ name: 'SQLite', extensions: ['sqlite', 'sqlite3', 'db'] }]}
                   />
                   <PathField
                     label="Tagger Inbox"
                     description="Staging folder for new maps before processing."
                     value={configPaths.inboxPath}
-                    onChange={setPath("inboxPath")}
+                    onChange={setPath('inboxPath')}
                     mode="directory"
                     required
                   />
@@ -507,52 +490,48 @@ function SettingsDialog({
                     label="Quarantine"
                     description="Folder for maps that fail tagging."
                     value={configPaths.quarantinePath}
-                    onChange={setPath("quarantinePath")}
+                    onChange={setPath('quarantinePath')}
                     mode="directory"
                     required
                   />
                   <div className="border-t border-border pt-3">
-                    <p className="mb-3 text-[11px] font-medium text-muted-foreground">
-                      Optional integrations
-                    </p>
+                    <p className="mb-3 text-[11px] font-medium text-muted-foreground">Optional integrations</p>
                     <div className="space-y-4">
                       <PathField
                         label="Tagger Binary"
                         description="Override path to map-tagger.exe. Leave blank to use the bundled binary."
                         value={configPaths.taggerBinPath}
-                        onChange={setPath("taggerBinPath")}
+                        onChange={setPath('taggerBinPath')}
                         mode="file"
-                        filters={[{ name: "Executable", extensions: ["exe"] }]}
+                        filters={[{ name: 'Executable', extensions: ['exe'] }]}
                       />
                       <PathField
                         label="Books Root"
                         description="Root folder of TTRPG PDFs (enables the Books tab)."
                         value={configPaths.booksPath}
-                        onChange={setPath("booksPath")}
+                        onChange={setPath('booksPath')}
                         mode="directory"
                       />
                       <PathField
                         label="Auto-Wall Binary"
                         description="Path to Auto-Wall.exe for wall detection."
                         value={configPaths.autoWallBinPath}
-                        onChange={setPath("autoWallBinPath")}
+                        onChange={setPath('autoWallBinPath')}
                         mode="file"
-                        filters={[{ name: "Executable", extensions: ["exe"] }]}
+                        filters={[{ name: 'Executable', extensions: ['exe'] }]}
                       />
                       <PathField
                         label="PF2e Database"
                         description="PF2e rules/monsters SQLite database for offline lookups."
                         value={configPaths.pf2eDbPath}
-                        onChange={setPath("pf2eDbPath")}
+                        onChange={setPath('pf2eDbPath')}
                         mode="file"
-                        filters={[{ name: "SQLite", extensions: ["sqlite", "sqlite3", "db"] }]}
+                        filters={[{ name: 'SQLite', extensions: ['sqlite', 'sqlite3', 'db'] }]}
                       />
                     </div>
                   </div>
 
-                  {pathsError && (
-                    <p className="text-xs text-destructive">{pathsError}</p>
-                  )}
+                  {pathsError && <p className="text-xs text-destructive">{pathsError}</p>}
                   <Button
                     variant="outline"
                     size="sm"
@@ -561,7 +540,7 @@ function SettingsDialog({
                     className="w-full gap-1.5"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    {pathsSaving ? "Saving..." : "Save & Restart"}
+                    {pathsSaving ? 'Saving...' : 'Save & Restart'}
                   </Button>
                   <p className="text-[11px] text-muted-foreground">
                     Changing paths requires an app restart to take effect.
@@ -569,7 +548,7 @@ function SettingsDialog({
                 </>
               )}
 
-              {tab === "maps" && (
+              {tab === 'maps' && (
                 <>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -594,38 +573,27 @@ function SettingsDialog({
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">
-                      Pack Grouping
-                    </Label>
+                    <Label className="text-xs font-medium">Pack Grouping</Label>
                     <p className="text-[11px] leading-snug text-muted-foreground">
-                      Export a prompt, send it to Claude, then import the
-                      JSON to improve how map variants are grouped.
+                      Export a prompt, send it to Claude, then import the JSON to improve how map variants are grouped.
                     </p>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleExportPrompt}
-                        className="gap-1.5"
-                      >
+                      <Button variant="outline" size="sm" onClick={handleExportPrompt} className="gap-1.5">
                         <ClipboardCopy className="h-3.5 w-3.5" />
-                        {exportCopied ? "Copied!" : "Export prompt"}
+                        {exportCopied ? 'Copied!' : 'Export prompt'}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleImportGrouping}
-                        className="gap-1.5"
-                      >
+                      <Button variant="outline" size="sm" onClick={handleImportGrouping} className="gap-1.5">
                         <FolderOpen className="h-3.5 w-3.5" />
                         Import grouping
                       </Button>
                     </div>
                     {importStatus && (
-                      <p className={cn(
-                        "text-[11px]",
-                        importStatus.startsWith("Error") ? "text-destructive" : "text-green-400",
-                      )}>
+                      <p
+                        className={cn(
+                          'text-[11px]',
+                          importStatus.startsWith('Error') ? 'text-destructive' : 'text-green-400',
+                        )}
+                      >
                         {importStatus}
                       </p>
                     )}
@@ -633,29 +601,13 @@ function SettingsDialog({
                 </>
               )}
 
-              {tab === "books" && (
-                <p className="text-xs text-muted-foreground">
-                  No book-specific settings yet.
-                </p>
-              )}
+              {tab === 'books' && <p className="text-xs text-muted-foreground">No book-specific settings yet.</p>}
 
-              {tab === "combat" && (
-                <p className="text-xs text-muted-foreground">
-                  No combat settings yet.
-                </p>
-              )}
+              {tab === 'combat' && <p className="text-xs text-muted-foreground">No combat settings yet.</p>}
 
-              {tab === "monsters" && (
-                <p className="text-xs text-muted-foreground">
-                  No monster settings yet.
-                </p>
-              )}
+              {tab === 'monsters' && <p className="text-xs text-muted-foreground">No monster settings yet.</p>}
 
-              {tab === "items" && (
-                <p className="text-xs text-muted-foreground">
-                  No item settings yet.
-                </p>
-              )}
+              {tab === 'items' && <p className="text-xs text-muted-foreground">No item settings yet.</p>}
             </div>
           </div>
 
@@ -674,8 +626,7 @@ function SettingsDialog({
               <option value="claude-opus-4-6">Opus 4.6 — smartest, slowest</option>
             </select>
             <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
-              Model used by the chat assistant. Higher tiers are smarter
-              but cost more per message.
+              Model used by the chat assistant. Higher tiers are smarter but cost more per message.
             </p>
           </div>
         </div>
@@ -683,4 +634,3 @@ function SettingsDialog({
     </Dialog>
   );
 }
-

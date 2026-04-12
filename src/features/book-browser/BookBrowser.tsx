@@ -1,34 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { ChevronRight, Library, Layers, RefreshCw } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
-import { useBackgroundIngest, useBookList, useBookScan } from "./useBooks";
-import { BookReader } from "./BookReader";
-import {
-  groupAdventurePaths,
-  apTotalPages,
-  type ApGroup,
-} from "./ap-merge";
-import type { Book } from "@shared/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { ChevronRight, Library, Layers, RefreshCw } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { useBackgroundIngest, useBookList, useBookScan } from './useBooks';
+import { BookReader } from './BookReader';
+import { groupAdventurePaths, apTotalPages, type ApGroup } from './ap-merge';
+import type { Book } from '@shared/types';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type CatalogEntry =
-  | { kind: "book"; book: Book }
-  | { kind: "ap"; group: ApGroup }
-  | { kind: "section"; label: string };
+type CatalogEntry = { kind: 'book'; book: Book } | { kind: 'ap'; group: ApGroup } | { kind: 'section'; label: string };
 
-type OpenTarget =
-  | { kind: "book"; bookId: number }
-  | { kind: "ap"; group: ApGroup }
-  | null;
+type OpenTarget = { kind: 'book'; bookId: number } | { kind: 'ap'; group: ApGroup } | null;
 
 // ---------------------------------------------------------------------------
 // Top-level component
@@ -38,7 +28,7 @@ export function BookBrowser() {
   const { data: books, loading, error, refetch } = useBookList();
   const { scan, scanning } = useBookScan();
   const { ingesting, remaining } = useBackgroundIngest(books, refetch);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [openTarget, setOpenTarget] = useState<OpenTarget>(null);
@@ -73,13 +63,7 @@ export function BookBrowser() {
       }
       list.push(b);
     }
-    const CATEGORY_ORDER = [
-      "Rulebooks",
-      "Adventure Paths",
-      "Adventures",
-      "Lost Omens",
-      "Beginner Box",
-    ];
+    const CATEGORY_ORDER = ['Rulebooks', 'Adventure Paths', 'Adventures', 'Lost Omens', 'Beginner Box'];
     return Array.from(map.entries())
       .map(([name, v]) => ({
         name,
@@ -88,7 +72,7 @@ export function BookBrowser() {
           books: bks,
         })),
         count:
-          name === "Adventure Paths"
+          name === 'Adventure Paths'
             ? apGroups.length
             : Array.from(v.sub.values()).reduce((n, bks) => n + bks.length, 0),
       }))
@@ -105,13 +89,7 @@ export function BookBrowser() {
     const out: CatalogEntry[] = [];
 
     // Collect entries per category, preserving CATEGORY_ORDER.
-    const CATEGORY_ORDER = [
-      "Rulebooks",
-      "Adventure Paths",
-      "Adventures",
-      "Lost Omens",
-      "Beginner Box",
-    ];
+    const CATEGORY_ORDER = ['Rulebooks', 'Adventure Paths', 'Adventures', 'Lost Omens', 'Beginner Box'];
 
     // Group non-AP books by category.
     const byCat = new Map<string, Book[]>();
@@ -120,26 +98,29 @@ export function BookBrowser() {
       if (selectedSubcategory && b.subcategory !== selectedSubcategory) continue;
       if (q && !b.title.toLowerCase().includes(q)) continue;
       let list = byCat.get(b.category);
-      if (!list) { list = []; byCat.set(b.category, list); }
+      if (!list) {
+        list = [];
+        byCat.set(b.category, list);
+      }
       list.push(b);
     }
 
     // Collect AP entries if they pass the filter.
     const apEntries: CatalogEntry[] = [];
     for (const g of apGroups) {
-      if (selectedCategory && selectedCategory !== "Adventure Paths") continue;
+      if (selectedCategory && selectedCategory !== 'Adventure Paths') continue;
       if (selectedSubcategory && selectedSubcategory !== g.subcategory) continue;
       if (q && !g.subcategory.toLowerCase().includes(q)) continue;
-      apEntries.push({ kind: "ap", group: g });
+      apEntries.push({ kind: 'ap', group: g });
       for (const s of g.supplements) {
         if (q && !s.title.toLowerCase().includes(q)) continue;
-        apEntries.push({ kind: "book", book: s });
+        apEntries.push({ kind: 'book', book: s });
       }
     }
 
     // Emit entries in category order with section headers.
     const allCats = new Set([...CATEGORY_ORDER, ...byCat.keys()]);
-    if (apEntries.length > 0) allCats.add("Adventure Paths");
+    if (apEntries.length > 0) allCats.add('Adventure Paths');
     const sorted = [...allCats].sort((a, b) => {
       const ai = CATEGORY_ORDER.indexOf(a);
       const bi = CATEGORY_ORDER.indexOf(b);
@@ -148,17 +129,17 @@ export function BookBrowser() {
 
     for (const cat of sorted) {
       const catEntries: CatalogEntry[] = [];
-      if (cat === "Adventure Paths") {
+      if (cat === 'Adventure Paths') {
         catEntries.push(...apEntries);
       }
       const books = byCat.get(cat);
       if (books) {
-        for (const b of books) catEntries.push({ kind: "book", book: b });
+        for (const b of books) catEntries.push({ kind: 'book', book: b });
       }
       if (catEntries.length === 0) continue;
       // Only show section headers when viewing "All Books" (no category filter).
       if (!selectedCategory) {
-        out.push({ kind: "section", label: cat });
+        out.push({ kind: 'section', label: cat });
       }
       out.push(...catEntries);
     }
@@ -168,22 +149,10 @@ export function BookBrowser() {
 
   // Open target → reader.
   if (openTarget) {
-    if (openTarget.kind === "ap") {
-      return (
-        <BookReader
-          apGroup={openTarget.group}
-          onClose={() => setOpenTarget(null)}
-          onIngestComplete={refetch}
-        />
-      );
+    if (openTarget.kind === 'ap') {
+      return <BookReader apGroup={openTarget.group} onClose={() => setOpenTarget(null)} onIngestComplete={refetch} />;
     }
-    return (
-      <BookReader
-        bookId={openTarget.bookId}
-        onClose={() => setOpenTarget(null)}
-        onIngestComplete={refetch}
-      />
-    );
+    return <BookReader bookId={openTarget.bookId} onClose={() => setOpenTarget(null)} onIngestComplete={refetch} />;
   }
 
   return (
@@ -192,9 +161,7 @@ export function BookBrowser() {
         {/* Category rail */}
         <div className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
           <div className="flex h-12 items-center justify-between px-3">
-            <span className="text-sm font-semibold text-foreground">
-              Categories
-            </span>
+            <span className="text-sm font-semibold text-foreground">Categories</span>
             <Button
               variant="ghost"
               size="sm"
@@ -203,9 +170,7 @@ export function BookBrowser() {
               onClick={handleRescan}
               disabled={scanning}
             >
-              <RefreshCw
-                className={cn("h-3.5 w-3.5", scanning && "animate-spin")}
-              />
+              <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
             </Button>
           </div>
           <Separator />
@@ -213,11 +178,7 @@ export function BookBrowser() {
             <div className="py-1">
               <CategoryItem
                 name="All Books"
-                count={
-                  apGroups.length +
-                  apGroups.reduce((n, g) => n + g.supplements.length, 0) +
-                  otherBooks.length
-                }
+                count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
                 active={selectedCategory === null}
                 onClick={() => {
                   setSelectedCategory(null);
@@ -262,22 +223,14 @@ export function BookBrowser() {
               className="max-w-sm"
             />
             <span className="text-xs text-muted-foreground">
-              {loading && "Loading…"}
-              {!loading && error && (
-                <span className="text-destructive">Error: {error}</span>
-              )}
+              {loading && 'Loading…'}
+              {!loading && error && <span className="text-destructive">Error: {error}</span>}
               {!loading && !error && (
                 <>
-                  {entries.length} item{entries.length !== 1 ? "s" : ""}
-                  {selectedCategory && (
-                    <span className="ml-1 text-muted-foreground/70">
-                      in {selectedCategory}
-                    </span>
-                  )}
+                  {entries.length} item{entries.length !== 1 ? 's' : ''}
+                  {selectedCategory && <span className="ml-1 text-muted-foreground/70">in {selectedCategory}</span>}
                   {ingesting && (
-                    <span className="ml-2 text-muted-foreground/70">
-                      · extracting covers ({remaining} left)
-                    </span>
+                    <span className="ml-2 text-muted-foreground/70">· extracting covers ({remaining} left)</span>
                   )}
                 </>
               )}
@@ -288,19 +241,17 @@ export function BookBrowser() {
               <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                 <Library className="h-8 w-8 opacity-50" />
                 <span className="text-sm">
-                  {error
-                    ? "Could not load the book catalog."
-                    : "No books match the current filter."}
+                  {error ? 'Could not load the book catalog.' : 'No books match the current filter.'}
                 </span>
               </div>
             ) : (
               <CatalogGrid
                 entries={entries}
                 onSelect={(entry) => {
-                  if (entry.kind === "ap") {
-                    setOpenTarget({ kind: "ap", group: entry.group });
-                  } else if (entry.kind === "book") {
-                    setOpenTarget({ kind: "book", bookId: entry.book.id });
+                  if (entry.kind === 'ap') {
+                    setOpenTarget({ kind: 'ap', group: entry.group });
+                  } else if (entry.kind === 'book') {
+                    setOpenTarget({ kind: 'book', bookId: entry.book.id });
                   }
                 }}
               />
@@ -334,17 +285,15 @@ function CategoryItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between px-3 py-1.5 text-left text-xs transition-colors",
-        indent && "pl-6",
+        'flex w-full items-center justify-between px-3 py-1.5 text-left text-xs transition-colors',
+        indent && 'pl-6',
         active
-          ? "bg-accent text-foreground font-medium"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+          ? 'bg-accent text-foreground font-medium'
+          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
       )}
     >
       <span className="truncate">{name}</span>
-      <span className="ml-2 shrink-0 tabular-nums text-[10px] opacity-60">
-        {count}
-      </span>
+      <span className="ml-2 shrink-0 tabular-nums text-[10px] opacity-60">{count}</span>
     </button>
   );
 }
@@ -382,29 +331,22 @@ function CategoryGroup({
               setExpanded(!expanded);
             }}
           >
-            <ChevronRight
-              className={cn(
-                "h-3 w-3 transition-transform",
-                expanded && "rotate-90",
-              )}
-            />
+            <ChevronRight className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')} />
           </button>
         )}
         <button
           type="button"
           onClick={onSelectCategory}
           className={cn(
-            "flex flex-1 items-center justify-between py-1.5 pr-3 text-left text-xs transition-colors",
-            !hasSubs && "pl-3",
+            'flex flex-1 items-center justify-between py-1.5 pr-3 text-left text-xs transition-colors',
+            !hasSubs && 'pl-3',
             isCatActive
-              ? "bg-accent text-foreground font-medium"
-              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+              ? 'bg-accent text-foreground font-medium'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
           )}
         >
           <span className="truncate">{category.name}</span>
-          <span className="ml-2 shrink-0 tabular-nums text-[10px] opacity-60">
-            {category.count}
-          </span>
+          <span className="ml-2 shrink-0 tabular-nums text-[10px] opacity-60">{category.count}</span>
         </button>
       </div>
       {expanded &&
@@ -416,10 +358,7 @@ function CategoryGroup({
               key={s.name}
               name={s.name!}
               count={s.books.length}
-              active={
-                activeCategory === category.name &&
-                activeSubcategory === s.name
-              }
+              active={activeCategory === category.name && activeSubcategory === s.name}
               onClick={() => onSelectSubcategory(s.name!)}
               indent
             />
@@ -438,17 +377,9 @@ const GAP = 12;
 const SECTION_HEIGHT = 36;
 
 /** A layout row is either a section header (full width) or a row of cards. */
-type LayoutRow =
-  | { kind: "section"; label: string }
-  | { kind: "cards"; items: CatalogEntry[] };
+type LayoutRow = { kind: 'section'; label: string } | { kind: 'cards'; items: CatalogEntry[] };
 
-function CatalogGrid({
-  entries,
-  onSelect,
-}: {
-  entries: CatalogEntry[];
-  onSelect: (e: CatalogEntry) => void;
-}) {
+function CatalogGrid({ entries, onSelect }: { entries: CatalogEntry[]; onSelect: (e: CatalogEntry) => void }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
 
@@ -469,18 +400,18 @@ function CatalogGrid({
   // are chunked into rows of `columnCount`.
   const layoutRows = useMemo((): LayoutRow[] => {
     const rows: LayoutRow[] = [];
-    let cardBuffer: CatalogEntry[] = [];
+    const cardBuffer: CatalogEntry[] = [];
 
     const flushCards = () => {
       while (cardBuffer.length > 0) {
-        rows.push({ kind: "cards", items: cardBuffer.splice(0, columnCount) });
+        rows.push({ kind: 'cards', items: cardBuffer.splice(0, columnCount) });
       }
     };
 
     for (const entry of entries) {
-      if (entry.kind === "section") {
+      if (entry.kind === 'section') {
         flushCards();
-        rows.push({ kind: "section", label: entry.label });
+        rows.push({ kind: 'section', label: entry.label });
       } else {
         cardBuffer.push(entry);
       }
@@ -492,10 +423,7 @@ function CatalogGrid({
   const rowVirtualizer = useVirtualizer({
     count: layoutRows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (i) =>
-      layoutRows[i]?.kind === "section"
-        ? SECTION_HEIGHT
-        : CARD_HEIGHT + GAP,
+    estimateSize: (i) => (layoutRows[i]?.kind === 'section' ? SECTION_HEIGHT : CARD_HEIGHT + GAP),
     overscan: 3,
   });
 
@@ -512,12 +440,12 @@ function CatalogGrid({
 
   return (
     <div ref={parentRef} className="h-full overflow-auto p-3">
-      <div style={{ height: totalSize, position: "relative" }}>
+      <div style={{ height: totalSize, position: 'relative' }}>
         {virtualItems.map((vRow) => {
           const row = layoutRows[vRow.index];
           if (!row) return null;
 
-          if (row.kind === "section") {
+          if (row.kind === 'section') {
             return (
               <div
                 key={vRow.key}
@@ -528,9 +456,7 @@ function CatalogGrid({
                 }}
               >
                 <div className="flex w-full items-center gap-3 pb-1">
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    {row.label}
-                  </span>
+                  <span className="text-xs font-semibold text-muted-foreground">{row.label}</span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
               </div>
@@ -547,18 +473,10 @@ function CatalogGrid({
               }}
             >
               {row.items.map((entry) =>
-                entry.kind === "ap" ? (
-                  <ApCard
-                    key={`ap-${entry.group.subcategory}`}
-                    group={entry.group}
-                    onClick={() => onSelect(entry)}
-                  />
-                ) : entry.kind === "book" ? (
-                  <BookCard
-                    key={entry.book.id}
-                    book={entry.book}
-                    onClick={() => onSelect(entry)}
-                  />
+                entry.kind === 'ap' ? (
+                  <ApCard key={`ap-${entry.group.subcategory}`} group={entry.group} onClick={() => onSelect(entry)} />
+                ) : entry.kind === 'book' ? (
+                  <BookCard key={entry.book.id} book={entry.book} onClick={() => onSelect(entry)} />
                 ) : null,
               )}
             </div>
@@ -581,7 +499,10 @@ function BookCard({ book, onClick }: { book: Book; onClick: () => void }) {
     setCoverError(false);
     setCoverUrl(null);
     if (book.ingested) {
-      api.booksGetCoverUrl(book.id).then(setCoverUrl).catch(() => {});
+      api
+        .booksGetCoverUrl(book.id)
+        .then(setCoverUrl)
+        .catch(() => {});
     }
   }, [book.id, book.ingested]);
 
@@ -593,17 +514,16 @@ function BookCard({ book, onClick }: { book: Book; onClick: () => void }) {
       style={{ height: CARD_HEIGHT }}
       title={book.title}
     >
-      <CoverArea coverUrl={coverUrl} coverError={coverError} onCoverError={() => setCoverError(true)} ingested={book.ingested} />
+      <CoverArea
+        coverUrl={coverUrl}
+        coverError={coverError}
+        onCoverError={() => setCoverError(true)}
+        ingested={book.ingested}
+      />
       {book.ruleset && <RulesetBadge ruleset={book.ruleset} />}
       <div className="flex flex-1 flex-col justify-center px-2">
-        <div className="truncate text-xs font-medium leading-tight">
-          {book.title}
-        </div>
-        {book.pageCount != null && (
-          <div className="text-[10px] text-muted-foreground">
-            {book.pageCount} pages
-          </div>
-        )}
+        <div className="truncate text-xs font-medium leading-tight">{book.title}</div>
+        {book.pageCount != null && <div className="text-[10px] text-muted-foreground">{book.pageCount} pages</div>}
       </div>
     </button>
   );
@@ -618,7 +538,10 @@ function ApCard({ group, onClick }: { group: ApGroup; onClick: () => void }) {
     setCoverError(false);
     setCoverUrl(null);
     if (coverBook?.ingested) {
-      api.booksGetCoverUrl(coverBook.id).then(setCoverUrl).catch(() => {});
+      api
+        .booksGetCoverUrl(coverBook.id)
+        .then(setCoverUrl)
+        .catch(() => {});
     }
   }, [coverBook?.id, coverBook?.ingested]);
 
@@ -632,16 +555,19 @@ function ApCard({ group, onClick }: { group: ApGroup; onClick: () => void }) {
       style={{ height: CARD_HEIGHT }}
       title={`${group.subcategory} (${group.parts.length}-part Adventure Path)`}
     >
-      <CoverArea coverUrl={coverUrl} coverError={coverError} onCoverError={() => setCoverError(true)} ingested={coverBook?.ingested ?? false} />
+      <CoverArea
+        coverUrl={coverUrl}
+        coverError={coverError}
+        onCoverError={() => setCoverError(true)}
+        ingested={coverBook?.ingested ?? false}
+      />
       {/* AP badge */}
       <div className="pointer-events-none absolute right-1 top-1 flex items-center gap-0.5 rounded bg-primary/90 px-1 py-0.5 text-[9px] font-semibold text-primary-foreground shadow-sm">
         <Layers className="h-2.5 w-2.5" />
         {group.parts.length}
       </div>
       <div className="flex flex-1 flex-col justify-center px-2">
-        <div className="truncate text-xs font-medium leading-tight">
-          {group.subcategory}
-        </div>
+        <div className="truncate text-xs font-medium leading-tight">{group.subcategory}</div>
         <div className="text-[10px] text-muted-foreground">
           {group.parts.length}-part AP
           {totalPages != null && ` · ${totalPages} pages`}
@@ -664,10 +590,7 @@ function CoverArea({
   ingested: boolean;
 }) {
   return (
-    <div
-      className="relative overflow-hidden bg-muted"
-      style={{ height: CARD_HEIGHT - 46, width: "100%" }}
-    >
+    <div className="relative overflow-hidden bg-muted" style={{ height: CARD_HEIGHT - 46, width: '100%' }}>
       {coverUrl && !coverError ? (
         <img
           src={coverUrl}
@@ -675,10 +598,10 @@ function CoverArea({
           loading="lazy"
           onError={onCoverError}
           style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
           }}
           className="transition-transform group-hover:scale-[1.03]"
         />
@@ -686,7 +609,7 @@ function CoverArea({
         <div className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center">
           <Library className="h-6 w-6 text-muted-foreground/40" />
           <span className="text-[9px] leading-tight text-muted-foreground/60">
-            {ingested ? "Cover unavailable" : "Not yet opened"}
+            {ingested ? 'Cover unavailable' : 'Not yet opened'}
           </span>
         </div>
       )}
@@ -694,17 +617,15 @@ function CoverArea({
   );
 }
 
-function RulesetBadge({ ruleset }: { ruleset: "legacy" | "remastered" }) {
+function RulesetBadge({ ruleset }: { ruleset: 'legacy' | 'remastered' }) {
   return (
     <div
       className={cn(
-        "pointer-events-none absolute right-1 top-1 rounded px-1 py-0.5 text-[9px] font-semibold uppercase shadow-sm",
-        ruleset === "remastered"
-          ? "bg-primary/90 text-primary-foreground"
-          : "bg-muted-foreground/80 text-background",
+        'pointer-events-none absolute right-1 top-1 rounded px-1 py-0.5 text-[9px] font-semibold uppercase shadow-sm',
+        ruleset === 'remastered' ? 'bg-primary/90 text-primary-foreground' : 'bg-muted-foreground/80 text-background',
       )}
     >
-      {ruleset === "remastered" ? "R" : "L"}
+      {ruleset === 'remastered' ? 'R' : 'L'}
     </div>
   );
 }

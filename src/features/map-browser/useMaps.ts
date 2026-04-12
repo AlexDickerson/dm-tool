@@ -3,9 +3,9 @@
 // If we grow to more complex caching we should pull in react-query and
 // move to that.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
-import type { Facets, MapDetail, MapSummary, SearchParams } from "@shared/types";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api';
+import type { Facets, MapDetail, MapSummary, SearchParams } from '@shared/types';
 
 interface AsyncState<T> {
   data: T | null;
@@ -117,7 +117,7 @@ export function useOpenInExplorer() {
     try {
       await api.openInExplorer(fileName);
     } catch (e) {
-      console.error("openInExplorer failed:", e);
+      console.error('openInExplorer failed:', e);
     }
   }, []);
 }
@@ -155,7 +155,7 @@ export function usePackMapping(version = 0): PackMappingState & {
         }
       })
       .catch((e: Error) => {
-        if (!cancelled) console.error("Failed to load pack mapping cache:", e);
+        if (!cancelled) console.error('Failed to load pack mapping cache:', e);
       });
     return () => {
       cancelled = true;

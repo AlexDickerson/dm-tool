@@ -5,22 +5,22 @@
 /** Strip HTML tags for Stack Exchange bodies. */
 function stripHtml(html: string): string {
   return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|pre|code|blockquote)[\s>]/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|pre|code|blockquote)[\s>]/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 function truncate(text: string, max = 800): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + "…";
+  return text.slice(0, max) + '…';
 }
 
 // ---------------------------------------------------------------------------
@@ -36,33 +36,31 @@ interface RedditPost {
 }
 
 async function searchReddit(query: string): Promise<string[]> {
-  const url = new URL("https://www.reddit.com/r/Pathfinder2e+Pathfinder_RPG/search.json");
-  url.searchParams.set("q", query);
-  url.searchParams.set("restrict_sr", "on");
-  url.searchParams.set("sort", "relevance");
-  url.searchParams.set("limit", "3");
+  const url = new URL('https://www.reddit.com/r/Pathfinder2e+Pathfinder_RPG/search.json');
+  url.searchParams.set('q', query);
+  url.searchParams.set('restrict_sr', 'on');
+  url.searchParams.set('sort', 'relevance');
+  url.searchParams.set('limit', '3');
 
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "dm-tool/0.1" },
+      headers: { 'User-Agent': 'dm-tool/0.1' },
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) return [];
 
     const data = await res.json();
-    const posts: RedditPost[] = (data?.data?.children ?? []).map(
-      (c: { data: RedditPost }) => c.data,
-    );
+    const posts: RedditPost[] = (data?.data?.children ?? []).map((c: { data: RedditPost }) => c.data);
 
     return posts.map((p) => {
-      const body = p.selftext ? truncate(p.selftext) : "(link post — no body text)";
+      const body = p.selftext ? truncate(p.selftext) : '(link post — no body text)';
       return [
         `[Reddit] ${p.title}`,
         `Score: ${p.score} | Comments: ${p.num_comments}`,
         `URL: https://www.reddit.com${p.permalink}`,
-        "",
+        '',
         body,
-      ].join("\n");
+      ].join('\n');
     });
   } catch {
     return [];
@@ -86,14 +84,14 @@ interface SEResponse {
 }
 
 async function searchStackExchange(query: string): Promise<string[]> {
-  const url = new URL("https://api.stackexchange.com/2.3/search/advanced");
-  url.searchParams.set("order", "desc");
-  url.searchParams.set("sort", "relevance");
-  url.searchParams.set("q", query);
-  url.searchParams.set("tagged", "pathfinder-2e");
-  url.searchParams.set("site", "rpg");
-  url.searchParams.set("pagesize", "3");
-  url.searchParams.set("filter", "withbody");
+  const url = new URL('https://api.stackexchange.com/2.3/search/advanced');
+  url.searchParams.set('order', 'desc');
+  url.searchParams.set('sort', 'relevance');
+  url.searchParams.set('q', query);
+  url.searchParams.set('tagged', 'pathfinder-2e');
+  url.searchParams.set('site', 'rpg');
+  url.searchParams.set('pagesize', '3');
+  url.searchParams.set('filter', 'withbody');
 
   try {
     const res = await fetch(url, {
@@ -104,16 +102,14 @@ async function searchStackExchange(query: string): Promise<string[]> {
     const data: SEResponse = await res.json();
 
     return (data.items ?? []).map((q) => {
-      const body = q.body_markdown
-        ? truncate(q.body_markdown)
-        : truncate(stripHtml(q.title));
+      const body = q.body_markdown ? truncate(q.body_markdown) : truncate(stripHtml(q.title));
       return [
         `[RPG Stack Exchange] ${stripHtml(q.title)}`,
         `Score: ${q.score} | Answers: ${q.answer_count}`,
         `URL: ${q.link}`,
-        "",
+        '',
         body,
-      ].join("\n");
+      ].join('\n');
     });
   } catch {
     return [];
@@ -130,10 +126,7 @@ async function searchStackExchange(query: string): Promise<string[]> {
  * Never throws.
  */
 export async function searchCommunity(query: string): Promise<string> {
-  const [redditResults, seResults] = await Promise.all([
-    searchReddit(query),
-    searchStackExchange(query),
-  ]);
+  const [redditResults, seResults] = await Promise.all([searchReddit(query), searchStackExchange(query)]);
 
   const all = [...redditResults, ...seResults];
 
@@ -141,5 +134,5 @@ export async function searchCommunity(query: string): Promise<string> {
     return `[No community results found for "${query}"]`;
   }
 
-  return all.map((r, i) => `--- Community Result ${i + 1} ---\n${r}`).join("\n\n");
+  return all.map((r, i) => `--- Community Result ${i + 1} ---\n${r}`).join('\n\n');
 }

@@ -2,7 +2,7 @@
 // Used by chat tools for monster, item, and NPC lookups instead of
 // hitting the AoN Elasticsearch endpoint.
 
-import Database from "better-sqlite3";
+import Database from 'better-sqlite3';
 
 let db: Database.Database | null = null;
 
@@ -17,7 +17,7 @@ export function closePf2eDb(): void {
 }
 
 function requireDb(): Database.Database {
-  if (!db) throw new Error("PF2e database not initialized");
+  if (!db) throw new Error('PF2e database not initialized');
   return db;
 }
 
@@ -25,20 +25,20 @@ function requireDb(): Database.Database {
 
 /** Strip Foundry @UUID/@ references and basic HTML from descriptions. */
 function cleanDescription(html: string | null): string {
-  if (!html) return "";
+  if (!html) return '';
   return html
-    .replace(/@UUID\[Compendium\.[^\]]+\]\{([^}]+)\}/g, "$1")
-    .replace(/@UUID\[Compendium\.[^\]]+\]/g, "")
-    .replace(/@Check\[([^|]+)\|dc:(\d+)\]/g, "$1 DC $2")
-    .replace(/<hr\s*\/?>/gi, "\n---\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6])[\s>]/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/@UUID\[Compendium\.[^\]]+\]\{([^}]+)\}/g, '$1')
+    .replace(/@UUID\[Compendium\.[^\]]+\]/g, '')
+    .replace(/@Check\[([^|]+)\|dc:(\d+)\]/g, '$1 DC $2')
+    .replace(/<hr\s*\/?>/gi, '\n---\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6])[\s>]/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -117,63 +117,73 @@ export interface MonsterResult {
 }
 
 function formatMelee(raw: string): string {
-  const attacks = tryParseJson<Array<{
-    name: string;
-    bonus: number;
-    damage: Array<{ formula: string; type: string; category: string | null }>;
-    traits: string[];
-  }>>(raw, []);
+  const attacks = tryParseJson<
+    Array<{
+      name: string;
+      bonus: number;
+      damage: Array<{ formula: string; type: string; category: string | null }>;
+      traits: string[];
+    }>
+  >(raw, []);
   return attacks
     .map((a) => {
-      const traits = a.traits.length ? ` (${a.traits.join(", ")})` : "";
+      const traits = a.traits.length ? ` (${a.traits.join(', ')})` : '';
       const dmg = a.damage
-        .map((d) => `${d.formula} ${d.type}${d.category === "persistent" ? " persistent" : ""}`)
-        .join(" plus ");
+        .map((d) => `${d.formula} ${d.type}${d.category === 'persistent' ? ' persistent' : ''}`)
+        .join(' plus ');
       return `${a.name} +${a.bonus}${traits}, Damage ${dmg}`;
     })
-    .join("; ");
+    .join('; ');
 }
 
 function formatActions(raw: string): string {
-  const actions = tryParseJson<Array<{
-    name: string;
-    action_type: string;
-    actions: number | null;
-    traits: string[];
-    description: string;
-  }>>(raw, []);
+  const actions = tryParseJson<
+    Array<{
+      name: string;
+      action_type: string;
+      actions: number | null;
+      traits: string[];
+      description: string;
+    }>
+  >(raw, []);
   return actions
     .map((a) => {
       const actionCost =
-        a.action_type === "passive" ? ""
-        : a.actions === 1 ? "◆ "
-        : a.actions === 2 ? "◆◆ "
-        : a.actions === 3 ? "◆◆◆ "
-        : a.action_type === "reaction" ? "⟳ "
-        : a.action_type === "free" ? "◇ "
-        : "";
-      const traits = a.traits.length ? ` (${a.traits.join(", ")})` : "";
+        a.action_type === 'passive'
+          ? ''
+          : a.actions === 1
+            ? '◆ '
+            : a.actions === 2
+              ? '◆◆ '
+              : a.actions === 3
+                ? '◆◆◆ '
+                : a.action_type === 'reaction'
+                  ? '⟳ '
+                  : a.action_type === 'free'
+                    ? '◇ '
+                    : '';
+      const traits = a.traits.length ? ` (${a.traits.join(', ')})` : '';
       const desc = cleanDescription(a.description);
       return `${actionCost}${a.name}${traits} ${desc}`;
     })
-    .join("\n");
+    .join('\n');
 }
 
 function formatImmunities(raw: string): string {
   const items = tryParseJson<Array<{ type: string }>>(raw, []);
-  return items.map((i) => i.type).join(", ");
+  return items.map((i) => i.type).join(', ');
 }
 
 function formatWeaknesses(raw: string): string {
   const items = tryParseJson<Array<{ type: string; value: number }>>(raw, []);
-  return items.map((w) => `${w.type} ${w.value}`).join(", ");
+  return items.map((w) => `${w.type} ${w.value}`).join(', ');
 }
 
 function formatSpeed(land: number, other: string): string {
   const parts = [`${land} feet`];
   const extras = tryParseJson<Array<{ type: string; value: number }>>(other, []);
   for (const s of extras) parts.push(`${s.type} ${s.value} feet`);
-  return parts.join(", ");
+  return parts.join(', ');
 }
 
 function rowToResult(row: MonsterRow): MonsterResult {
@@ -213,9 +223,9 @@ function formatMonsterResult(r: MonsterResult, idx: number): string {
   return [
     `--- Creature Result ${idx}: ${r.name} (Level ${r.level}) ---`,
     `Source: ${r.source} | Rarity: ${r.rarity} | Size: ${r.size}`,
-    `Traits: ${r.traits.join(", ")}`,
+    `Traits: ${r.traits.join(', ')}`,
     `URL: ${r.aon_url}`,
-    "",
+    '',
     `HP ${r.hp} | AC ${r.ac} | Fort ${mod(r.fort)} | Ref ${mod(r.ref)} | Will ${mod(r.will)} | Perception ${mod(r.perception)}`,
     `Str ${mod(r.str)} Dex ${mod(r.dex)} Con ${mod(r.con)} Int ${mod(r.int)} Wis ${mod(r.wis)} Cha ${mod(r.cha)}`,
     `Speed: ${r.speed}`,
@@ -228,7 +238,7 @@ function formatMonsterResult(r: MonsterResult, idx: number): string {
     r.description ? `\n${r.description}` : null,
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 }
 
 export function searchMonsters(query: string): string {
@@ -242,7 +252,7 @@ export function searchMonsters(query: string): string {
     .all(`%${query}%`, query, `${query}%`) as MonsterRow[];
 
   if (rows.length === 0) return `[No creatures found for "${query}"]`;
-  return rows.map((r, i) => formatMonsterResult(rowToResult(r), i + 1)).join("\n\n");
+  return rows.map((r, i) => formatMonsterResult(rowToResult(r), i + 1)).join('\n\n');
 }
 
 // --- Item queries -----------------------------------------------------------
@@ -274,27 +284,25 @@ export function searchItems(query: string): string {
   return rows
     .map((r, i) => {
       const desc = cleanDescription(r.description);
-      const truncated = desc.length > 1000 ? desc.slice(0, 1000) + "…" : desc;
+      const truncated = desc.length > 1000 ? desc.slice(0, 1000) + '…' : desc;
       return [
         `--- Item Result ${i + 1}: ${r.name} (Level ${r.level}) ---`,
         `Source: ${r.source}`,
-        `Price: ${r.price || "—"} | Bulk: ${r.bulk || "—"} | Usage: ${r.usage || "—"}`,
-        `Traits: ${r.traits || "—"}`,
+        `Price: ${r.price || '—'} | Bulk: ${r.bulk || '—'} | Usage: ${r.usage || '—'}`,
+        `Traits: ${r.traits || '—'}`,
         `URL: ${r.aon_url}`,
-        "",
+        '',
         truncated,
-      ].join("\n");
+      ].join('\n');
     })
-    .join("\n\n");
+    .join('\n\n');
 }
 
 // --- Monster preview for hover card -----------------------------------------
 
 export function getMonsterPreview(aonUrl: string): MonsterResult | null {
   const d = requireDb();
-  const row = d
-    .prepare("SELECT * FROM monsters WHERE aon_url = ? LIMIT 1")
-    .get(aonUrl) as MonsterRow | undefined;
+  const row = d.prepare('SELECT * FROM monsters WHERE aon_url = ? LIMIT 1').get(aonUrl) as MonsterRow | undefined;
   if (!row) return null;
   return rowToResult(row);
 }

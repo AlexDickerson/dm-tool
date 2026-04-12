@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef } from "react";
-import Markdown from "react-markdown";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
-import { AonHoverCard } from "./AonHoverCard";
-import type { Message } from "./types";
+import { useCallback, useEffect, useRef } from 'react';
+import Markdown from 'react-markdown';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { AonHoverCard } from './AonHoverCard';
+import type { Message } from './types';
 
 /** Render links — AoN links get a hover card, others open externally. */
 function ChatLink(props: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
-  const href = props.href ?? "";
-  const isAon = href.includes("aonprd.com");
+  const href = props.href ?? '';
+  const isAon = href.includes('aonprd.com');
 
   const openExternal = useCallback(() => {
     if (href) window.electronAPI?.openExternal?.(href);
@@ -45,7 +45,7 @@ export function MessageList({ messages }: { messages: Message[] }) {
   useEffect(() => {
     const el = bottomRef.current;
     if (!el) return;
-    const viewport = el.closest("[data-radix-scroll-area-viewport]");
+    const viewport = el.closest('[data-radix-scroll-area-viewport]');
     if (viewport) {
       viewport.scrollTop = viewport.scrollHeight;
     }
@@ -63,13 +63,13 @@ export function MessageList({ messages }: { messages: Message[] }) {
             <div
               key={msg.id}
               className={cn(
-                "max-w-[85%] rounded-lg px-3 py-2 text-sm",
-                msg.role === "user"
-                  ? "ml-auto bg-primary text-white"
-                  : "mr-auto bg-accent text-accent-foreground chat-markdown",
+                'max-w-[85%] rounded-lg px-3 py-2 text-sm',
+                msg.role === 'user'
+                  ? 'ml-auto bg-primary text-white'
+                  : 'mr-auto bg-accent text-accent-foreground chat-markdown',
               )}
             >
-              {msg.role === "user" ? (
+              {msg.role === 'user' ? (
                 <p className="whitespace-pre-wrap">{msg.content}</p>
               ) : (
                 <Markdown components={markdownComponents}>{msg.content}</Markdown>

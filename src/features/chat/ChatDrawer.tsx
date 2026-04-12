@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from "react";
-import { X } from "lucide-react";
-import { api } from "@/lib/api";
-import { MessageList } from "./MessageList";
-import { ChatInput } from "./ChatInput";
-import type { Message } from "./types";
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { X } from 'lucide-react';
+import { api } from '@/lib/api';
+import { MessageList } from './MessageList';
+import { ChatInput } from './ChatInput';
+import type { Message } from './types';
 
 let nextId = 0;
 function uid(): string {
@@ -27,7 +27,7 @@ export function ChatDrawer({
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [streaming, setStreaming] = useState(false);
-  const [anim, setAnim] = useState<"open" | "closing">("open");
+  const [anim, setAnim] = useState<'open' | 'closing'>('open');
   const [width, setWidth] = useState(CHAT_DEFAULT);
   const panelRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ startX: number; startW: number } | null>(null);
@@ -43,33 +43,17 @@ export function ChatDrawer({
       const id = streamingIdRef.current;
       if (!id) return;
 
-      if (chunk.type === "delta" && chunk.text) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === id ? { ...m, content: m.content + chunk.text } : m,
-          ),
-        );
-      } else if (chunk.type === "tool-status" && chunk.text) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === id ? { ...m, content: `*${chunk.text}*\n\n` } : m,
-          ),
-        );
-      } else if (chunk.type === "done") {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === id ? { ...m, streaming: false } : m,
-          ),
-        );
+      if (chunk.type === 'delta' && chunk.text) {
+        setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: m.content + chunk.text } : m)));
+      } else if (chunk.type === 'tool-status' && chunk.text) {
+        setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, content: `*${chunk.text}*\n\n` } : m)));
+      } else if (chunk.type === 'done') {
+        setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, streaming: false } : m)));
         streamingIdRef.current = null;
         setStreaming(false);
-      } else if (chunk.type === "error") {
+      } else if (chunk.type === 'error') {
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === id
-              ? { ...m, content: chunk.error ?? "An error occurred.", streaming: false }
-              : m,
-          ),
+          prev.map((m) => (m.id === id ? { ...m, content: chunk.error ?? 'An error occurred.', streaming: false } : m)),
         );
         streamingIdRef.current = null;
         setStreaming(false);
@@ -80,11 +64,14 @@ export function ChatDrawer({
 
   // Resize drag: pointer down on the left-edge handle starts tracking,
   // pointermove updates width, pointerup ends.
-  const onResizePointerDown = useCallback((e: RPointerEvent) => {
-    e.preventDefault();
-    dragStartRef.current = { startX: e.clientX, startW: width };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [width]);
+  const onResizePointerDown = useCallback(
+    (e: RPointerEvent) => {
+      e.preventDefault();
+      dragStartRef.current = { startX: e.clientX, startW: width };
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [width],
+  );
 
   const onResizePointerMove = useCallback((e: RPointerEvent) => {
     const drag = dragStartRef.current;
@@ -100,18 +87,18 @@ export function ChatDrawer({
 
   // Mirror the DetailPane close-on-animation-end pattern.
   const handleClose = useCallback(() => {
-    setAnim("closing");
+    setAnim('closing');
     const el = panelRef.current;
     if (!el) {
       onClose();
       return;
     }
     const onEnd = () => {
-      el.removeEventListener("animationend", onEnd);
-      setAnim("open");
+      el.removeEventListener('animationend', onEnd);
+      setAnim('open');
       onClose();
     };
-    el.addEventListener("animationend", onEnd);
+    el.addEventListener('animationend', onEnd);
   }, [onClose]);
 
   const handleSend = useCallback(
@@ -119,8 +106,8 @@ export function ChatDrawer({
       if (!anthropicApiKey) {
         const errMsg: Message = {
           id: uid(),
-          role: "assistant",
-          content: "No API key set. Add your Anthropic key in Settings.",
+          role: 'assistant',
+          content: 'No API key set. Add your Anthropic key in Settings.',
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, errMsg]);
@@ -129,7 +116,7 @@ export function ChatDrawer({
 
       const userMsg: Message = {
         id: uid(),
-        role: "user",
+        role: 'user',
         content: text,
         timestamp: Date.now(),
       };
@@ -137,8 +124,8 @@ export function ChatDrawer({
       const assistantId = uid();
       const assistantMsg: Message = {
         id: assistantId,
-        role: "assistant",
-        content: "",
+        role: 'assistant',
+        content: '',
         timestamp: Date.now(),
         streaming: true,
       };
@@ -172,11 +159,9 @@ export function ChatDrawer({
       className="absolute inset-y-0 right-0 z-20 flex flex-col border-l border-border backdrop-blur-md"
       style={{
         width,
-        backgroundColor: "hsl(var(--background) / 0.85)",
+        backgroundColor: 'hsl(var(--background) / 0.85)',
         animation:
-          anim === "open"
-            ? "dmtool-slide-in-right 200ms ease-out"
-            : "dmtool-slide-out-right 150ms ease-out forwards",
+          anim === 'open' ? 'dmtool-slide-in-right 200ms ease-out' : 'dmtool-slide-out-right 150ms ease-out forwards',
       }}
     >
       {/* Resize handle — left edge */}

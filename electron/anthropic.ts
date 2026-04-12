@@ -9,32 +9,32 @@
 // bundler can be finicky with it. A direct fetch is a dozen lines and
 // keeps the dependency surface small.
 
-import { existsSync, readFileSync } from "node:fs";
-import { extname, join } from "node:path";
-import type { MapDetail } from "../shared/types.js";
+import { existsSync, readFileSync } from 'node:fs';
+import { extname, join } from 'node:path';
+import type { MapDetail } from '../shared/types.js';
 
 // Per the system prompt: default to the latest Sonnet for app-building.
 // Sonnet 4.6 has vision and is plenty for this prompt.
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_VERSION = "2023-06-01";
+const ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const ANTHROPIC_VERSION = '2023-06-01';
 const MAX_TOKENS = 1024;
 
-type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 
 function mediaTypeFor(filePath: string): ImageMediaType {
   const ext = extname(filePath).toLowerCase();
   switch (ext) {
-    case ".png":
-      return "image/png";
-    case ".webp":
-      return "image/webp";
-    case ".gif":
-      return "image/gif";
-    case ".jpg":
-    case ".jpeg":
+    case '.png':
+      return 'image/png';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.jpg':
+    case '.jpeg':
     default:
-      return "image/jpeg";
+      return 'image/jpeg';
   }
 }
 
@@ -49,7 +49,7 @@ function loadImageAsBase64(filePath: string): {
   }
   const buf = readFileSync(filePath);
   return {
-    base64: buf.toString("base64"),
+    base64: buf.toString('base64'),
     mediaType: mediaTypeFor(filePath),
   };
 }
@@ -63,7 +63,7 @@ function resolveImagePath(libraryPath: string, fileName: string): string {
 }
 
 interface AnthropicTextBlock {
-  type: "text";
+  type: 'text';
   text: string;
 }
 interface AnthropicResponse {
@@ -79,19 +79,17 @@ function buildPrompt(detail: MapDetail): string {
     existing.length > 0
       ? `Existing encounter hooks (do NOT repeat or paraphrase these):\n${existing
           .map((h, i) => `${i + 1}. ${h}`)
-          .join("\n")}`
-      : "There are no existing encounter hooks yet.";
+          .join('\n')}`
+      : 'There are no existing encounter hooks yet.';
 
   const tags = [
-    detail.biomes.length > 0 ? `Biomes: ${detail.biomes.join(", ")}` : null,
-    detail.locationTypes.length > 0
-      ? `Locations: ${detail.locationTypes.join(", ")}`
-      : null,
-    detail.mood.length > 0 ? `Mood: ${detail.mood.join(", ")}` : null,
-    detail.features.length > 0 ? `Features: ${detail.features.join(", ")}` : null,
+    detail.biomes.length > 0 ? `Biomes: ${detail.biomes.join(', ')}` : null,
+    detail.locationTypes.length > 0 ? `Locations: ${detail.locationTypes.join(', ')}` : null,
+    detail.mood.length > 0 ? `Mood: ${detail.mood.join(', ')}` : null,
+    detail.features.length > 0 ? `Features: ${detail.features.join(', ')}` : null,
   ]
     .filter(Boolean)
-    .join("\n");
+    .join('\n');
 
   return [
     `You are helping a tabletop RPG dungeon master brainstorm encounter hooks for a battlemap.`,
@@ -107,7 +105,7 @@ function buildPrompt(detail: MapDetail): string {
     `Respond with ONLY a JSON array of strings — no preamble, no code fences, no commentary. Example format: ["First hook here.", "Second hook here.", "Third hook here."]`,
   ]
     .filter((line) => line !== null)
-    .join("\n");
+    .join('\n');
 }
 
 /** Strip Markdown code fences (```json … ```) the model sometimes wraps
@@ -121,19 +119,19 @@ function parseHookList(rawText: string): string[] {
   try {
     parsed = JSON.parse(text);
   } catch (e) {
-    throw new Error(
-      `Anthropic returned non-JSON content: ${(e as Error).message}. Raw: ${rawText.slice(0, 200)}`,
-    );
+    throw new Error(`Anthropic returned non-JSON content: ${(e as Error).message}. Raw: ${rawText.slice(0, 200)}`, {
+      cause: e,
+    });
   }
   if (!Array.isArray(parsed)) {
     throw new Error(`Anthropic returned non-array JSON: ${typeof parsed}`);
   }
   const hooks = parsed
-    .filter((x): x is string => typeof x === "string")
+    .filter((x): x is string => typeof x === 'string')
     .map((x) => x.trim())
     .filter((x) => x.length > 0);
   if (hooks.length === 0) {
-    throw new Error("Anthropic returned an empty hook list");
+    throw new Error('Anthropic returned an empty hook list');
   }
   return hooks;
 }
@@ -147,7 +145,7 @@ export async function generateEncounterHooks(args: {
 }): Promise<string[]> {
   const { apiKey, libraryPath, detail } = args;
   if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error("Anthropic API key is not set. Add one in Settings.");
+    throw new Error('Anthropic API key is not set. Add one in Settings.');
   }
 
   const imagePath = resolveImagePath(libraryPath, detail.fileName);
@@ -159,18 +157,18 @@ export async function generateEncounterHooks(args: {
     max_tokens: MAX_TOKENS,
     messages: [
       {
-        role: "user",
+        role: 'user',
         content: [
           {
-            type: "image",
+            type: 'image',
             source: {
-              type: "base64",
+              type: 'base64',
               media_type: mediaType,
               data: base64,
             },
           },
           {
-            type: "text",
+            type: 'text',
             text: prompt,
           },
         ],
@@ -179,28 +177,24 @@ export async function generateEncounterHooks(args: {
   };
 
   const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": ANTHROPIC_VERSION,
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': ANTHROPIC_VERSION,
     },
     body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    throw new Error(
-      `Anthropic API error ${res.status}: ${errText.slice(0, 300) || res.statusText}`,
-    );
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Anthropic API error ${res.status}: ${errText.slice(0, 300) || res.statusText}`);
   }
 
   const json = (await res.json()) as AnthropicResponse;
-  const textBlock = json.content?.find(
-    (c): c is AnthropicTextBlock => c.type === "text",
-  );
+  const textBlock = json.content?.find((c): c is AnthropicTextBlock => c.type === 'text');
   if (!textBlock) {
-    throw new Error("Anthropic response had no text content block");
+    throw new Error('Anthropic response had no text content block');
   }
   return parseHookList(textBlock.text);
 }

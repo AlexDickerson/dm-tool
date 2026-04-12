@@ -13,8 +13,8 @@
 // Keep this file free of Electron imports — it should be testable in a
 // plain Node process.
 
-import Database, { type Database as BetterSqliteDB } from "better-sqlite3";
-import type { Book } from "../shared/types.js";
+import Database, { type Database as BetterSqliteDB } from 'better-sqlite3';
+import type { Book } from '../shared/types.js';
 
 /** Raw row shape as it comes back from the SELECT. Snake_case mirrors the
  *  schema; the public `Book` type uses camelCase. */
@@ -40,7 +40,7 @@ export interface ScannedFile {
   title: string;
   category: string;
   subcategory: string | null;
-  ruleset: "legacy" | "remastered" | null;
+  ruleset: 'legacy' | 'remastered' | null;
   fileSize: number;
   mtime: number;
 }
@@ -53,7 +53,7 @@ export class BookDb {
     // don't block. The DB is tiny (one small table) so we don't bother
     // with busy_timeout tuning.
     this.db = new Database(dbPath);
-    this.db.pragma("journal_mode = WAL");
+    this.db.pragma('journal_mode = WAL');
     this.migrate();
   }
 
@@ -88,9 +88,7 @@ export class BookDb {
    *  NULL subcategories sort before named ones via COALESCE(''). */
   listAll(): Book[] {
     const rows = this.db
-      .prepare(
-        "SELECT * FROM books ORDER BY category, COALESCE(subcategory, ''), title",
-      )
+      .prepare("SELECT * FROM books ORDER BY category, COALESCE(subcategory, ''), title")
       .all() as BookRow[];
     return rows.map(rowToBook);
   }
@@ -98,18 +96,14 @@ export class BookDb {
   /** Single row by id, or null if unknown. Used by the reader to hydrate
    *  its view from a click handler that only has the id. */
   getById(id: number): Book | null {
-    const row = this.db
-      .prepare("SELECT * FROM books WHERE id = ?")
-      .get(id) as BookRow | undefined;
+    const row = this.db.prepare('SELECT * FROM books WHERE id = ?').get(id) as BookRow | undefined;
     return row ? rowToBook(row) : null;
   }
 
   /** Absolute path for a book id. Kept internal to main — the renderer
    *  never sees filesystem paths, only `book-file://` URLs. */
   getPath(id: number): string | null {
-    const row = this.db
-      .prepare("SELECT path FROM books WHERE id = ?")
-      .get(id) as { path: string } | undefined;
+    const row = this.db.prepare('SELECT path FROM books WHERE id = ?').get(id) as { path: string } | undefined;
     return row?.path ?? null;
   }
 
@@ -131,9 +125,11 @@ export class BookDb {
     removed: number;
     total: number;
   } {
-    const existing = this.db
-      .prepare("SELECT id, path, mtime FROM books")
-      .all() as Array<{ id: number; path: string; mtime: number }>;
+    const existing = this.db.prepare('SELECT id, path, mtime FROM books').all() as Array<{
+      id: number;
+      path: string;
+      mtime: number;
+    }>;
     const byPath = new Map<string, { id: number; mtime: number }>();
     for (const row of existing) {
       byPath.set(row.path, { id: row.id, mtime: row.mtime });
@@ -158,7 +154,7 @@ export class BookDb {
            ingested_at = NULL
        WHERE path = @path`,
     );
-    const deleteStmt = this.db.prepare("DELETE FROM books WHERE id = ?");
+    const deleteStmt = this.db.prepare('DELETE FROM books WHERE id = ?');
 
     let added = 0;
     let updated = 0;
@@ -184,9 +180,7 @@ export class BookDb {
     });
     tx();
 
-    const total = this.db
-      .prepare("SELECT COUNT(*) as c FROM books")
-      .get() as { c: number };
+    const total = this.db.prepare('SELECT COUNT(*) as c FROM books').get() as { c: number };
     return { added, updated, removed, total: total.c };
   }
 
@@ -213,7 +207,7 @@ function rowToBook(row: BookRow): Book {
     title: row.title,
     category: row.category,
     subcategory: row.subcategory,
-    ruleset: (row.ruleset as Book["ruleset"]) ?? null,
+    ruleset: (row.ruleset as Book['ruleset']) ?? null,
     pageCount: row.page_count,
     fileSize: row.file_size,
     ingested: row.ingested_at !== null,

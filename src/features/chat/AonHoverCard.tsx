@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
-import type { AonPreviewData, AonCreaturePreview } from "../../../shared/types";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import type { AonPreviewData, AonCreaturePreview } from '../../../shared/types';
 
 // Simple in-memory cache so repeated hovers don't re-fetch.
 const cache = new Map<string, AonPreviewData | null>();
@@ -9,25 +9,22 @@ const cache = new Map<string, AonPreviewData | null>();
 // --- PF2e action glyphs -----------------------------------------------------
 
 const ACTION_MAP: Record<string, string> = {
-  "Single Action": "◆",
-  "Two Actions": "◆◆",
-  "Three Actions": "◆◆◆",
-  "Free Action": "◇",
-  "Reaction": "⟳",
+  'Single Action': '◆',
+  'Two Actions': '◆◆',
+  'Three Actions': '◆◆◆',
+  'Free Action': '◇',
+  Reaction: '⟳',
 };
 
 /** Replace action text with unicode glyphs. */
 function renderActionIcons(text: string): string {
-  return text.replace(
-    /Single Action|Two Actions|Three Actions|Free Action|Reaction/g,
-    (m) => ACTION_MAP[m] ?? m,
-  );
+  return text.replace(/Single Action|Two Actions|Three Actions|Free Action|Reaction/g, (m) => ACTION_MAP[m] ?? m);
 }
 
 function extractAonPath(href: string): string | null {
   try {
     const url = new URL(href);
-    if (!url.hostname.includes("aonprd.com")) return null;
+    if (!url.hostname.includes('aonprd.com')) return null;
     return url.pathname + url.search;
   } catch {
     return null;
@@ -50,18 +47,12 @@ function formatMod(n: number): string {
 /** Extract ability and attack descriptions from the stat block text.
  *  The AoN text is a continuous string (no newlines within sections),
  *  so we locate each ability by name and extract until the next boundary. */
-function parseStatBlock(
-  text: string,
-  abilityNames: string[],
-): { name: string; description: string }[] {
+function parseStatBlock(text: string, abilityNames: string[]): { name: string; description: string }[] {
   if (!text) return [];
   const entries: { name: string; description: string }[] = [];
 
   // Boundaries that signal the end of an ability description.
-  const boundaries = [
-    ...abilityNames,
-    "Speed ", "Melee ", "Ranged ", "---",
-  ];
+  const boundaries = [...abilityNames, 'Speed ', 'Melee ', 'Ranged ', '---'];
 
   // Extract named abilities.
   for (const name of abilityNames) {
@@ -82,11 +73,11 @@ function parseStatBlock(
   const attackRe = /(?:Melee|Ranged)\s+(?:Single Action|Two Actions|Three Actions|Reaction|Free Action)?\s*/g;
   let m: RegExpExecArray | null;
   while ((m = attackRe.exec(text)) !== null) {
-    const label = text.slice(m.index).startsWith("Melee") ? "Melee" : "Ranged";
+    const label = text.slice(m.index).startsWith('Melee') ? 'Melee' : 'Ranged';
     const after = text.slice(m.index + m[0].length);
     // Runs until the next Melee/Ranged/ability or end.
     let endIdx = after.length;
-    for (const b of ["Melee ", "Ranged ", ...abilityNames]) {
+    for (const b of ['Melee ', 'Ranged ', ...abilityNames]) {
       const bIdx = after.indexOf(b);
       if (bIdx > 0 && bIdx < endIdx) endIdx = bIdx;
     }
@@ -107,29 +98,26 @@ function CreatureCard({ data }: { data: AonCreaturePreview }) {
         {/* Header */}
         <div className="flex items-baseline justify-between gap-2">
           <span className="font-semibold">{data.name}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            Creature {data.level}
-          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">Creature {data.level}</span>
         </div>
 
         {/* Traits */}
         {data.traits.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {data.rarity !== "common" && (
-              <span className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
-                data.rarity === "uncommon" && "bg-orange-800/60 text-orange-200",
-                data.rarity === "rare" && "bg-blue-800/60 text-blue-200",
-                data.rarity === "unique" && "bg-purple-800/60 text-purple-200",
-              )}>
+            {data.rarity !== 'common' && (
+              <span
+                className={cn(
+                  'rounded px-1.5 py-0.5 text-[10px] font-medium uppercase',
+                  data.rarity === 'uncommon' && 'bg-orange-800/60 text-orange-200',
+                  data.rarity === 'rare' && 'bg-blue-800/60 text-blue-200',
+                  data.rarity === 'unique' && 'bg-purple-800/60 text-purple-200',
+                )}
+              >
                 {data.rarity}
               </span>
             )}
             {data.traits.map((t) => (
-              <span
-                key={t}
-                className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium"
-              >
+              <span key={t} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium">
                 {t}
               </span>
             ))}
@@ -139,9 +127,7 @@ function CreatureCard({ data }: { data: AonCreaturePreview }) {
         {/* Summary */}
         {data.summary && (
           <p className="text-xs leading-snug text-muted-foreground">
-            {data.summary.length > 120
-              ? data.summary.slice(0, 120) + "…"
-              : data.summary}
+            {data.summary.length > 120 ? data.summary.slice(0, 120) + '…' : data.summary}
           </p>
         )}
 
@@ -161,11 +147,9 @@ function CreatureCard({ data }: { data: AonCreaturePreview }) {
 
         {/* Ability scores */}
         <div className="grid grid-cols-6 gap-1 text-center text-[10px]">
-          {(["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"] as const).map((ab) => (
+          {(['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'] as const).map((ab) => (
             <div key={ab}>
-              <div className="font-medium text-muted-foreground uppercase">
-                {ab.slice(0, 3)}
-              </div>
+              <div className="font-medium text-muted-foreground uppercase">{ab.slice(0, 3)}</div>
               <div className="tabular-nums">{formatMod(data[ab])}</div>
             </div>
           ))}
@@ -173,21 +157,23 @@ function CreatureCard({ data }: { data: AonCreaturePreview }) {
 
         {/* Speed / Size */}
         <div className="flex gap-3 text-xs">
-          <span><span className="text-muted-foreground">Spd</span> {data.speed}</span>
-          <span><span className="text-muted-foreground">Size</span> {data.size}</span>
+          <span>
+            <span className="text-muted-foreground">Spd</span> {data.speed}
+          </span>
+          <span>
+            <span className="text-muted-foreground">Size</span> {data.size}
+          </span>
         </div>
 
         {/* Immunities / Weaknesses */}
         {data.immunities.length > 0 && (
           <p className="text-xs">
-            <span className="text-muted-foreground">Imm</span>{" "}
-            {data.immunities.join(", ")}
+            <span className="text-muted-foreground">Imm</span> {data.immunities.join(', ')}
           </p>
         )}
         {data.weaknesses && (
           <p className="text-xs">
-            <span className="text-muted-foreground">Weak</span>{" "}
-            {data.weaknesses}
+            <span className="text-muted-foreground">Weak</span> {data.weaknesses}
           </p>
         )}
       </div>
@@ -197,12 +183,10 @@ function CreatureCard({ data }: { data: AonCreaturePreview }) {
         <>
           <div className="w-px shrink-0 bg-border" />
           <div className="min-w-0 flex-1 space-y-2.5 overflow-y-auto" style={{ maxHeight: 400 }}>
-            <span className="text-[10px] font-medium uppercase text-muted-foreground">
-              Abilities & Attacks
-            </span>
+            <span className="text-[10px] font-medium uppercase text-muted-foreground">Abilities & Attacks</span>
             {abilities.map((ab, i) => (
               <div key={i} className="text-xs">
-                <span className="font-medium">{renderActionIcons(ab.name)}</span>{" "}
+                <span className="font-medium">{renderActionIcons(ab.name)}</span>{' '}
                 <span className="text-muted-foreground">{renderActionIcons(ab.description)}</span>
               </div>
             ))}
@@ -218,12 +202,10 @@ function GenericCard({ data }: { data: { name: string; category: string; text: s
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-semibold">{data.name}</span>
-        <span className="shrink-0 text-[10px] uppercase text-muted-foreground">
-          {data.category}
-        </span>
+        <span className="shrink-0 text-[10px] uppercase text-muted-foreground">{data.category}</span>
       </div>
       <p className="text-xs leading-snug text-muted-foreground whitespace-pre-wrap">
-        {data.text.length > 400 ? data.text.slice(0, 400) + "…" : data.text}
+        {data.text.length > 400 ? data.text.slice(0, 400) + '…' : data.text}
       </p>
     </div>
   );
@@ -300,11 +282,7 @@ export function AonHoverCard({
   // No AoN path — just render as a plain link.
   if (!aonPath) {
     return (
-      <a
-        href={href}
-        onClick={handleClick}
-        className="underline text-primary hover:text-primary/80 cursor-pointer"
-      >
+      <a href={href} onClick={handleClick} className="underline text-primary hover:text-primary/80 cursor-pointer">
         {children}
       </a>
     );
@@ -312,11 +290,7 @@ export function AonHoverCard({
 
   return (
     <span ref={wrapperRef} className="relative inline" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-      <a
-        href={href}
-        onClick={handleClick}
-        className="underline text-primary hover:text-primary/80 cursor-pointer"
-      >
+      <a href={href} onClick={handleClick} className="underline text-primary hover:text-primary/80 cursor-pointer">
         {children}
       </a>
 
@@ -325,18 +299,14 @@ export function AonHoverCard({
           onMouseEnter={handleEnter}
           onMouseLeave={handleLeave}
           className={cn(
-            "absolute left-0 top-full z-50 mt-1 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg",
-            preview?.type === "creature" ? "w-[850px]" : "w-[500px]",
+            'absolute left-0 top-full z-50 mt-1 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg',
+            preview?.type === 'creature' ? 'w-[850px]' : 'w-[500px]',
           )}
         >
-          {loading && !preview && (
-            <p className="text-xs text-muted-foreground">Loading…</p>
-          )}
-          {preview?.type === "creature" && <CreatureCard data={preview} />}
-          {preview?.type === "generic" && <GenericCard data={preview} />}
-          {!loading && !preview && (
-            <p className="text-xs text-muted-foreground">No preview available</p>
-          )}
+          {loading && !preview && <p className="text-xs text-muted-foreground">Loading…</p>}
+          {preview?.type === 'creature' && <CreatureCard data={preview} />}
+          {preview?.type === 'generic' && <GenericCard data={preview} />}
+          {!loading && !preview && <p className="text-xs text-muted-foreground">No preview available</p>}
         </div>
       )}
     </span>

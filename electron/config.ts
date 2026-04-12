@@ -12,20 +12,20 @@
 // hot-reloading. If the user edits it they need to restart the app. That's
 // fine for a personal tool.
 
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve, dirname } from "node:path";
-import { app } from "electron";
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { app } from 'electron';
 
 /** Resolve the bundled map-tagger.exe path. In production it lives in the
  *  app's resources directory (via extraResources); in dev it's built locally
  *  under tagger/dist/. Returns undefined if neither exists. */
 function resolveBundledTagger(): string | undefined {
   // Production: extraResources puts it at <resources>/map-tagger.exe
-  const prodPath = join(process.resourcesPath, "map-tagger.exe");
+  const prodPath = join(process.resourcesPath, 'map-tagger.exe');
   if (existsSync(prodPath)) return prodPath;
 
   // Dev: tagger/dist/map-tagger.exe relative to project root
-  const devPath = join(app.isPackaged ? app.getAppPath() : process.cwd(), "tagger", "dist", "map-tagger.exe");
+  const devPath = join(app.isPackaged ? app.getAppPath() : process.cwd(), 'tagger', 'dist', 'map-tagger.exe');
   if (existsSync(devPath)) return devPath;
 
   return undefined;
@@ -33,10 +33,10 @@ function resolveBundledTagger(): string | undefined {
 
 /** Resolve the bundled Auto-Wall.exe path. Same logic as the tagger. */
 function resolveBundledAutoWall(): string | undefined {
-  const prodPath = join(process.resourcesPath, "Auto-Wall.exe");
+  const prodPath = join(process.resourcesPath, 'Auto-Wall.exe');
   if (existsSync(prodPath)) return prodPath;
 
-  const devPath = join(app.isPackaged ? app.getAppPath() : process.cwd(), "auto-wall-bin", "Auto-Wall.exe");
+  const devPath = join(app.isPackaged ? app.getAppPath() : process.cwd(), 'auto-wall-bin', 'Auto-Wall.exe');
   if (existsSync(devPath)) return devPath;
 
   return undefined;
@@ -85,10 +85,10 @@ function resolveConfigPath(): string {
   // app is packaged and the working directory isn't reliable, so we fall
   // back to app.getAppPath().
   const projectRootGuess = app.isPackaged ? app.getAppPath() : process.cwd();
-  const projectConfig = join(projectRootGuess, "config.json");
+  const projectConfig = join(projectRootGuess, 'config.json');
   if (existsSync(projectConfig)) return projectConfig;
 
-  const userDataConfig = join(app.getPath("userData"), "config.json");
+  const userDataConfig = join(app.getPath('userData'), 'config.json');
   if (existsSync(userDataConfig)) return userDataConfig;
 
   // Nothing found — return the project root path so the error message
@@ -104,9 +104,9 @@ export function configExists(): boolean {
   if (fromEnv && existsSync(fromEnv)) return true;
 
   const projectRootGuess = app.isPackaged ? app.getAppPath() : process.cwd();
-  if (existsSync(join(projectRootGuess, "config.json"))) return true;
+  if (existsSync(join(projectRootGuess, 'config.json'))) return true;
 
-  if (existsSync(join(app.getPath("userData"), "config.json"))) return true;
+  if (existsSync(join(app.getPath('userData'), 'config.json'))) return true;
 
   return false;
 }
@@ -114,36 +114,34 @@ export function configExists(): boolean {
 export function loadConfig(): DmToolConfig {
   const path = resolveConfigPath();
   if (!existsSync(path)) {
-    throw new Error(
-      `dm-tool: no config.json found. Create one at ${path} using config.example.json as a template.`,
-    );
+    throw new Error(`dm-tool: no config.json found. Create one at ${path} using config.example.json as a template.`);
   }
 
   let raw: string;
   try {
-    raw = readFileSync(path, "utf-8");
+    raw = readFileSync(path, 'utf-8');
   } catch (e) {
-    throw new Error(`dm-tool: failed to read config at ${path}: ${(e as Error).message}`);
+    throw new Error(`dm-tool: failed to read config at ${path}: ${(e as Error).message}`, { cause: e });
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch (e) {
-    throw new Error(`dm-tool: config.json at ${path} is not valid JSON: ${(e as Error).message}`);
+    throw new Error(`dm-tool: config.json at ${path} is not valid JSON: ${(e as Error).message}`, { cause: e });
   }
 
   const cfg = parsed as Partial<DmToolConfig>;
-  if (!cfg.libraryPath || typeof cfg.libraryPath !== "string") {
+  if (!cfg.libraryPath || typeof cfg.libraryPath !== 'string') {
     throw new Error(`dm-tool: config.json missing required string field "libraryPath"`);
   }
-  if (!cfg.indexDbPath || typeof cfg.indexDbPath !== "string") {
+  if (!cfg.indexDbPath || typeof cfg.indexDbPath !== 'string') {
     throw new Error(`dm-tool: config.json missing required string field "indexDbPath"`);
   }
-  if (!cfg.inboxPath || typeof cfg.inboxPath !== "string") {
+  if (!cfg.inboxPath || typeof cfg.inboxPath !== 'string') {
     throw new Error(`dm-tool: config.json missing required string field "inboxPath"`);
   }
-  if (!cfg.quarantinePath || typeof cfg.quarantinePath !== "string") {
+  if (!cfg.quarantinePath || typeof cfg.quarantinePath !== 'string') {
     throw new Error(`dm-tool: config.json missing required string field "quarantinePath"`);
   }
   const libraryPath = resolve(cfg.libraryPath);
@@ -154,14 +152,14 @@ export function loadConfig(): DmToolConfig {
   // taggerBinPath: use config value if provided, otherwise fall back to
   // the bundled exe (extraResources in production, tagger/dist/ in dev).
   let taggerBinPath: string;
-  if (cfg.taggerBinPath && typeof cfg.taggerBinPath === "string" && cfg.taggerBinPath.trim().length > 0) {
+  if (cfg.taggerBinPath && typeof cfg.taggerBinPath === 'string' && cfg.taggerBinPath.trim().length > 0) {
     taggerBinPath = resolve(cfg.taggerBinPath);
   } else {
     const bundled = resolveBundledTagger();
     if (!bundled) {
       throw new Error(
         `dm-tool: no taggerBinPath in config.json and no bundled map-tagger.exe found. ` +
-        `Either set taggerBinPath or run "npm run build:tagger" to build the bundled exe.`,
+          `Either set taggerBinPath or run "npm run build:tagger" to build the bundled exe.`,
       );
     }
     taggerBinPath = bundled;
@@ -171,14 +169,12 @@ export function loadConfig(): DmToolConfig {
     throw new Error(`dm-tool: configured libraryPath does not exist: ${libraryPath}`);
   }
   if (!existsSync(indexDbPath)) {
-    throw new Error(
-      `dm-tool: configured indexDbPath does not exist: ${indexDbPath}. Run the map-tagger ingest first.`,
-    );
+    throw new Error(`dm-tool: configured indexDbPath does not exist: ${indexDbPath}. Run the map-tagger ingest first.`);
   }
   if (!existsSync(taggerBinPath)) {
     throw new Error(
       `dm-tool: configured taggerBinPath does not exist: ${taggerBinPath}. ` +
-      `Run "npm run build:tagger" or set taggerBinPath in config.json.`,
+        `Run "npm run build:tagger" or set taggerBinPath in config.json.`,
     );
   }
 
@@ -188,14 +184,14 @@ export function loadConfig(): DmToolConfig {
   // (map browser) usable even if the books tree is on a network drive
   // that's currently offline.
   let booksPath: string | undefined;
-  if (cfg.booksPath && typeof cfg.booksPath === "string" && cfg.booksPath.trim().length > 0) {
+  if (cfg.booksPath && typeof cfg.booksPath === 'string' && cfg.booksPath.trim().length > 0) {
     booksPath = resolve(cfg.booksPath);
   }
 
   // autoWallBinPath: use config value if provided, otherwise fall back
   // to the bundled exe (extraResources in production, auto-wall-bin/ in dev).
   let autoWallBinPath: string | undefined;
-  if (cfg.autoWallBinPath && typeof cfg.autoWallBinPath === "string" && cfg.autoWallBinPath.trim().length > 0) {
+  if (cfg.autoWallBinPath && typeof cfg.autoWallBinPath === 'string' && cfg.autoWallBinPath.trim().length > 0) {
     autoWallBinPath = resolve(cfg.autoWallBinPath);
     if (!existsSync(autoWallBinPath)) {
       console.warn(`dm-tool: configured autoWallBinPath does not exist: ${autoWallBinPath}. Trying bundled binary.`);
@@ -207,7 +203,7 @@ export function loadConfig(): DmToolConfig {
   }
 
   let pf2eDbPath: string | undefined;
-  if (cfg.pf2eDbPath && typeof cfg.pf2eDbPath === "string" && cfg.pf2eDbPath.trim().length > 0) {
+  if (cfg.pf2eDbPath && typeof cfg.pf2eDbPath === 'string' && cfg.pf2eDbPath.trim().length > 0) {
     pf2eDbPath = resolve(cfg.pf2eDbPath);
   }
 

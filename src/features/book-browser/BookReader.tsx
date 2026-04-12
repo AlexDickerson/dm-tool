@@ -1,27 +1,14 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  ArrowLeft,
-  ChevronRight,
-  List,
-  Minus,
-  Plus,
-  RotateCcw,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
-import { pdfjsLib } from "@/lib/pdfjs";
-import { extractCover } from "./useBooks";
-import { partSubtitle, type ApGroup } from "./ap-merge";
-import type { PDFDocumentProxy } from "pdfjs-dist/types/src/display/api";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ChevronRight, List, Minus, Plus, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { pdfjsLib } from '@/lib/pdfjs';
+import { extractCover } from './useBooks';
+import { partSubtitle, type ApGroup } from './ap-merge';
+import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,14 +50,14 @@ interface DocSlot {
 // Zoom presets
 // ---------------------------------------------------------------------------
 
-type ZoomPreset = "fit-width" | "fit-page" | "100" | "150" | "200";
+type ZoomPreset = 'fit-width' | 'fit-page' | '100' | '150' | '200';
 
 const ZOOM_PRESETS: Array<{ label: string; value: ZoomPreset }> = [
-  { label: "Fit Width", value: "fit-width" },
-  { label: "Fit Page", value: "fit-page" },
-  { label: "100%", value: "100" },
-  { label: "150%", value: "150" },
-  { label: "200%", value: "200" },
+  { label: 'Fit Width', value: 'fit-width' },
+  { label: 'Fit Page', value: 'fit-page' },
+  { label: '100%', value: '100' },
+  { label: '150%', value: '150' },
+  { label: '200%', value: '200' },
 ];
 
 function resolveScale(
@@ -81,15 +68,15 @@ function resolveScale(
   pageHeight: number,
 ): number {
   switch (preset) {
-    case "fit-width":
+    case 'fit-width':
       return containerWidth / pageWidth;
-    case "fit-page":
+    case 'fit-page':
       return Math.min(containerWidth / pageWidth, containerHeight / pageHeight);
-    case "100":
+    case '100':
       return 1;
-    case "150":
+    case '150':
       return 1.5;
-    case "200":
+    case '200':
       return 2;
   }
 }
@@ -101,19 +88,25 @@ const SEPARATOR_HEIGHT = 48;
 // localStorage helpers for reader preferences
 // ---------------------------------------------------------------------------
 
-const ZOOM_STORAGE_KEY = "dmtool.reader.zoom";
-const SCROLL_PREFIX = "dmtool.reader.scroll.";
+const ZOOM_STORAGE_KEY = 'dmtool.reader.zoom';
+const SCROLL_PREFIX = 'dmtool.reader.scroll.';
 
 function loadZoom(): ZoomPreset {
   try {
     const v = localStorage.getItem(ZOOM_STORAGE_KEY);
     if (v && ZOOM_PRESETS.some((p) => p.value === v)) return v as ZoomPreset;
-  } catch { /* ignore */ }
-  return "fit-width";
+  } catch {
+    /* ignore */
+  }
+  return 'fit-width';
 }
 
 function saveZoom(z: ZoomPreset) {
-  try { localStorage.setItem(ZOOM_STORAGE_KEY, z); } catch { /* ignore */ }
+  try {
+    localStorage.setItem(ZOOM_STORAGE_KEY, z);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Stable key for scroll position: single book uses the bookId, merged
@@ -129,12 +122,18 @@ function loadScroll(key: string | null): number {
   try {
     const v = localStorage.getItem(key);
     return v ? Number(v) || 0 : 0;
-  } catch { return 0; }
+  } catch {
+    return 0;
+  }
 }
 
 function saveScroll(key: string | null, top: number) {
   if (!key) return;
-  try { localStorage.setItem(key, String(Math.round(top))); } catch { /* ignore */ }
+  try {
+    localStorage.setItem(key, String(Math.round(top)));
+  } catch {
+    /* ignore */
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +142,7 @@ function saveScroll(key: string | null, top: number) {
 
 export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: ReaderProps) {
   const isMulti = !!apGroup;
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState('');
   const [totalPages, setTotalPages] = useState(0);
   const [slots, setSlots] = useState<DocSlot[]>([]);
   const slotsRef = useRef<DocSlot[]>([]);
@@ -221,14 +220,16 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
         const outline = ((await doc.getOutline()) as OutlineNode[]) ?? [];
         if (cancelled) return;
 
-        setSlots([{
-          bookId,
-          partLabel: b.title,
-          pageCount: doc.numPages,
-          globalPageOffset: 0,
-          doc,
-          outline,
-        }]);
+        setSlots([
+          {
+            bookId,
+            partLabel: b.title,
+            pageCount: doc.numPages,
+            globalPageOffset: 0,
+            doc,
+            outline,
+          },
+        ]);
         setTotalPages(doc.numPages);
 
         if (!b.ingested) {
@@ -243,7 +244,6 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
       cancelled = true;
       loadingTask?.destroy();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId, isMulti]);
 
   // -----------------------------------------------------------------------
@@ -277,7 +277,10 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
               disableStream: true,
             });
             doc = await task.promise;
-            if (cancelled) { doc.destroy(); return; }
+            if (cancelled) {
+              doc.destroy();
+              return;
+            }
             pageCount = doc.numPages;
           }
 
@@ -307,7 +310,10 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
             disableStream: true,
           });
           firstDoc = await task.promise;
-          if (cancelled) { firstDoc.destroy(); return; }
+          if (cancelled) {
+            firstDoc.destroy();
+            return;
+          }
           initialSlots[0]!.doc = firstDoc;
           setSlots([...initialSlots]);
         }
@@ -339,8 +345,9 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
       }
     })();
 
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
   }, [apGroup, isMulti]);
 
   // Lazy-load a doc when the user scrolls near it (called by PageSlot).
@@ -373,7 +380,9 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
   }, []);
 
   // Persist zoom preference.
-  useEffect(() => { saveZoom(zoom); }, [zoom]);
+  useEffect(() => {
+    saveZoom(zoom);
+  }, [zoom]);
 
   // Computed scale.
   const scale = useMemo(() => {
@@ -435,9 +444,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
       for (let si = slots.length - 1; si >= 0; si--) {
         const slotTop = slotTopOffsets[si] ?? 0;
         if (scrollTop >= slotTop) {
-          const local = Math.floor(
-            (scrollTop - slotTop) / (pageHeight + PAGE_GAP),
-          );
+          const local = Math.floor((scrollTop - slotTop) / (pageHeight + PAGE_GAP));
           const globalOffset = slots[si]!.globalPageOffset;
           return Math.min(globalOffset + local + 1, totalPages);
         }
@@ -460,9 +467,9 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
         saveScroll(sKey, el.scrollTop);
       }, 300);
     };
-    el.addEventListener("scroll", handleScroll, { passive: true });
+    el.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      el.removeEventListener("scroll", handleScroll);
+      el.removeEventListener('scroll', handleScroll);
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, [computeCurrentPage, sKey]);
@@ -504,10 +511,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
   );
 
   const resolveDest = useCallback(
-    async (
-      dest: string | unknown[] | null,
-      slotIndex: number,
-    ): Promise<number | null> => {
+    async (dest: string | unknown[] | null, slotIndex: number): Promise<number | null> => {
       const offsets = slotTopOffsetsRef.current;
       const ph = pageHeightRef.current;
       const slotTop = offsets[slotIndex];
@@ -524,16 +528,14 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
       }
 
       let resolved: unknown[] | null = null;
-      if (typeof dest === "string") {
+      if (typeof dest === 'string') {
         resolved = await doc.getDestination(dest);
       } else if (Array.isArray(dest)) {
         resolved = dest;
       }
       if (!resolved || resolved.length === 0) return null;
 
-      const localPageIndex = await doc.getPageIndex(
-        resolved[0] as { num: number; gen: number },
-      );
+      const localPageIndex = await doc.getPageIndex(resolved[0] as { num: number; gen: number });
       return slotTop + localPageIndex * (ph + PAGE_GAP);
     },
     [loadSlotDoc],
@@ -548,32 +550,32 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
       if (!el) return;
       const ph = pageHeightRef.current;
       switch (e.key) {
-        case "+":
-        case "=":
+        case '+':
+        case '=':
           e.preventDefault();
           cycleZoom(1, zoom, setZoom);
           break;
-        case "-":
+        case '-':
           e.preventDefault();
           cycleZoom(-1, zoom, setZoom);
           break;
-        case "0":
+        case '0':
           e.preventDefault();
-          setZoom("fit-width");
+          setZoom('fit-width');
           break;
-        case "Home":
+        case 'Home':
           e.preventDefault();
           el.scrollTop = 0;
           break;
-        case "End":
+        case 'End':
           e.preventDefault();
           el.scrollTop = el.scrollHeight;
           break;
-        case "PageDown":
+        case 'PageDown':
           e.preventDefault();
           if (ph) el.scrollTop += ph + PAGE_GAP;
           break;
-        case "PageUp":
+        case 'PageUp':
           e.preventDefault();
           if (ph) el.scrollTop -= ph + PAGE_GAP;
           break;
@@ -585,12 +587,10 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-        <p className="text-sm text-destructive">
-          This PDF could not be opened.
-        </p>
+        <p className="text-sm text-destructive">This PDF could not be opened.</p>
         <p className="max-w-md text-xs text-muted-foreground">
-          The file may be corrupted, password-protected, or not a standard PDF.
-          Common with pregenerated character sheets and form-fillable documents.
+          The file may be corrupted, password-protected, or not a standard PDF. Common with pregenerated character
+          sheets and form-fillable documents.
         </p>
         <Button variant="outline" size="sm" onClick={onClose}>
           Back to catalog
@@ -600,11 +600,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
   }
 
   return (
-    <div
-      className="flex h-full flex-col"
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
-    >
+    <div className="flex h-full flex-col" onKeyDown={handleKeyDown} tabIndex={-1}>
       {/* Toolbar */}
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-2">
         <Button variant="ghost" size="sm" onClick={onClose} className="gap-1">
@@ -612,9 +608,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           <span className="text-xs">Catalog</span>
         </Button>
         <Separator orientation="vertical" className="mx-1 h-5" />
-        <span className="truncate text-xs font-medium">
-          {title || "Loading…"}
-        </span>
+        <span className="truncate text-xs font-medium">{title || 'Loading…'}</span>
         {totalPages > 0 && (
           <PageIndicator
             currentPage={currentPage}
@@ -643,23 +637,39 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
               type="button"
               onClick={() => setZoom(z.value)}
               className={cn(
-                "rounded px-1.5 py-0.5 text-[10px] transition-colors",
-                zoom === z.value
-                  ? "bg-accent text-foreground font-medium"
-                  : "text-muted-foreground hover:bg-accent/50",
+                'rounded px-1.5 py-0.5 text-[10px] transition-colors',
+                zoom === z.value ? 'bg-accent text-foreground font-medium' : 'text-muted-foreground hover:bg-accent/50',
               )}
             >
               {z.label}
             </button>
           ))}
           <Separator orientation="vertical" className="mx-1 h-5" />
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Zoom out" onClick={() => cycleZoom(-1, zoom, setZoom)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            title="Zoom out"
+            onClick={() => cycleZoom(-1, zoom, setZoom)}
+          >
             <Minus className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Zoom in" onClick={() => cycleZoom(1, zoom, setZoom)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            title="Zoom in"
+            onClick={() => cycleZoom(1, zoom, setZoom)}
+          >
             <Plus className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Reset zoom" onClick={() => setZoom("fit-width")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            title="Reset zoom"
+            onClick={() => setZoom('fit-width')}
+          >
             <RotateCcw className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -671,11 +681,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           <div className="w-64 shrink-0 border-r border-border">
             <ScrollArea className="h-full">
               <div className="p-2">
-                <TocTree
-                  nodes={combinedOutline}
-                  resolveDest={resolveDest}
-                  scrollRef={scrollRef}
-                />
+                <TocTree nodes={combinedOutline} resolveDest={resolveDest} scrollRef={scrollRef} />
               </div>
             </ScrollArea>
           </div>
@@ -687,10 +693,8 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
         <div
           ref={scrollRef}
           className="flex-1 overflow-auto bg-muted/30"
-          style={{ outline: "none" }}
-          onDoubleClick={() =>
-            setZoom((z) => (z === "fit-width" ? "100" : "fit-width"))
-          }
+          style={{ outline: 'none' }}
+          onDoubleClick={() => setZoom((z) => (z === 'fit-width' ? '100' : 'fit-width'))}
         >
           {slots.length > 0 && pageSize ? (
             <MultiDocPageList
@@ -702,9 +706,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
               loadSlotDoc={loadSlotDoc}
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Loading PDF…
-            </div>
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading PDF…</div>
           )}
         </div>
 
@@ -739,22 +741,22 @@ function MultiDocPageList({
   // same slotTopOffsets the TOC resolver uses.
   const items = useMemo(() => {
     const list: Array<
-      | { kind: "page"; slotIndex: number; localPageNum: number; top: number }
-      | { kind: "separator"; label: string; top: number }
+      | { kind: 'page'; slotIndex: number; localPageNum: number; top: number }
+      | { kind: 'separator'; label: string; top: number }
     > = [];
     for (let si = 0; si < slots.length; si++) {
       const slot = slots[si]!;
       const slotTop = slotTopOffsets[si] ?? 0;
       if (si > 0) {
         list.push({
-          kind: "separator",
+          kind: 'separator',
           label: slot.partLabel,
           top: slotTop - SEPARATOR_HEIGHT,
         });
       }
       for (let p = 0; p < slot.pageCount; p++) {
         list.push({
-          kind: "page",
+          kind: 'page',
           slotIndex: si,
           localPageNum: p + 1,
           top: slotTop + p * (pageHeight + PAGE_GAP),
@@ -766,40 +768,36 @@ function MultiDocPageList({
 
   // Total height from the last item's bottom edge.
   const lastItem = items[items.length - 1];
-  const totalHeight = lastItem
-    ? lastItem.top + (lastItem.kind === "page" ? pageHeight : SEPARATOR_HEIGHT)
-    : 0;
+  const totalHeight = lastItem ? lastItem.top + (lastItem.kind === 'page' ? pageHeight : SEPARATOR_HEIGHT) : 0;
 
   return (
     <div
       style={{
-        position: "relative",
+        position: 'relative',
         width: pageWidth,
         height: totalHeight,
-        margin: "0 auto",
+        margin: '0 auto',
         paddingTop: PAGE_GAP,
       }}
     >
       {items.map((item, i) =>
-        item.kind === "separator" ? (
+        item.kind === 'separator' ? (
           <div
             key={`sep-${i}`}
             style={{
-              position: "absolute",
+              position: 'absolute',
               top: item.top,
               left: 0,
               width: pageWidth,
               height: SEPARATOR_HEIGHT,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <div className="flex items-center gap-3">
               <div className="h-px w-12 bg-border" />
-              <span className="text-xs font-medium text-muted-foreground">
-                {item.label}
-              </span>
+              <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
               <div className="h-px w-12 bg-border" />
             </div>
           </div>
@@ -857,10 +855,9 @@ function PageSlot({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => setVisible(entry!.isIntersecting),
-      { rootMargin: `${height}px 0px ${height}px 0px` },
-    );
+    const obs = new IntersectionObserver(([entry]) => setVisible(entry!.isIntersecting), {
+      rootMargin: `${height}px 0px ${height}px 0px`,
+    });
     obs.observe(el);
     return () => obs.disconnect();
   }, [height]);
@@ -896,7 +893,7 @@ function PageSlot({
         canvas.style.width = `${viewport.width}px`;
         canvas.style.height = `${viewport.height}px`;
 
-        const ctx = canvas.getContext("2d")!;
+        const ctx = canvas.getContext('2d')!;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
         await page.render({ canvasContext: ctx, viewport }).promise;
@@ -905,11 +902,11 @@ function PageSlot({
 
         const textDiv = textLayerRef.current;
         if (!textDiv || cancelled) return;
-        textDiv.innerHTML = "";
+        textDiv.innerHTML = '';
         // pdfjs TextLayer uses the CSS variable --scale-factor to compute
         // span transforms. Without it, the text spans drift from the canvas.
         // See: https://github.com/mozilla/pdf.js/discussions/18068
-        textDiv.style.setProperty("--scale-factor", String(scale));
+        textDiv.style.setProperty('--scale-factor', String(scale));
         textDiv.style.width = `${viewport.width}px`;
         textDiv.style.height = `${viewport.height}px`;
 
@@ -930,7 +927,9 @@ function PageSlot({
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [visible, scale, doc, localPageNum]);
 
   // Cleanup on scroll-out.
@@ -938,13 +937,13 @@ function PageSlot({
     if (visible) return;
     const canvas = canvasRef.current;
     if (canvas) {
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext('2d');
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
       canvas.width = 0;
       canvas.height = 0;
     }
     const textDiv = textLayerRef.current;
-    if (textDiv) textDiv.innerHTML = "";
+    if (textDiv) textDiv.innerHTML = '';
     renderedScaleRef.current = null;
   }, [visible]);
 
@@ -952,24 +951,22 @@ function PageSlot({
     <div
       ref={containerRef}
       style={{
-        position: "absolute",
+        position: 'absolute',
         top,
         left: 0,
         width,
         height,
-        background: doc ? "white" : undefined,
-        boxShadow: doc ? "0 1px 4px rgba(0,0,0,0.15)" : undefined,
+        background: doc ? 'white' : undefined,
+        boxShadow: doc ? '0 1px 4px rgba(0,0,0,0.15)' : undefined,
       }}
     >
       {doc ? (
         <>
-          <canvas ref={canvasRef} style={{ display: "block" }} />
+          <canvas ref={canvasRef} style={{ display: 'block' }} />
           <div ref={textLayerRef} className="textLayer" />
         </>
       ) : (
-        <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-          Loading…
-        </div>
+        <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Loading…</div>
       )}
     </div>
   );
@@ -985,22 +982,13 @@ function TocTree({
   scrollRef,
 }: {
   nodes: TaggedOutlineNode[];
-  resolveDest: (
-    dest: string | unknown[] | null,
-    slotIndex: number,
-  ) => Promise<number | null>;
+  resolveDest: (dest: string | unknown[] | null, slotIndex: number) => Promise<number | null>;
   scrollRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
     <ul className="space-y-0.5 text-xs">
       {nodes.map((node, i) => (
-        <TocNode
-          key={i}
-          node={node}
-          resolveDest={resolveDest}
-          scrollRef={scrollRef}
-          depth={0}
-        />
+        <TocNode key={i} node={node} resolveDest={resolveDest} scrollRef={scrollRef} depth={0} />
       ))}
     </ul>
   );
@@ -1013,10 +1001,7 @@ function TocNode({
   depth,
 }: {
   node: TaggedOutlineNode;
-  resolveDest: (
-    dest: string | unknown[] | null,
-    slotIndex: number,
-  ) => Promise<number | null>;
+  resolveDest: (dest: string | unknown[] | null, slotIndex: number) => Promise<number | null>;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   depth: number;
 }) {
@@ -1040,12 +1025,7 @@ function TocNode({
             className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground"
             onClick={() => setExpanded(!expanded)}
           >
-            <ChevronRight
-              className={cn(
-                "h-3 w-3 transition-transform",
-                expanded && "rotate-90",
-              )}
-            />
+            <ChevronRight className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')} />
           </button>
         ) : (
           <span className="w-4 shrink-0" />
@@ -1054,10 +1034,8 @@ function TocNode({
           type="button"
           onClick={handleClick}
           className={cn(
-            "flex-1 truncate py-0.5 text-left transition-colors hover:text-foreground",
-            depth === 0 && node.items.length > 0
-              ? "font-medium text-foreground/80"
-              : "text-muted-foreground",
+            'flex-1 truncate py-0.5 text-left transition-colors hover:text-foreground',
+            depth === 0 && node.items.length > 0 ? 'font-medium text-foreground/80' : 'text-muted-foreground',
           )}
           style={{ paddingLeft: depth * 8 }}
           title={cleanTocTitle(node.title)}
@@ -1068,13 +1046,7 @@ function TocNode({
       {expanded && hasChildren && (
         <ul className="ml-2">
           {node.items.map((child, i) => (
-            <TocNode
-              key={i}
-              node={child}
-              resolveDest={resolveDest}
-              scrollRef={scrollRef}
-              depth={depth + 1}
-            />
+            <TocNode key={i} node={child} resolveDest={resolveDest} scrollRef={scrollRef} depth={depth + 1} />
           ))}
         </ul>
       )}
@@ -1104,7 +1076,7 @@ function PageIndicator({
   onJump: (page: number) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -1131,8 +1103,8 @@ function PageIndicator({
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSubmit();
-            if (e.key === "Escape") onOpenChange(false);
+            if (e.key === 'Enter') handleSubmit();
+            if (e.key === 'Escape') onOpenChange(false);
             e.stopPropagation(); // don't trigger reader shortcuts
           }}
           onBlur={handleSubmit}
@@ -1167,10 +1139,12 @@ function PageIndicator({
  *  Leading page ranges (\d+-\d+ or \d+), product codes (PZO\w+), and
  *  resulting whitespace are removed. */
 function cleanTocTitle(raw: string): string {
-  return raw
-    .replace(/^\d+(?:-\d+)?\s*/g, "")   // leading page range "018-031 " or "032 "
-    .replace(/^PZO[\w-]+\s*/gi, "")      // product code "PZO90152 "
-    .trim() || raw;                       // fall back to original if nothing remains
+  return (
+    raw
+      .replace(/^\d+(?:-\d+)?\s*/g, '') // leading page range "018-031 " or "032 "
+      .replace(/^PZO[\w-]+\s*/gi, '') // product code "PZO90152 "
+      .trim() || raw
+  ); // fall back to original if nothing remains
 }
 
 function tagNodes(nodes: OutlineNode[], slotIndex: number): TaggedOutlineNode[] {
@@ -1181,11 +1155,7 @@ function tagNodes(nodes: OutlineNode[], slotIndex: number): TaggedOutlineNode[] 
   }));
 }
 
-function cycleZoom(
-  dir: 1 | -1,
-  current: ZoomPreset,
-  set: (v: ZoomPreset) => void,
-) {
+function cycleZoom(dir: 1 | -1, current: ZoomPreset, set: (v: ZoomPreset) => void) {
   const idx = ZOOM_PRESETS.findIndex((p) => p.value === current);
   const next = idx + dir;
   if (next >= 0 && next < ZOOM_PRESETS.length) {

@@ -2,7 +2,7 @@
 // catalog grid. Renderer-side only — no DB schema changes. Supplements
 // (Player's Guide, Pawn Collection, etc.) stay as individual cards.
 
-import type { Book } from "@shared/types";
+import type { Book } from '@shared/types';
 
 export interface ApPartInfo {
   book: Book;
@@ -27,9 +27,7 @@ export interface ApGroup {
  */
 const PART_RE = /(?:Part\s+)?(\d+)\s+of\s+(\d+)/i;
 
-export function parseApPart(
-  book: Book,
-): ApPartInfo | null {
+export function parseApPart(book: Book): ApPartInfo | null {
   const m = book.title.match(PART_RE);
   if (!m) return null;
   return {
@@ -45,13 +43,10 @@ export function groupAdventurePaths(books: Book[]): {
   otherBooks: Book[];
 } {
   const otherBooks: Book[] = [];
-  const apMap = new Map<
-    string,
-    { parts: ApPartInfo[]; supplements: Book[] }
-  >();
+  const apMap = new Map<string, { parts: ApPartInfo[]; supplements: Book[] }>();
 
   for (const b of books) {
-    if (b.category !== "Adventure Paths" || !b.subcategory) {
+    if (b.category !== 'Adventure Paths' || !b.subcategory) {
       otherBooks.push(b);
       continue;
     }
@@ -97,6 +92,6 @@ export function apTotalPages(group: ApGroup): number | null {
 export function partSubtitle(title: string): string {
   // Strip everything up to and including the "N of M" portion + any
   // trailing separator (dash or space).
-  const stripped = title.replace(/^.*?\d+\s+of\s+\d+\s*[-–—]?\s*/i, "");
+  const stripped = title.replace(/^.*?\d+\s+of\s+\d+\s*[-–—]?\s*/i, '');
   return stripped || title;
 }

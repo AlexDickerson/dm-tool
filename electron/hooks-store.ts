@@ -23,9 +23,9 @@
 // Reads/writes are synchronous since the file is tiny and writes only
 // happen on explicit user action.
 
-import { app } from "electron";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { app } from 'electron';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 interface HookOverrideEntry {
   additionalHooks: string[];
@@ -37,16 +37,16 @@ interface HookOverrideFile {
 }
 
 function storePath(): string {
-  return join(app.getPath("userData"), "hook-overrides.json");
+  return join(app.getPath('userData'), 'hook-overrides.json');
 }
 
 function readFile(): HookOverrideFile {
   const path = storePath();
   if (!existsSync(path)) return { byFileName: {} };
   try {
-    const raw = readFileSync(path, "utf-8");
+    const raw = readFileSync(path, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<HookOverrideFile>;
-    if (!parsed || typeof parsed !== "object" || !parsed.byFileName) {
+    if (!parsed || typeof parsed !== 'object' || !parsed.byFileName) {
       return { byFileName: {} };
     }
     return { byFileName: parsed.byFileName };
@@ -62,7 +62,7 @@ function writeFile(data: HookOverrideFile): void {
   const path = storePath();
   const dir = dirname(path);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(path, JSON.stringify(data, null, 2), "utf-8");
+  writeFileSync(path, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 /** Look up the additional hooks for one map. Returns an empty array if
@@ -74,10 +74,7 @@ export function getAdditionalHooks(fileName: string): string[] {
 
 /** Prepend `newHooks` to the stored list for `fileName` and persist.
  *  Returns the new full list (newest first). */
-export function appendAdditionalHooks(
-  fileName: string,
-  newHooks: string[],
-): string[] {
+export function appendAdditionalHooks(fileName: string, newHooks: string[]): string[] {
   const file = readFile();
   const existing = file.byFileName[fileName]?.additionalHooks ?? [];
   const merged = [...newHooks, ...existing];
