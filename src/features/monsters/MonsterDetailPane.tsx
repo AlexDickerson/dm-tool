@@ -99,13 +99,13 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
                       {detail.melee && (
                         <div>
                           <span className="font-semibold">Melee </span>
-                          {detail.melee}
+                          {cleanFoundryMarkup(detail.melee)}
                         </div>
                       )}
                       {detail.ranged && (
                         <div>
                           <span className="font-semibold">Ranged </span>
-                          {detail.ranged}
+                          {cleanFoundryMarkup(detail.ranged)}
                         </div>
                       )}
                     </div>
@@ -119,9 +119,7 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
                   <Separator />
                   <section>
                     <SectionLabel>Abilities</SectionLabel>
-                    <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
-                      {detail.abilities}
-                    </pre>
+                    <AbilityBlock text={detail.abilities} />
                   </section>
                 </>
               )}
@@ -177,6 +175,73 @@ function StatCell({ label, value }: { label: string; value: string }) {
     <div className="flex flex-col items-center leading-none">
       <span className="font-semibold uppercase text-muted-foreground">{label}</span>
       <span className="mt-0.5 text-sm font-medium tabular-nums text-foreground">{value}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Foundry VTT enriched-text cleanup
+// ---------------------------------------------------------------------------
+
+function cleanFoundryMarkup(text: string): string {
+  return (
+    text
+      // @Localize[KEY] → strip
+      .replace(/@Localize\[[^\]]*\]/g, '')
+      // @Template[type|distance:N] → "N-foot type"
+      .replace(/@Template\[(\w+)\|distance:(\d+)\]/g, '$2-foot $1')
+      // @Damage[(formula)[type]|...] → "formula type"
+      .replace(/@Damage\[\(([^)]+)\)\[(\w+)\][^\]]*\]/g, '$1 $2')
+      // @Damage[formula[type]|...] → "formula type"
+      .replace(/@Damage\[([^[\]]+)\[(\w+)\][^\]]*\]/g, '$1 $2')
+      // @Check[type|dc:N|basic|...] → "DC N basic type"
+      .replace(/@Check\[(\w+)\|dc:(\d+)\|basic[^\]]*\]/g, (_, type: string, dc: string) => `DC ${dc} basic ${type}`)
+      // @Check[type|dc:N|...] → "DC N type"
+      .replace(/@Check\[(\w+)\|dc:(\d+)[^\]]*\]/g, (_, type: string, dc: string) => `DC ${dc} ${type}`)
+      // [[/gmr ...]]{display} or [[/r ...]]{display} → display
+      .replace(/\[\[\/[^\]]*\]\]\{([^}]+)\}/g, '$1')
+      // @UUID[...]{display} → display
+      .replace(/@UUID\[[^\]]*\]\{([^}]+)\}/g, '$1')
+      // @UUID[...] without display → strip
+      .replace(/@UUID\[[^\]]*\]/g, '')
+      // Any remaining @Foo[...]{display} → display
+      .replace(/@\w+\[[^\]]*\]\{([^}]+)\}/g, '$1')
+      // Any remaining @Foo[...] → strip
+      .replace(/@\w+\[[^\]]*\]/g, '')
+      // Collapse multiple spaces
+      .replace(/ {2,}/g, ' ')
+      .trim()
+  );
+}
+
+/** Render ability text as formatted blocks with separators. */
+function AbilityBlock({ text }: { text: string }) {
+  const cleaned = cleanFoundryMarkup(text);
+  const lines = cleaned.split('\n');
+
+  return (
+    <div className="space-y-2 text-xs leading-relaxed text-foreground/90">
+      {lines.map((raw, i) => {
+        const line = raw.trim();
+        if (!line) return null;
+        if (/^-{3,}$/.test(line)) return <Separator key={i} />;
+
+        // Detect ability name: optional action glyphs, then Title-Case words
+        // before a parenthetical trait list or a sentence continuation.
+        const m = line.match(/^(◆{1,3}\s*)?([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)*(?:\s+\d+)?)\s*(.*)/);
+        if (m) {
+          const [, actions, name, rest] = m;
+          return (
+            <p key={i}>
+              {actions && <span className="text-foreground/50">{actions}</span>}
+              <span className="font-semibold">{name}</span>
+              {rest && ` ${rest}`}
+            </p>
+          );
+        }
+
+        return <p key={i}>{line}</p>;
+      })}
     </div>
   );
 }
