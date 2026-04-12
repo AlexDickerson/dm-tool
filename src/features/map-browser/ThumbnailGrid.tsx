@@ -35,6 +35,30 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1 }: Thumbnai
   const thumbWidth = Math.round(BASE_THUMB_WIDTH * scale);
   const thumbHeight = Math.round(BASE_THUMB_HEIGHT * scale);
 
+  // When the detail pane opens or closes the grid container resizes,
+  // but we do NOT want to recompute the column count — that causes
+  // every card to jump to a new position which is very jarring. Instead
+  // we freeze the column count for a short window after `selected`
+  // changes, so cards merely stretch/compress in place. Actual window
+  // resizes and scale changes still recompute normally.
+  const freezeRef = useRef(false);
+  const prevSelectedRef = useRef(selected);
+  useEffect(() => {
+    const changed =
+      (prevSelectedRef.current == null) !== (selected == null);
+    prevSelectedRef.current = selected;
+    if (!changed) return;
+    freezeRef.current = true;
+    // The ResizeObserver fires synchronously during layout; two rAFs
+    // is enough to let it settle before we unfreeze.
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => {
+        freezeRef.current = false;
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [selected]);
+
   // Recompute column count on resize *and* when the scale changes — a
   // bigger card means fewer columns fit in the same width. ResizeObserver
   // beats window.resize because the grid pane can shrink without the
@@ -43,6 +67,7 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1 }: Thumbnai
     const el = parentRef.current;
     if (!el) return;
     const update = () => {
+      if (freezeRef.current) return;
       const width = el.clientWidth;
       const cols = Math.max(1, Math.floor((width + GAP) / (thumbWidth + GAP)));
       setColumnCount(cols);
@@ -51,7 +76,7 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1 }: Thumbnai
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [thumbWidth]);
+  }, [thumbWidth, thumbHeight]);
 
   const rowCount = Math.ceil(items.length / columnCount);
 
@@ -69,13 +94,7 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1 }: Thumbnai
     rowVirtualizer.measure();
   }, [thumbHeight, rowVirtualizer]);
 
-  // Keep the selected card in view. Re-runs on selection change AND on
-  // layout shifts (columnCount/items): the most common case is clicking
-  // a thumbnail near the bottom — the detail pane opens, the grid pane
-  // shrinks, the column count drops, and the previously-visible row
-  // would otherwise end up scrolled off-screen. `align: "auto"` only
-  // scrolls when the row is actually outside the viewport, so it's a
-  // no-op when the card is already visible.
+  // Keep the selected card in view when the selection changes.
   useEffect(() => {
     if (!selected) return;
     const idx = items.findIndex((it) => it.map.fileName === selected);

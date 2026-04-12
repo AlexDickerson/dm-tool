@@ -109,4 +109,26 @@
       transform: rotate(360deg);
     }
   }
+
+  @keyframes dmtool-slide-in-right {
+    from {
+      transform: translateX(40px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes dmtool-slide-out-right {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(40px);
+      opacity: 0;
+    }
+  }
 }

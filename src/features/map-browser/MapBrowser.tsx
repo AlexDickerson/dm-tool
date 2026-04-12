@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Layers, Rows } from "lucide-react";
@@ -102,10 +102,27 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
     setSelectedFileName(fileName);
   };
 
-  const closeDetail = () => {
-    setSelectedFileName(null);
-    setActiveVariants(null);
-  };
+  // Detail pane exit animation: instead of unmounting immediately, we
+  // flip to the "closing" animation and unmount on animationend.
+  const [detailAnim, setDetailAnim] = useState<"open" | "closing">("open");
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  const closeDetail = useCallback(() => {
+    setDetailAnim("closing");
+    const el = detailRef.current;
+    if (!el) {
+      setSelectedFileName(null);
+      setActiveVariants(null);
+      return;
+    }
+    const onEnd = () => {
+      el.removeEventListener("animationend", onEnd);
+      setSelectedFileName(null);
+      setActiveVariants(null);
+      setDetailAnim("open");
+    };
+    el.addEventListener("animationend", onEnd);
+  }, []);
 
   // When a map is selected, both the grid and the detail pane share
   // the remaining horizontal space, but weighted so the detail area
@@ -186,7 +203,15 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
           main image is large and the variant panel has room, while
           the grid still has enough room for 2 columns of thumbs. */}
       {selectedFileName && (
-        <div className="flex min-w-0 flex-[1.8]">
+        <div
+          ref={detailRef}
+          className="flex min-w-0 flex-[1.8]"
+          style={{
+            animation: detailAnim === "open"
+              ? "dmtool-slide-in-right 200ms ease-out"
+              : "dmtool-slide-out-right 150ms ease-out forwards",
+          }}
+        >
           <DetailPane
             fileName={selectedFileName}
             variants={activeVariants}
