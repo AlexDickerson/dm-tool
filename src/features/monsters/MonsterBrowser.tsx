@@ -5,8 +5,7 @@ import { MonsterDetailPane } from './MonsterDetailPane';
 import { useMonsterSearch, useMonsterFacets, useMonsterDetail, useOpenExternal } from './useMonsters';
 import type { MonsterSearchParams } from '@shared/types';
 
-export function MonsterBrowser() {
-  const [keywords, setKeywords] = useState('');
+export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
   const [filters, setFilters] = useState<MonsterSearchParams>({});
   const [selectedMonster, setSelectedMonster] = useState<string | null>(null);
   const [detailAnim, setDetailAnim] = useState<'open' | 'closing'>('open');
@@ -19,7 +18,7 @@ export function MonsterBrowser() {
     [filters, keywords],
   );
 
-  const { data: monsters, loading, error } = useMonsterSearch(searchParams);
+  const { data: monsters, error } = useMonsterSearch(searchParams);
   const { data: facets } = useMonsterFacets();
   const { data: detail, loading: detailLoading } = useMonsterDetail(selectedMonster);
   const openExternal = useOpenExternal();
@@ -57,12 +56,9 @@ export function MonsterBrowser() {
 
         <MonsterTable
           monsters={monsters ?? []}
-          loading={loading}
           error={error}
           selected={selectedMonster}
           onSelect={handleSelect}
-          keywords={keywords}
-          onKeywordsChange={setKeywords}
           sortBy={filters.sortBy}
           sortDir={filters.sortDir}
           onSort={handleSort}

@@ -84,7 +84,7 @@ export function ItemFilterPanel({ facets, params, onChange }: ItemFilterPanelPro
   };
 
   return (
-    <div className="flex h-full flex-col border-r border-border bg-card" style={{ width: 220 }}>
+    <div className="flex h-full flex-col border-r border-border bg-card" style={{ width: 200 }}>
       <div className="flex h-12 items-center justify-between px-3">
         <div className="flex items-center gap-2">
           <Label

@@ -1,6 +1,4 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
 import { ItemFilterPanel } from './ItemFilterPanel';
 import { ItemTable, type GroupedItem } from './ItemTable';
 import { ItemDetailPane } from './ItemDetailPane';
@@ -46,8 +44,7 @@ function groupItems(items: ItemBrowserRow[]): GroupedItem[] {
   return result;
 }
 
-export function ItemBrowser() {
-  const [keywords, setKeywords] = useState('');
+export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
   const [filters, setFilters] = useState<ItemSearchParams>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<ItemSortField>('name');
@@ -101,20 +98,8 @@ export function ItemBrowser() {
       {/* Filter panel */}
       <ItemFilterPanel facets={facets} params={filters} onChange={handleFilterChange} />
 
-      {/* Center: search + table */}
+      {/* Center: table */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Search bar */}
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search items..."
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
-          />
-        </div>
-
         <ItemTable
           groups={grouped}
           selectedId={selectedId}

@@ -7,6 +7,7 @@ import {
   Map,
   MessageSquare,
   RotateCcw,
+  Search,
   Settings,
   Skull,
   Swords,
@@ -124,6 +125,7 @@ function MainApp() {
   const [fontFamily, setFontFamily] = useState<FontFamily>(() => (loadString(FONT_KEY) as FontFamily) || 'sans-serif');
   const [theme, setTheme] = useState<ThemeId>(() => (loadString(THEME_KEY) as ThemeId) || THEME_DEFAULT);
   const [chatOpen, setChatOpen] = useState(false);
+  const [keywords, setKeywords] = useState('');
 
   // Load API key from secure storage on mount
   useEffect(() => {
@@ -236,12 +238,30 @@ function MainApp() {
           />
           <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')} icon={Backpack} label="Items" />
         </nav>
-        {/* Settings gear pushed to the right edge of the draggable
-            region (just before the reserved native button strip). The
-            Dialog trigger lives inside a `no-drag` wrapper so the click
-            actually reaches the button instead of starting a window
-            drag. */}
-        <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {/* Search bar — shared across all tabs */}
+        <div
+          className="relative mx-2 flex max-w-md flex-1 items-center"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={keywords}
+            onChange={(e) => setKeywords(e.target.value)}
+            placeholder={
+              activeTab === 'maps'
+                ? 'Search maps…'
+                : activeTab === 'books'
+                  ? 'Filter books…'
+                  : activeTab === 'monsters'
+                    ? 'Search monsters…'
+                    : activeTab === 'items'
+                      ? 'Search items…'
+                      : 'Search…'
+            }
+            className="h-8 bg-background/50 pl-8 text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             type="button"
             aria-label="Toggle chat"
@@ -287,12 +307,13 @@ function MainApp() {
               thumbScale={thumbScale}
               anthropicApiKey={anthropicApiKey}
               packMappingVersion={packMappingVersion}
+              keywords={keywords}
             />
           )}
-          {activeTab === 'books' && <BookBrowser />}
+          {activeTab === 'books' && <BookBrowser keywords={keywords} />}
           {activeTab === 'combat' && <CombatPlaceholder />}
-          {activeTab === 'monsters' && <MonsterBrowser />}
-          {activeTab === 'items' && <ItemBrowser />}
+          {activeTab === 'monsters' && <MonsterBrowser keywords={keywords} />}
+          {activeTab === 'items' && <ItemBrowser keywords={keywords} />}
           {/* Vignette overlay — darkens edges for a "torchlight" feel */}
           <div
             className="pointer-events-none absolute inset-0"

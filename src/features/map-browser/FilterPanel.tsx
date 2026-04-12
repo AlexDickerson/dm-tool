@@ -55,7 +55,7 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
   }, [params]);
 
   return (
-    <div className="flex h-full flex-col border-r border-border bg-card">
+    <div className="flex h-full flex-col border-r border-border bg-card" style={{ width: 200 }}>
       {/* Fixed row height — without it, the row grows when the Clear
           button appears (the button is taller than the label alone) and
           every filter below visibly shifts down. Header upgraded from

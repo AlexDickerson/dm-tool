@@ -23,12 +23,18 @@ interface MapBrowserProps {
   /** Bumped by App when pack mapping is imported via Settings, so we
    *  know to re-fetch the cached mapping. */
   packMappingVersion?: number;
+  /** Search keywords from the shared header search bar. */
+  keywords?: string;
 }
 
 // Top-level state for the browser. All mutable state lives here so the
 // FilterPanel, ThumbnailGrid and DetailPane stay presentational.
-export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVersion = 0 }: MapBrowserProps) {
-  const [keywords, setKeywords] = useState('');
+export function MapBrowser({
+  thumbScale = 1,
+  anthropicApiKey = '',
+  packMappingVersion = 0,
+  keywords = '',
+}: MapBrowserProps) {
   const [filters, setFilters] = useState<SearchParams>({});
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   // Default to grouped view — the whole reason we added stemming is that
@@ -201,35 +207,12 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVe
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
         {/* Left: filter sidebar */}
-        <div className="w-64 shrink-0">
+        <div className="shrink-0" style={{ width: 200 }}>
           <FilterPanel facets={facets} params={filters} onChange={setFilters} />
         </div>
 
-        {/* Center: search bar + thumbnail grid. Always flex-1 — the
-          detail pane's proportionally larger flex weight gives it more
-          room without squeezing the grid down to a single column.
-          When the detail pane is open we add right padding so the
-          grid's vertical scrollbar isn't flush against the detail
-          pane's left border. */}
         <div className={cn('flex min-w-0 flex-1 flex-col', selectedFileName && 'pr-2')}>
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-            <div className="relative max-w-xl flex-1">
-              <Input
-                value={keywords}
-                onChange={(e) => setKeywords(e.target.value)}
-                placeholder="Search — e.g. 'a gloomy castle in a dark forest'"
-                className={cn(keywords && 'pr-8')}
-              />
-              {keywords && (
-                <button
-                  type="button"
-                  onClick={() => setKeywords('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
             <Button
               type="button"
               variant="outline"
