@@ -28,13 +28,13 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
   const handleSelect = useCallback(
     (name: string) => {
       if (name === selectedMonster) {
-        handleClose();
+        setClosing(true);
       } else {
         setClosing(false);
         setSelectedMonster(name);
       }
     },
-    [selectedMonster, handleClose],
+    [selectedMonster],
   );
 
   const handleClose = useCallback(() => setClosing(true), []);

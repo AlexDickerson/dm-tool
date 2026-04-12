@@ -75,13 +75,13 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
   const handleSelect = useCallback(
     (item: ItemBrowserRow) => {
       if (item.id === selectedId) {
-        handleClose();
+        setClosing(true);
       } else {
         setClosing(false);
         setSelectedId(item.id);
       }
     },
-    [selectedId, handleClose],
+    [selectedId],
   );
 
   const handleClose = useCallback(() => setClosing(true), []);
