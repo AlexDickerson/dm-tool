@@ -70,48 +70,40 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
 
             <Separator />
 
-            {/* Ability scores */}
-            <section>
-              <SectionLabel>Ability Modifiers</SectionLabel>
-              <div className="grid grid-cols-6 gap-2">
+            {/* Stats */}
+            <section className="space-y-2">
+              <div className="grid grid-cols-6 gap-2 text-center text-xs">
                 {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((a) => (
-                  <div key={a} className="text-center">
+                  <div key={a}>
                     <div className="text-[10px] font-semibold uppercase text-muted-foreground">{a}</div>
-                    <div className="text-sm font-medium tabular-nums">{mod(detail[a])}</div>
+                    <div className="font-medium tabular-nums">{mod(detail[a])}</div>
                   </div>
                 ))}
               </div>
-            </section>
 
-            <Separator />
-
-            {/* Defenses */}
-            <section>
-              <SectionLabel>Defenses</SectionLabel>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                 <Stat label="AC" value={String(detail.ac)} />
                 <Stat label="HP" value={String(detail.hp)} />
                 <Stat label="Fort" value={mod(detail.fort)} />
                 <Stat label="Ref" value={mod(detail.ref)} />
                 <Stat label="Will" value={mod(detail.will)} />
-                <Stat label="Perception" value={mod(detail.perception)} />
+                <Stat label="Perc" value={mod(detail.perception)} />
+                <Stat label="Speed" value={detail.speed} />
               </div>
-            </section>
 
-            {(detail.immunities || detail.weaknesses || detail.resistances) && (
-              <section className="space-y-1 text-xs">
-                {detail.immunities && <Stat label="Immunities" value={detail.immunities} />}
-                {detail.weaknesses && <Stat label="Weaknesses" value={detail.weaknesses} />}
-                {detail.resistances && <Stat label="Resistances" value={detail.resistances} />}
-              </section>
-            )}
+              {detail.skills && (
+                <div className="text-xs">
+                  <Stat label="Skills" value={detail.skills} />
+                </div>
+              )}
 
-            <Separator />
-
-            {/* Speed + Skills */}
-            <section className="space-y-1 text-xs">
-              <Stat label="Speed" value={detail.speed} />
-              {detail.skills && <Stat label="Skills" value={detail.skills} />}
+              {(detail.immunities || detail.weaknesses || detail.resistances) && (
+                <div className="space-y-1 text-xs">
+                  {detail.immunities && <Stat label="Immunities" value={detail.immunities} />}
+                  {detail.weaknesses && <Stat label="Weaknesses" value={detail.weaknesses} />}
+                  {detail.resistances && <Stat label="Resistances" value={detail.resistances} />}
+                </div>
+              )}
             </section>
 
             {/* Attacks */}
