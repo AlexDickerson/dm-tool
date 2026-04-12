@@ -45,11 +45,9 @@ function stripHtml(html: string): string {
     prev = text;
     text = text.replace(/<[^>]+>/g, '');
   } while (text !== prev);
+  const entities: Record<string, string> = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
   return text
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => entities[m])
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

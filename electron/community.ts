@@ -10,13 +10,16 @@ function stripHtml(html: string): string {
     prev = text;
     text = text.replace(/<[^>]+>/g, '');
   } while (text !== prev);
+  const entities: Record<string, string> = {
+    '&nbsp;': ' ',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+  };
   return text
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+    .replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g, (m) => entities[m])
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
