@@ -266,6 +266,7 @@ export interface ConfigPaths {
   booksPath: string;
   autoWallBinPath: string;
   pf2eDbPath: string;
+  foundryMcpUrl: string;
 }
 
 export interface PickPathArgs {
@@ -440,6 +441,18 @@ export interface ElectronAPI {
   } | null>;
   /** Open a file picker to import a .uvtt file for the given map. */
   autoWallImportUvtt(fileName: string): Promise<boolean>;
+  /** Read the raw .uvtt sidecar JSON for a map. Returns null if no
+   *  sidecar exists. The returned object can be passed directly to
+   *  foundry-mcp's create_scene_from_uvtt tool. */
+  getMapUvtt(fileName: string): Promise<Record<string, unknown> | null>;
+  /** Push a map + its .uvtt walls to Foundry VTT via foundry-mcp.
+   *  Requires foundryMcpUrl to be set in config.json. */
+  pushToFoundry(fileName: string): Promise<{
+    sceneId: string;
+    sceneName: string;
+    wallsCreated: number;
+    doorsCreated: number;
+  }>;
 
   // -----------------------------------------------------------------------
   // Monster browser

@@ -23,6 +23,7 @@ export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserW
       booksPath: '',
       autoWallBinPath: '',
       pf2eDbPath: '',
+      foundryMcpUrl: '',
     }),
   );
 

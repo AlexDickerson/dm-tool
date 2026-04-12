@@ -106,6 +106,11 @@ const api: ElectronAPI = {
   autoWallGetWalls: (fileName: string): Promise<{ walls: number[][]; width: number; height: number } | null> =>
     ipcRenderer.invoke('autoWallGetWalls', fileName),
   autoWallImportUvtt: (fileName: string): Promise<boolean> => ipcRenderer.invoke('autoWallImportUvtt', fileName),
+  getMapUvtt: (fileName: string): Promise<Record<string, unknown> | null> => ipcRenderer.invoke('getMapUvtt', fileName),
+  pushToFoundry: (
+    fileName: string,
+  ): Promise<{ sceneId: string; sceneName: string; wallsCreated: number; doorsCreated: number }> =>
+    ipcRenderer.invoke('pushToFoundry', fileName),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);
