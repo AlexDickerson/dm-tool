@@ -61,7 +61,7 @@ jobs:
           gh release download v1.4.0-cli --repo AlexDickerson/auto-wall --pattern "Auto-Wall.exe" --dir auto-wall-bin
 
       # -- Node: build the Electron app --
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
