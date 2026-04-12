@@ -303,7 +303,12 @@ export function MapBrowser({
 
           {/* Detail overlay */}
           {selectedFileName && (
-            <DetailOverlay width={780} closing={detailClosing} onClosed={handleDetailClosed}>
+            <DetailOverlay
+              storageKey="dmtool.detail.maps"
+              defaultWidth={780}
+              closing={detailClosing}
+              onClosed={handleDetailClosed}
+            >
               <DetailPane
                 fileName={selectedFileName}
                 variants={activeVariants}

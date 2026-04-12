@@ -102,7 +102,7 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
         <ItemCardGrid groups={grouped} selectedId={selectedId} onSelect={handleSelect} loading={loading} />
 
         {selectedId && (
-          <DetailOverlay closing={closing} onClosed={handleClosed}>
+          <DetailOverlay storageKey="dmtool.detail.items" closing={closing} onClosed={handleClosed}>
             <ItemDetailPane
               itemId={selectedId}
               siblings={selectedSiblings}

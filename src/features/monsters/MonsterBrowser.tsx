@@ -54,7 +54,7 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
           <MonsterCardGrid monsters={monsters ?? []} error={error} selected={selectedMonster} onSelect={handleSelect} />
 
           {selectedMonster && detail && (
-            <DetailOverlay closing={closing} onClosed={handleClosed}>
+            <DetailOverlay storageKey="dmtool.detail.monsters" closing={closing} onClosed={handleClosed}>
               <MonsterDetailPane
                 detail={detail}
                 loading={detailLoading}
