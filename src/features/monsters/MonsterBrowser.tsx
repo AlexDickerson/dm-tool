@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { MonsterFilterPanel } from './MonsterFilterPanel';
-import { MonsterTable } from './MonsterTable';
+import { MonsterCardGrid } from './MonsterCardGrid';
 import { MonsterDetailPane } from './MonsterDetailPane';
 import { useMonsterSearch, useMonsterFacets, useMonsterDetail, useOpenExternal } from './useMonsters';
 import type { MonsterSearchParams } from '@shared/types';
@@ -37,15 +37,6 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
     setTimeout(() => setSelectedMonster(null), 150);
   }, []);
 
-  const handleSort = useCallback((col: MonsterSearchParams['sortBy']) => {
-    setFilters((f) => {
-      if (f.sortBy === col) {
-        return { ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' };
-      }
-      return { ...f, sortBy: col, sortDir: 'asc' };
-    });
-  }, []);
-
   const handleFiltersChange = useCallback((next: MonsterSearchParams) => {
     setFilters(next);
   }, []);
@@ -57,15 +48,7 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
           <MonsterFilterPanel facets={facets} params={filters} onChange={handleFiltersChange} />
         </ResizableSidebar>
 
-        <MonsterTable
-          monsters={monsters ?? []}
-          error={error}
-          selected={selectedMonster}
-          onSelect={handleSelect}
-          sortBy={filters.sortBy}
-          sortDir={filters.sortDir}
-          onSort={handleSort}
-        />
+        <MonsterCardGrid monsters={monsters ?? []} error={error} selected={selectedMonster} onSelect={handleSelect} />
 
         {selectedMonster && detail && (
           <MonsterDetailPane

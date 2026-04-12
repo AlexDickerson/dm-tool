@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { ItemFilterPanel } from './ItemFilterPanel';
-import { ItemTable, type GroupedItem } from './ItemTable';
+import { ItemCardGrid, type GroupedItem } from './ItemCardGrid';
 import { ItemDetailPane } from './ItemDetailPane';
 import { useItemSearch, useItemFacets } from './useItems';
-import type { ItemBrowserRow, ItemSearchParams, ItemSortField, SortDirection } from '@shared/types';
+import type { ItemBrowserRow, ItemSearchParams } from '@shared/types';
 
 /** Strip a trailing parenthetical like "(Greater)" to get the base name.
  *  Returns the original name if there's no parenthetical. */
@@ -48,18 +48,14 @@ function groupItems(items: ItemBrowserRow[]): GroupedItem[] {
 export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
   const [filters, setFilters] = useState<ItemSearchParams>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<ItemSortField>('name');
-  const [sortDir, setSortDir] = useState<SortDirection>('asc');
 
   const searchParams = useMemo<ItemSearchParams>(
     () => ({
       ...filters,
       keywords: keywords.trim() || undefined,
-      sortBy,
-      sortDir,
       limit: 5000,
     }),
-    [filters, keywords, sortBy, sortDir],
+    [filters, keywords],
   );
 
   const { data: items, loading } = useItemSearch(searchParams);
@@ -73,18 +69,6 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
     const group = grouped.find((g) => g.siblings.some((s) => s.id === selectedId));
     return group && group.siblings.length > 1 ? group.siblings : null;
   }, [selectedId, grouped]);
-
-  const handleSort = useCallback(
-    (field: ItemSortField) => {
-      if (sortBy === field) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-      } else {
-        setSortBy(field);
-        setSortDir('asc');
-      }
-    },
-    [sortBy],
-  );
 
   const handleSelect = useCallback((item: ItemBrowserRow) => {
     setSelectedId((prev) => (prev === item.id ? null : item.id));
@@ -101,18 +85,8 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
         <ItemFilterPanel facets={facets} params={filters} onChange={handleFilterChange} />
       </ResizableSidebar>
 
-      {/* Center: table */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ItemTable
-          groups={grouped}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          onSort={handleSort}
-          loading={loading}
-        />
-      </div>
+      {/* Center: card grid */}
+      <ItemCardGrid groups={grouped} selectedId={selectedId} onSelect={handleSelect} loading={loading} />
 
       {/* Detail pane */}
       {selectedId && (
