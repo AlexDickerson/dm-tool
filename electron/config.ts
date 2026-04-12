@@ -34,6 +34,9 @@ export interface DmToolConfig {
   /** Absolute path to the map-tagger CLI executable, typically the
    *  `map-tagger.exe` inside the tagger's venv Scripts/ folder. */
   taggerBinPath: string;
+  /** Absolute path to the PF2e rules/monsters/items SQLite database.
+   *  Optional — if missing, the chat tools fall back to AoN web queries. */
+  pf2eDbPath?: string;
 }
 
 /** The config file is looked up in this order:
@@ -132,5 +135,10 @@ export function loadConfig(): DmToolConfig {
     booksPath = resolve(cfg.booksPath);
   }
 
-  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath };
+  let pf2eDbPath: string | undefined;
+  if (cfg.pf2eDbPath && typeof cfg.pf2eDbPath === "string" && cfg.pf2eDbPath.trim().length > 0) {
+    pf2eDbPath = resolve(cfg.pf2eDbPath);
+  }
+
+  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath, pf2eDbPath };
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { MessageSquare, Settings } from "lucide-react";
 import { MapBrowser } from "./features/map-browser/MapBrowser";
 import { BookBrowser } from "./features/book-browser/BookBrowser";
+import { ChatDrawer } from "./features/chat/ChatDrawer";
 import { cn } from "./lib/utils";
 import {
   Dialog,
@@ -40,6 +41,8 @@ const THUMB_MAX = 2;
 // this is a single-user personal tool; if/when this app grows to multi-
 // user we should move it to safeStorage.
 const API_KEY_KEY = "dmtool.anthropicApiKey";
+const MODEL_KEY = "dmtool.chatModel";
+const MODEL_DEFAULT = "claude-sonnet-4-6";
 
 function loadString(key: string): string {
   try {
@@ -74,6 +77,10 @@ export default function App() {
   const [anthropicApiKey, setAnthropicApiKey] = useState<string>(() =>
     loadString(API_KEY_KEY),
   );
+  const [chatModel, setChatModel] = useState<string>(() =>
+    loadString(MODEL_KEY) || MODEL_DEFAULT,
+  );
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Apply the UI scale to the root <html> element and tell the main
   // process to resize the native title-bar overlay to match. Runs on
@@ -122,6 +129,14 @@ export default function App() {
     }
   }, [anthropicApiKey]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(MODEL_KEY, chatModel);
+    } catch {
+      // non-fatal
+    }
+  }, [chatModel]);
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       {/* Custom title bar. The native OS chrome is hidden via
@@ -158,9 +173,22 @@ export default function App() {
             actually reaches the button instead of starting a window
             drag. */}
         <div
-          className="ml-auto"
+          className="ml-auto flex items-center gap-1"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
+          <button
+            type="button"
+            aria-label="Toggle chat"
+            onClick={() => setChatOpen((o) => !o)}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+              chatOpen
+                ? "bg-accent text-foreground"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+            )}
+          >
+            <MessageSquare className="h-4 w-4" />
+          </button>
           <SettingsDialog
             uiScale={uiScale}
             onUiScaleChange={setUiScale}
@@ -168,6 +196,8 @@ export default function App() {
             onThumbScaleChange={setThumbScale}
             anthropicApiKey={anthropicApiKey}
             onAnthropicApiKeyChange={setAnthropicApiKey}
+            chatModel={chatModel}
+            onChatModelChange={setChatModel}
           />
         </div>
       </header>
@@ -184,12 +214,15 @@ export default function App() {
           4px gap shows through to the body background (same color as
           header) so it reads as a single uninterrupted title strip. */}
       <div className="mt-1 h-px shrink-0 bg-border" />
-      <main className="flex-1 overflow-hidden">
-        {activeTab === "maps" && (
-          <MapBrowser thumbScale={thumbScale} anthropicApiKey={anthropicApiKey} />
-        )}
-        {activeTab === "books" && <BookBrowser />}
-      </main>
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        <main className="h-full overflow-hidden">
+          {activeTab === "maps" && (
+            <MapBrowser thumbScale={thumbScale} anthropicApiKey={anthropicApiKey} />
+          )}
+          {activeTab === "books" && <BookBrowser />}
+        </main>
+        <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} anthropicApiKey={anthropicApiKey} chatModel={chatModel} />
+      </div>
     </div>
   );
 }
@@ -264,6 +297,8 @@ function SettingsDialog({
   onThumbScaleChange,
   anthropicApiKey,
   onAnthropicApiKeyChange,
+  chatModel,
+  onChatModelChange,
 }: {
   uiScale: number;
   onUiScaleChange: (n: number) => void;
@@ -271,6 +306,8 @@ function SettingsDialog({
   onThumbScaleChange: (n: number) => void;
   anthropicApiKey: string;
   onAnthropicApiKeyChange: (s: string) => void;
+  chatModel: string;
+  onChatModelChange: (s: string) => void;
 }) {
   return (
     <Dialog>
@@ -356,6 +393,26 @@ function SettingsDialog({
             <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
               Enables AI features like regenerating encounter hooks on a
               map. Stored locally on this machine.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="chat-model" className="text-xs font-medium">
+              Chat Model
+            </Label>
+            <select
+              id="chat-model"
+              value={chatModel}
+              onChange={(e) => onChatModelChange(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="claude-haiku-4-5-20251001">Haiku 4.5 — fast, cheap</option>
+              <option value="claude-sonnet-4-6">Sonnet 4.6 — balanced</option>
+              <option value="claude-opus-4-6">Opus 4.6 — smartest, slowest</option>
+            </select>
+            <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
+              Model used by the chat assistant. Higher tiers are smarter
+              but cost more per message.
             </p>
           </div>
         </div>
