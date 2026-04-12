@@ -13,8 +13,9 @@ function itemBaseName(name: string): string {
   return name.replace(/\s*\([^)]+\)\s*$/, '');
 }
 
-/** Group items by base name. Each group's representative is the lowest-
- *  level member; siblings are sorted by level ascending. */
+/** Group items by base name. Within each group, if both legacy and
+ *  remastered entries exist, keep only the remastered ones. Each group's
+ *  representative is the lowest-level member. */
 function groupItems(items: ItemBrowserRow[]): GroupedItem[] {
   const groups = new Map<string, ItemBrowserRow[]>();
   for (const item of items) {
@@ -28,7 +29,13 @@ function groupItems(items: ItemBrowserRow[]): GroupedItem[] {
   }
 
   const result: GroupedItem[] = [];
-  for (const members of groups.values()) {
+  for (let members of groups.values()) {
+    // If the group has both legacy and remastered items, drop legacy
+    const hasRemastered = members.some((m) => m.isRemastered === true);
+    const hasLegacy = members.some((m) => m.isRemastered === false || m.isRemastered === null);
+    if (hasRemastered && hasLegacy) {
+      members = members.filter((m) => m.isRemastered === true);
+    }
     // Sort siblings by level ascending
     members.sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
     result.push({

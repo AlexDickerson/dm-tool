@@ -147,6 +147,8 @@ export interface ItemBrowserRow {
   usage: string | null;
   isMagical: boolean;
   hasVariants: boolean;
+  /** true = ORC/remastered, false = OGL/legacy, null = unknown. */
+  isRemastered: boolean | null;
 }
 
 export interface ItemVariant {

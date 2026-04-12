@@ -66,6 +66,11 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
                   Magical
                 </span>
               )}
+              {detail.isRemastered === false && (
+                <span className="rounded border border-yellow-700/40 bg-yellow-950/30 px-1.5 py-0.5 text-[10px] font-medium leading-none text-yellow-400">
+                  Legacy
+                </span>
+              )}
             </div>
 
             {/* Traits */}

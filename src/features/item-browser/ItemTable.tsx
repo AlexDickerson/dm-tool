@@ -140,6 +140,11 @@ export function ItemTable({ groups, selectedId, onSelect, sortBy, sortDir, onSor
                   <div className="w-10 shrink-0 text-right text-muted-foreground">{item.bulk ?? '—'}</div>
                   {/* Traits */}
                   <div className="flex w-40 shrink-0 items-center gap-1 overflow-hidden pl-3">
+                    {item.isRemastered === false && (
+                      <span className="shrink-0 rounded border border-yellow-700/40 bg-yellow-950/30 px-1 py-0.5 text-[9px] font-medium leading-none text-yellow-400">
+                        legacy
+                      </span>
+                    )}
                     {item.rarity !== 'COMMON' && (
                       <span
                         className={cn(

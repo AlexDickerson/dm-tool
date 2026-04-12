@@ -376,6 +376,7 @@ interface RawItemRow {
   description: string | null;
   source: string | null;
   aon_url: string | null;
+  publication_remaster: number | null;
 }
 
 function rowToBrowserRow(r: RawItemRow): ItemBrowserRow {
@@ -390,6 +391,7 @@ function rowToBrowserRow(r: RawItemRow): ItemBrowserRow {
     usage: r.usage,
     isMagical: r.is_magical === 1,
     hasVariants: r.has_variants === 1,
+    isRemastered: r.publication_remaster === 1 ? true : r.publication_remaster === 0 ? false : null,
   };
 }
 
@@ -487,7 +489,7 @@ export function searchItemsBrowser(params: ItemSearchParams): ItemBrowserRow[] {
   }
 
   const limit = params.limit ?? 500;
-  const sql = `SELECT id, name, level, traits, is_magical, price, bulk, usage, has_variants FROM items ${where} ${orderBy} LIMIT ?`;
+  const sql = `SELECT id, name, level, traits, is_magical, price, bulk, usage, has_variants, publication_remaster FROM items ${where} ${orderBy} LIMIT ?`;
   bindings.push(limit);
 
   const rows = d.prepare(sql).all(...bindings) as RawItemRow[];
