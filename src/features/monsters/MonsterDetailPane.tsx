@@ -43,131 +43,120 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">Loading…</div>
       ) : (
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-4 p-4">
-            {/* Description — directly under the name */}
-            {detail.description && (
-              <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
-            )}
+        <div className="flex min-h-0 flex-1">
+          {/* Left stat column */}
+          <div className="flex w-16 shrink-0 flex-col items-center gap-3 border-r border-border py-3 text-[10px]">
+            <StatCell label="AC" value={String(detail.ac)} />
+            <StatCell label="HP" value={String(detail.hp)} />
+            <Separator className="w-8" />
+            <StatCell label="Fort" value={mod(detail.fort)} />
+            <StatCell label="Ref" value={mod(detail.ref)} />
+            <StatCell label="Will" value={mod(detail.will)} />
+            <StatCell label="Perc" value={mod(detail.perception)} />
+            <Separator className="w-8" />
+            {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((a) => (
+              <StatCell key={a} label={a.toUpperCase()} value={mod(detail[a])} />
+            ))}
+          </div>
 
-            {/* Rarity + Size + Traits */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span
-                className={cn(
-                  'rounded px-1.5 py-0.5 text-[11px] font-medium capitalize',
-                  RARITY_BADGE[detail.rarity.toLowerCase()] ?? 'bg-zinc-600 text-zinc-100',
-                )}
-              >
-                {detail.rarity}
-              </span>
-              <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] capitalize">{detail.size}</span>
-              {detail.traits.map((t) => (
-                <span key={t} className="rounded border border-border px-1.5 py-0.5 text-[10px] capitalize">
-                  {t}
+          {/* Right content */}
+          <ScrollArea className="min-h-0 min-w-0 flex-1">
+            <div className="space-y-4 p-4">
+              {/* Description */}
+              {detail.description && (
+                <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
+              )}
+
+              {/* Rarity + Size + Traits */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className={cn(
+                    'rounded px-1.5 py-0.5 text-[11px] font-medium capitalize',
+                    RARITY_BADGE[detail.rarity.toLowerCase()] ?? 'bg-zinc-600 text-zinc-100',
+                  )}
+                >
+                  {detail.rarity}
                 </span>
-              ))}
-            </div>
-
-            <Separator />
-
-            {/* Stats */}
-            <section className="space-y-2">
-              <div className="grid grid-cols-6 gap-2 text-center text-xs">
-                {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((a) => (
-                  <div key={a}>
-                    <div className="text-[10px] font-semibold uppercase text-muted-foreground">{a}</div>
-                    <div className="font-medium tabular-nums">{mod(detail[a])}</div>
-                  </div>
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] capitalize">{detail.size}</span>
+                {detail.traits.map((t) => (
+                  <span key={t} className="rounded border border-border px-1.5 py-0.5 text-[10px] capitalize">
+                    {t}
+                  </span>
                 ))}
               </div>
 
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                <Stat label="AC" value={String(detail.ac)} />
-                <Stat label="HP" value={String(detail.hp)} />
-                <Stat label="Fort" value={mod(detail.fort)} />
-                <Stat label="Ref" value={mod(detail.ref)} />
-                <Stat label="Will" value={mod(detail.will)} />
-                <Stat label="Perc" value={mod(detail.perception)} />
+              {/* Speed, Skills, Immunities/Weaknesses/Resistances */}
+              <div className="space-y-1 text-xs">
                 <Stat label="Speed" value={detail.speed} />
+                {detail.skills && <Stat label="Skills" value={detail.skills} />}
+                {detail.immunities && <Stat label="Immunities" value={detail.immunities} />}
+                {detail.weaknesses && <Stat label="Weaknesses" value={detail.weaknesses} />}
+                {detail.resistances && <Stat label="Resistances" value={detail.resistances} />}
               </div>
 
-              {detail.skills && (
-                <div className="text-xs">
-                  <Stat label="Skills" value={detail.skills} />
-                </div>
+              {/* Attacks */}
+              {(detail.melee || detail.ranged) && (
+                <>
+                  <Separator />
+                  <section>
+                    <SectionLabel>Attacks</SectionLabel>
+                    <div className="space-y-1.5 text-xs">
+                      {detail.melee && (
+                        <div>
+                          <span className="font-semibold">Melee </span>
+                          {detail.melee}
+                        </div>
+                      )}
+                      {detail.ranged && (
+                        <div>
+                          <span className="font-semibold">Ranged </span>
+                          {detail.ranged}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </>
               )}
 
-              {(detail.immunities || detail.weaknesses || detail.resistances) && (
-                <div className="space-y-1 text-xs">
-                  {detail.immunities && <Stat label="Immunities" value={detail.immunities} />}
-                  {detail.weaknesses && <Stat label="Weaknesses" value={detail.weaknesses} />}
-                  {detail.resistances && <Stat label="Resistances" value={detail.resistances} />}
-                </div>
+              {/* Abilities */}
+              {detail.abilities && (
+                <>
+                  <Separator />
+                  <section>
+                    <SectionLabel>Abilities</SectionLabel>
+                    <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
+                      {detail.abilities}
+                    </pre>
+                  </section>
+                </>
               )}
-            </section>
 
-            {/* Attacks */}
-            {(detail.melee || detail.ranged) && (
-              <>
-                <Separator />
-                <section>
-                  <SectionLabel>Attacks</SectionLabel>
-                  <div className="space-y-1.5 text-xs">
-                    {detail.melee && (
-                      <div>
-                        <span className="font-semibold">Melee </span>
-                        {detail.melee}
-                      </div>
-                    )}
-                    {detail.ranged && (
-                      <div>
-                        <span className="font-semibold">Ranged </span>
-                        {detail.ranged}
-                      </div>
-                    )}
-                  </div>
-                </section>
-              </>
-            )}
+              {/* Source + AoN link */}
+              <Separator />
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">{detail.source}</span>
+                {detail.aonUrl && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenExternal(detail.aonUrl)}
+                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Archives of Nethys
+                  </button>
+                )}
+              </div>
 
-            {/* Abilities */}
-            {detail.abilities && (
-              <>
-                <Separator />
-                <section>
-                  <SectionLabel>Abilities</SectionLabel>
-                  <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
-                    {detail.abilities}
-                  </pre>
-                </section>
-              </>
-            )}
-
-            {/* Source + AoN link */}
-            <Separator />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">{detail.source}</span>
-              {detail.aonUrl && (
-                <button
-                  type="button"
-                  onClick={() => onOpenExternal(detail.aonUrl)}
-                  className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Archives of Nethys
-                </button>
+              {/* Full art */}
+              {detail.imageUrl && (
+                <>
+                  <Separator />
+                  <img src={detail.imageUrl} alt={detail.name} className="w-full rounded-md object-contain" />
+                </>
               )}
             </div>
-
-            {/* Full art */}
-            {detail.imageUrl && (
-              <>
-                <Separator />
-                <img src={detail.imageUrl} alt={detail.name} className="w-full rounded-md object-contain" />
-              </>
-            )}
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
       )}
     </>
   );
@@ -184,6 +173,15 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div>
       <span className="font-semibold text-foreground">{label} </span>
       <span className="text-foreground/80">{value}</span>
+    </div>
+  );
+}
+
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col items-center leading-none">
+      <span className="font-semibold uppercase text-muted-foreground">{label}</span>
+      <span className="mt-0.5 text-sm font-medium tabular-nums text-foreground">{value}</span>
     </div>
   );
 }
