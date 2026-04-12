@@ -82,7 +82,7 @@ async function queryAoN(
 
     if (!res.ok) return `[AoN lookup failed: HTTP ${res.status}]`;
 
-    const data = await res.json();
+    const data = (await res.json()) as { hits?: { hits?: Array<{ _source: AonHit }> } };
     const hits: AonHit[] = (data.hits?.hits ?? []).map((h: { _source: AonHit }) => h._source);
 
     return formatHits(hits, label);

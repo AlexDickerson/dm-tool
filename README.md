@@ -22,7 +22,7 @@ A desktop toolbox for prepping and running tabletop RPG sessions, built with Ele
    {
      "libraryPath": "/path/to/your/map/library",
      "indexDbPath": "/path/to/index.sqlite",
-     "booksPath": "/path/to/your/pdf/library"  // optional
+     "booksPath": "/path/to/your/pdf/library", // optional
    }
    ```
 
@@ -38,12 +38,12 @@ A desktop toolbox for prepping and running tabletop RPG sessions, built with Ele
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start the app in dev mode with hot reload |
-| `npm run build` | Build for production |
-| `npm run start` | Preview the production build |
-| `npm run typecheck` | Run TypeScript type checking |
+| Command             | Description                               |
+| ------------------- | ----------------------------------------- |
+| `npm run dev`       | Start the app in dev mode with hot reload |
+| `npm run build`     | Build for production                      |
+| `npm run start`     | Preview the production build              |
+| `npm run typecheck` | Run TypeScript type checking              |
 
 ## Tech Stack
 

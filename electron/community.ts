@@ -49,7 +49,7 @@ async function searchReddit(query: string): Promise<string[]> {
     });
     if (!res.ok) return [];
 
-    const data = await res.json();
+    const data = (await res.json()) as { data?: { children?: Array<{ data: RedditPost }> } };
     const posts: RedditPost[] = (data?.data?.children ?? []).map((c: { data: RedditPost }) => c.data);
 
     return posts.map((p) => {
@@ -99,7 +99,7 @@ async function searchStackExchange(query: string): Promise<string[]> {
     });
     if (!res.ok) return [];
 
-    const data: SEResponse = await res.json();
+    const data = (await res.json()) as SEResponse;
 
     return (data.items ?? []).map((q) => {
       const body = q.body_markdown ? truncate(q.body_markdown) : truncate(stripHtml(q.title));
