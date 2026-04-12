@@ -14,7 +14,21 @@
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "build:tagger": "cd tagger && build.bat",
     "package": "electron-vite build && electron-builder --win",
-    "package:dir": "electron-vite build && electron-builder --win --dir"
+    "package:dir": "electron-vite build && electron-builder --win --dir",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,md,html}": [
+      "prettier --write"
+    ]
   },
   "build": {
     "appId": "com.alexdickerson.dm-tool",
@@ -78,6 +92,7 @@
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron/rebuild": "^3.7.0",
+    "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
@@ -88,9 +103,15 @@
     "electron-builder": "^26.8.1",
     "electron-rebuild": "^3.2.9",
     "electron-vite": "^2.3.0",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "postcss": "^8.4.49",
+    "prettier": "^3.8.2",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.58.1",
     "vite": "^5.4.11"
   }
 }

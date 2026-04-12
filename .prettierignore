@@ -1,0 +1,7 @@
+node_modules/
+out/
+dist/
+tagger/
+resources/
+.claude/
+package-lock.json
