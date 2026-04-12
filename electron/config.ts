@@ -67,6 +67,9 @@ export interface DmToolConfig {
   /** Absolute path to the PF2e rules/monsters/items SQLite database.
    *  Optional — if missing, the chat tools fall back to AoN web queries. */
   pf2eDbPath?: string;
+  /** URL of the foundry-mcp server (e.g. "http://server.ad:8765").
+   *  Optional — if missing, the "Push to Foundry" button is hidden. */
+  foundryMcpUrl?: string;
 }
 
 /** The config file is looked up in this order:
@@ -207,5 +210,20 @@ export function loadConfig(): DmToolConfig {
     pf2eDbPath = resolve(cfg.pf2eDbPath);
   }
 
-  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath, autoWallBinPath, pf2eDbPath };
+  let foundryMcpUrl: string | undefined;
+  if (cfg.foundryMcpUrl && typeof cfg.foundryMcpUrl === 'string' && cfg.foundryMcpUrl.trim().length > 0) {
+    foundryMcpUrl = cfg.foundryMcpUrl.replace(/\/+$/, '');
+  }
+
+  return {
+    libraryPath,
+    indexDbPath,
+    booksPath,
+    inboxPath,
+    quarantinePath,
+    taggerBinPath,
+    autoWallBinPath,
+    pf2eDbPath,
+    foundryMcpUrl,
+  };
 }

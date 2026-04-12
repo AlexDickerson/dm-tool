@@ -182,6 +182,7 @@ export interface ConfigPaths {
   booksPath: string;
   autoWallBinPath: string;
   pf2eDbPath: string;
+  foundryMcpUrl: string;
 }
 
 export interface PickPathArgs {
@@ -360,4 +361,12 @@ export interface ElectronAPI {
    *  sidecar exists. The returned object can be passed directly to
    *  foundry-mcp's create_scene_from_uvtt tool. */
   getMapUvtt(fileName: string): Promise<Record<string, unknown> | null>;
+  /** Push a map + its .uvtt walls to Foundry VTT via foundry-mcp.
+   *  Requires foundryMcpUrl to be set in config.json. */
+  pushToFoundry(fileName: string): Promise<{
+    sceneId: string;
+    sceneName: string;
+    wallsCreated: number;
+    doorsCreated: number;
+  }>;
 }
