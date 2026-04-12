@@ -24,13 +24,26 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
   return (
     <>
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 className="truncate text-sm font-semibold">{detail.name}</h2>
-          <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-            Lvl {detail.level}
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
+        <h2 className="shrink-0 text-sm font-semibold">{detail.name}</h2>
+        <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+          Lvl {detail.level}
+        </span>
+        <span
+          className={cn(
+            'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium capitalize',
+            RARITY_BADGE[detail.rarity.toLowerCase()] ?? 'bg-zinc-600 text-zinc-100',
+          )}
+        >
+          {detail.rarity}
+        </span>
+        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] capitalize">{detail.size}</span>
+        {detail.traits.map((t) => (
+          <span key={t} className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] capitalize">
+            {t}
           </span>
-        </div>
+        ))}
+        <div className="flex-1" />
         <button
           type="button"
           onClick={onClose}
@@ -66,24 +79,6 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
               {detail.description && (
                 <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
               )}
-
-              {/* Rarity + Size + Traits */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className={cn(
-                    'rounded px-1.5 py-0.5 text-[11px] font-medium capitalize',
-                    RARITY_BADGE[detail.rarity.toLowerCase()] ?? 'bg-zinc-600 text-zinc-100',
-                  )}
-                >
-                  {detail.rarity}
-                </span>
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] capitalize">{detail.size}</span>
-                {detail.traits.map((t) => (
-                  <span key={t} className="rounded border border-border px-1.5 py-0.5 text-[10px] capitalize">
-                    {t}
-                  </span>
-                ))}
-              </div>
 
               {/* Speed, Skills, Immunities/Weaknesses/Resistances */}
               <div className="space-y-1 text-xs">
