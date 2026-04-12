@@ -100,7 +100,7 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
                       {detail.melee &&
                         cleanFoundryMarkup(detail.melee)
                           .split(';')
-                          .map((a, i) => a.trim())
+                          .map((a) => a.trim())
                           .filter(Boolean)
                           .map((a, i) => (
                             <div key={`m${i}`}>
