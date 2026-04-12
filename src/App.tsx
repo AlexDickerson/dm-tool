@@ -3,6 +3,7 @@ import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings } from 'l
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
+import { MonsterBrowser } from './features/monsters/MonsterBrowser';
 import { ChatDrawer } from './features/chat/ChatDrawer';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { PathField } from './components/PathField';
@@ -240,6 +241,7 @@ function MainApp() {
             />
           )}
           {activeTab === 'books' && <BookBrowser />}
+          {activeTab === 'monsters' && <MonsterBrowser />}
           {activeTab === 'items' && <ItemBrowser />}
         </main>
         <ChatDrawer

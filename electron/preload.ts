@@ -24,6 +24,10 @@ import type {
   ItemSearchParams,
   MapDetail,
   MapSummary,
+  MonsterDetail,
+  MonsterFacets,
+  MonsterSearchParams,
+  MonsterSummary,
   PickPathArgs,
   SearchParams,
   TaggerProgress,
@@ -100,6 +104,12 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('getItemBrowserDetail', id),
   getItemFacets: (): Promise<ItemFacets> => ipcRenderer.invoke('getItemFacets'),
 
+  // Monster browser
+  monstersSearch: (params: MonsterSearchParams): Promise<MonsterSummary[]> =>
+    ipcRenderer.invoke('monstersSearch', params),
+  monstersFacets: (): Promise<MonsterFacets> => ipcRenderer.invoke('monstersFacets'),
+  monstersGetDetail: (name: string): Promise<MonsterDetail | null> => ipcRenderer.invoke('monstersGetDetail', name),
+
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),
   autoWallLaunch: (fileName: string): Promise<void> => ipcRenderer.invoke('autoWallLaunch', fileName),
@@ -107,6 +117,11 @@ const api: ElectronAPI = {
   autoWallGetWalls: (fileName: string): Promise<{ walls: number[][]; width: number; height: number } | null> =>
     ipcRenderer.invoke('autoWallGetWalls', fileName),
   autoWallImportUvtt: (fileName: string): Promise<boolean> => ipcRenderer.invoke('autoWallImportUvtt', fileName),
+  getMapUvtt: (fileName: string): Promise<Record<string, unknown> | null> => ipcRenderer.invoke('getMapUvtt', fileName),
+  pushToFoundry: (
+    fileName: string,
+  ): Promise<{ sceneId: string; sceneName: string; wallsCreated: number; doorsCreated: number }> =>
+    ipcRenderer.invoke('pushToFoundry', fileName),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);

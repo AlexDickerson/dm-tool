@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, ExternalLink, Grid3x3, Loader2, RefreshCw, Upload, X } from 'lucide-react';
+import { Box, Check, ExternalLink, Globe, Grid3x3, Loader2, RefreshCw, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -45,13 +45,26 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
     height: number;
   } | null>(null);
 
+  // Foundry push state
+  const [foundryAvailable, setFoundryAvailable] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState<{
+    sceneName: string;
+    wallsCreated: number;
+    doorsCreated: number;
+  } | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
+
   useEffect(() => {
     api.autoWallAvailable().then(setAutoWallAvailable);
+    api.getConfig().then((cfg) => setFoundryAvailable(!!cfg.foundryMcpUrl));
   }, []);
 
   useEffect(() => {
     setShowWalls(false);
     setWallData(null);
+    setPushResult(null);
+    setPushError(null);
     if (fileName) {
       api.autoWallHasUvtt(fileName).then(setHasUvtt);
     } else {
@@ -292,7 +305,43 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
                           .uvtt
                         </span>
                       )}
+                      {hasUvtt && foundryAvailable && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={pushing}
+                          onClick={async () => {
+                            if (!fileName || pushing) return;
+                            setPushing(true);
+                            setPushResult(null);
+                            setPushError(null);
+                            try {
+                              const result = await api.pushToFoundry(fileName);
+                              setPushResult(result);
+                            } catch (e) {
+                              setPushError(e instanceof Error ? e.message : String(e));
+                            } finally {
+                              setPushing(false);
+                            }
+                          }}
+                        >
+                          {pushing ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Globe className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          Push to Foundry
+                        </Button>
+                      )}
                     </div>
+                    {pushResult && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-green-400">
+                        <Check className="h-3.5 w-3.5" />
+                        Created &quot;{pushResult.sceneName}&quot; — {pushResult.wallsCreated} walls
+                        {pushResult.doorsCreated > 0 && `, ${pushResult.doorsCreated} doors`}
+                      </div>
+                    )}
+                    {pushError && <div className="mt-2 text-xs text-red-400">{pushError}</div>}
                   </div>
                 </>
               )}

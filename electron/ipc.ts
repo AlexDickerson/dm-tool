@@ -25,6 +25,7 @@ import type {
   ItemFacets,
   ItemSearchParams,
   MapDetail,
+  MonsterSearchParams,
   PickPathArgs,
   SearchParams,
   TaggerRunArgs,
@@ -36,6 +37,9 @@ import { streamChat } from './chat.js';
 import { fetchAonPreview } from './aon-preview.js';
 import {
   getMonsterPreview,
+  listMonsters,
+  getMonsterFacets,
+  getMonsterByName,
   searchItemsBrowser,
   getItemBrowserDetail,
   getItemFacets,
@@ -43,6 +47,7 @@ import {
 import { scanBookRoot } from './book-scanner.js';
 import { buildGroupingPrompt, getCachedPackMapping, mergePacks, parseAndCacheMapping } from './pack-grouper.js';
 import { runTagger, cancelTagger, isTaggerRunning } from './tagger.js';
+import { pushSceneToFoundry } from './foundry-push.js';
 
 /** Resolved paths for the book cover cache. Computed once at startup so
  *  every handler doesn't have to recompute them. `relative` is the
@@ -115,6 +120,7 @@ export function registerIpcHandlers(
       booksPath: cfg.booksPath ?? '',
       autoWallBinPath: cfg.autoWallBinPath ?? '',
       pf2eDbPath: cfg.pf2eDbPath ?? '',
+      foundryMcpUrl: cfg.foundryMcpUrl ?? '',
     }),
   );
 
@@ -465,6 +471,22 @@ export function registerIpcHandlers(
   });
 
   // -----------------------------------------------------------------------
+  // Monster browser
+  // -----------------------------------------------------------------------
+
+  ipcMain.handle('monstersSearch', (_e, params: MonsterSearchParams) => {
+    return listMonsters(params ?? {});
+  });
+
+  ipcMain.handle('monstersFacets', () => {
+    return getMonsterFacets();
+  });
+
+  ipcMain.handle('monstersGetDetail', (_e, name: string) => {
+    return getMonsterByName(name);
+  });
+
+  // -----------------------------------------------------------------------
   // Auto-Wall (wall detection for VTT import)
   // -----------------------------------------------------------------------
 
@@ -525,6 +547,51 @@ export function registerIpcHandlers(
         width: Math.round(mapSize.x * ppg),
         height: Math.round(mapSize.y * ppg),
       };
+    },
+  );
+
+  ipcMain.handle('getMapUvtt', (_e, fileName: string): Record<string, unknown> | null => {
+    validatePlainFileName(fileName, 'getMapUvtt');
+    const path = uvttPath(fileName);
+    if (!existsSync(path)) return null;
+    return JSON.parse(readFileSync(path, 'utf-8')) as Record<string, unknown>;
+  });
+
+  ipcMain.handle(
+    'pushToFoundry',
+    async (
+      _e,
+      fileName: string,
+    ): Promise<{ sceneId: string; sceneName: string; wallsCreated: number; doorsCreated: number }> => {
+      if (!cfg.foundryMcpUrl) throw new Error('foundryMcpUrl not configured in config.json');
+      validatePlainFileName(fileName, 'pushToFoundry');
+
+      const uvttFile = uvttPath(fileName);
+      if (!existsSync(uvttFile)) throw new Error('No .uvtt file found for this map');
+
+      const uvttRaw = JSON.parse(readFileSync(uvttFile, 'utf-8')) as {
+        resolution: { pixels_per_grid: number; map_size: { x: number; y: number } };
+        line_of_sight: Array<Array<{ x: number; y: number }>>;
+        portals?: Array<{
+          position: { x: number; y: number };
+          bounds: Array<{ x: number; y: number }>;
+          closed?: boolean;
+        }>;
+      };
+      const imagePath = join(cfg.libraryPath, fileName);
+      const detail = db.getDetail(fileName);
+      const name = detail?.title ?? fileName.replace(/\.[^.]+$/, '');
+
+      return pushSceneToFoundry({
+        foundryMcpUrl: cfg.foundryMcpUrl,
+        name,
+        imagePath,
+        uvttData: {
+          resolution: uvttRaw.resolution,
+          line_of_sight: uvttRaw.line_of_sight,
+          portals: uvttRaw.portals,
+        },
+      });
     },
   );
 

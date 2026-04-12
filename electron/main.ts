@@ -12,7 +12,7 @@
 // leaving the user staring at a blank window.
 
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, net } from 'electron';
-import { join, normalize, sep, resolve as resolvePath } from 'node:path';
+import { dirname, join, normalize, sep, resolve as resolvePath } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { existsSync } from 'node:fs';
 import { configExists, loadConfig, type DmToolConfig } from './config.js';
@@ -48,6 +48,15 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
       bypassCSP: false,
       stream: true,
+    },
+  },
+  {
+    scheme: 'monster-file',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: false,
     },
   },
 ]);
@@ -250,6 +259,45 @@ function registerBookFileProtocol(getBookDb: () => BookDb | null, coverCacheRoot
   });
 }
 
+/** Register the `monster-file://img/<relative-path>` protocol handler.
+ *
+ *  Serves monster art and token images stored alongside the PF2e DB. The
+ *  paths in the database are relative (e.g. `Tools/data/monster_art/x.webp`).
+ *  We resolve them by progressively stripping leading path segments and
+ *  joining with the PF2e DB's parent directory until we find an existing file.
+ */
+function registerMonsterFileProtocol(pf2eDbPath: string): void {
+  const dbDir = normalize(dirname(resolvePath(pf2eDbPath)));
+
+  protocol.handle('monster-file', async (request) => {
+    try {
+      const url = new URL(request.url);
+      if (url.host !== 'img') {
+        return new Response(`Bad host: ${url.host}`, { status: 400 });
+      }
+
+      const rawPath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+      const relPath = decodeURIComponent(rawPath);
+      if (!relPath || relPath.includes('..')) {
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      // Progressively strip leading segments to find the file relative to dbDir.
+      const segments = relPath.replace(/\\/g, '/').split('/');
+      for (let i = 0; i < segments.length; i++) {
+        const candidate = normalize(join(dbDir, segments.slice(i).join('/')));
+        if (candidate.startsWith(dbDir + sep) && existsSync(candidate)) {
+          return net.fetch(pathToFileURL(candidate).toString());
+        }
+      }
+
+      return new Response(`Not found: ${relPath}`, { status: 404 });
+    } catch (e) {
+      return new Response(`Error: ${(e as Error).message}`, { status: 500 });
+    }
+  });
+}
+
 async function startup(): Promise<void> {
   // First-run: no config.json found anywhere — boot into the setup screen
   // so the user can pick paths via native dialogs. Only the minimal IPC
@@ -352,6 +400,7 @@ async function startup(): Promise<void> {
 
   registerMapFileProtocol(cfg);
   registerBookFileProtocol(() => bookDb, coverCacheRoot);
+  if (cfg.pf2eDbPath) registerMonsterFileProtocol(cfg.pf2eDbPath);
   registerIpcHandlers(db, bookDb, cfg, () => mainWindow);
 
   // Renderer-driven runtime resize of the native window-control overlay.
