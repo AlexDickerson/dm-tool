@@ -1,0 +1,57 @@
+# dnd-map-tagger configuration
+# Copy to config.toml and edit to match your machine.
+
+[paths]
+# Drop new maps here. The tagger watches or batch-processes this folder.
+inbox  = 'C:\RPG\Maps\inbox'
+
+# Final home for processed maps. Flat, not hierarchical.
+library = 'C:\RPG\Maps\library'
+
+# Where failed intakes get parked with an error log sidecar.
+quarantine = 'C:\RPG\Maps\quarantine'
+
+# SQLite search index (disposable — rebuildable from sidecars).
+index_db = 'C:\RPG\Maps\index.sqlite'
+
+[anthropic]
+# Set via env var ANTHROPIC_API_KEY, OR paste here (less secure).
+# api_key = 'sk-ant-...'
+model = 'claude-sonnet-4-6'
+
+# Controls how many tokens Claude can spend describing each map.
+# 1500 is plenty; lower if you want to trim cost per map.
+max_output_tokens = 1500
+
+[eagle]
+# Eagle's local HTTP API. Default port is 41595.
+base_url = 'http://localhost:41595'
+
+# If true, each map is pushed into Eagle after tagging. If Eagle isn't
+# running the script will queue the item and retry on the next run.
+enabled = true
+
+# Optional: the Eagle folder ID to drop everything into. Leave blank to
+# put items at the library root. You can find a folder ID in Eagle by
+# right-clicking a folder -> Copy Folder ID.
+folder_id = ''
+
+[tagging]
+# Controls how many total tags the vision model may return per map.
+# Keep this modest — too many noisy tags makes search worse, not better.
+max_tags = 20
+
+# If true, a file whose SHA-256 already exists in the index is skipped
+# on ingest, preventing accidental duplicates on re-runs. (The perceptual
+# hash is recorded for future near-dup detection but isn't what dedup
+# actually compares against today — exact content match only.)
+dedup = true
+
+[thumbnails]
+# If true, a compact <filename>.thumb.jpg is written next to each map
+# on intake. Lets Claude (or any lightweight browser) preview matches
+# without loading the full-resolution image.
+enabled = true
+
+# Longest-edge size in pixels for thumbnails. 512 -> roughly 40-80 KB each.
+max_edge = 512

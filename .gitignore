@@ -9,3 +9,10 @@ config.json
 
 # Local tooling scratch (Claude Code session screenshots, plans, etc.)
 .claude-work/
+
+# Python artifacts (tagger/)
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+tagger/config.toml

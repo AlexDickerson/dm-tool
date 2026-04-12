@@ -1,0 +1,29 @@
+[project]
+name = "dnd-map-tagger"
+version = "0.1.0"
+description = "Drop a battlemap into an inbox folder, get it auto-tagged by Claude vision, filed into a flat library, indexed in SQLite, and pushed into Eagle."
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=0.40.0",
+  "pydantic>=2.6",
+  "pillow>=10.0",
+  "requests>=2.31",
+  "imagehash>=4.3",
+  "rich>=13.7",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+mcp = [
+  "mcp>=1.2",
+]
+
+[project.scripts]
+map-tagger = "dnd_map_tagger.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
