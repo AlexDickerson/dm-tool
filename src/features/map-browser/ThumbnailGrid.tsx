@@ -176,7 +176,7 @@ function ThumbnailCard({ item, isSelected, mergeChecked, mergeMode, onClick, hei
       type="button"
       onClick={onClick}
       className={cn(
-        'group relative overflow-hidden rounded-md border border-border bg-muted text-left transition-all hover:border-primary/60',
+        'group relative overflow-hidden rounded-md border border-border bg-muted text-left transition-all hover:border-primary/60 hover:shadow-[0_0_12px_hsl(var(--primary)/0.15)]',
         isSelected && !mergeMode && 'border-primary ring-2 ring-primary/40',
         mergeChecked && 'ring-2 ring-blue-500 border-blue-500',
       )}

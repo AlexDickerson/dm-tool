@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings } from 'lucide-react';
+import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings, Swords } from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
@@ -168,10 +168,10 @@ function MainApp() {
         className="flex h-12 shrink-0 items-center gap-4 pl-4 pr-[140px]"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <h1 className="flex items-center text-foreground" aria-label="DM Tool">
-          <D20Icon className="h-7 w-7" />
+        <h1 className="flex items-center" aria-label="DM Tool">
+          <D20Icon className="h-8 w-8 text-primary" />
         </h1>
-        <nav className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        <nav className="flex items-center gap-0.5" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <NavTab active={activeTab === 'maps'} onClick={() => setActiveTab('maps')}>
             Maps
           </NavTab>
@@ -218,19 +218,16 @@ function MainApp() {
           />
         </div>
       </header>
-      {/* The divider lives below the header rather than as a `border-b`
-          on the header itself. The native min/max/close buttons are
-          drawn as an opaque overlay on top of the header region, so a
-          border on the header gets visually clipped where the buttons
-          sit. Putting the divider in its own strip below the title bar
-          lets it span the full window width uninterrupted.
-          The `mt-1` (4px) gap pushes the divider clear of the overlay
-          region — the native buttons render slightly past the declared
-          40px overlay height (DPI rounding / hover padding), so a
-          divider flush against the header still gets half-covered. The
-          4px gap shows through to the body background (same color as
-          header) so it reads as a single uninterrupted title strip. */}
-      <div className="mt-1 h-px shrink-0 bg-border" />
+      {/* Divider below header — the mt-1 gap clears the native overlay
+          buttons which render slightly past their declared height. */}
+      <div
+        className="mt-1 shrink-0"
+        style={{
+          height: 1,
+          background:
+            'linear-gradient(90deg, hsl(var(--border)) 0%, hsl(var(--primary) / 0.3) 50%, hsl(var(--border)) 100%)',
+        }}
+      />
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <main className="h-full overflow-hidden">
           {activeTab === 'maps' && (
@@ -241,6 +238,7 @@ function MainApp() {
             />
           )}
           {activeTab === 'books' && <BookBrowser />}
+          {activeTab === 'combat' && <CombatPlaceholder />}
           {activeTab === 'monsters' && <MonsterBrowser />}
           {activeTab === 'items' && <ItemBrowser />}
         </main>
@@ -295,12 +293,30 @@ function NavTab({ active, onClick, children }: { active?: boolean; onClick?: () 
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-        active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+        'relative px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-widest transition-colors',
+        active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
       )}
+      style={{ fontFamily: 'var(--font-display)' }}
     >
       {children}
+      {active && (
+        <span
+          className="absolute bottom-0 left-1/2 h-[2px] -translate-x-1/2 rounded-full bg-primary"
+          style={{ width: '60%' }}
+        />
+      )}
     </button>
+  );
+}
+
+function CombatPlaceholder() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="flex flex-col items-center gap-3 text-muted-foreground">
+        <Swords className="h-12 w-12 opacity-20" />
+        <p className="text-sm">Combat tracker coming soon</p>
+      </div>
+    </div>
   );
 }
 

@@ -43,6 +43,8 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+
+  --font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', serif;
 }
 
 /*
@@ -63,41 +65,42 @@
   }
 }
 
-/* shadcn/ui design tokens — dark theme is the only theme the app supports,
- * so we skip the light-mode variables and force the .dark class on <html>
- * in index.html. These values are the shadcn "slate" dark preset lightly
- * tweaked for a warmer accent. */
+/* shadcn/ui design tokens — dark theme with warm amber/parchment accents
+ * for a TTRPG dungeon-master aesthetic. */
 @layer base {
   :root {
-    --background: 240 10% 6%;
-    --foreground: 0 0% 98%;
+    --background: 30 8% 6%;
+    --foreground: 40 20% 95%;
 
-    --card: 240 10% 9%;
-    --card-foreground: 0 0% 98%;
+    --card: 30 6% 9%;
+    --card-foreground: 40 20% 95%;
 
-    --popover: 240 10% 9%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 30 6% 9%;
+    --popover-foreground: 40 20% 95%;
 
-    --primary: 24 90% 58%;
-    --primary-foreground: 240 10% 6%;
+    --primary: 32 95% 52%;
+    --primary-foreground: 30 8% 6%;
 
-    --secondary: 240 6% 16%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 30 4% 15%;
+    --secondary-foreground: 40 20% 95%;
 
-    --muted: 240 6% 14%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 30 4% 13%;
+    --muted-foreground: 35 8% 55%;
 
-    --accent: 240 6% 16%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 30 6% 16%;
+    --accent-foreground: 40 20% 95%;
 
     --destructive: 0 72% 45%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 40 20% 95%;
 
-    --border: 240 6% 18%;
-    --input: 240 6% 18%;
-    --ring: 24 90% 58%;
+    --border: 30 5% 17%;
+    --input: 30 5% 17%;
+    --ring: 32 95% 52%;
 
     --radius: 0.5rem;
+
+    /* heading font for TTRPG identity */
+    --font-display: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', serif;
   }
 
   * {
@@ -126,6 +129,16 @@
       'rlig' 1,
       'calt' 1;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  /* Subtle warm glow on focused inputs. CSS is more reliable than
+   * Tailwind JIT for complex box-shadow values (see JIT quirk). */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    box-shadow:
+      0 0 0 1px hsl(var(--ring)),
+      0 0 8px hsl(var(--primary) / 0.15);
   }
 
   /* Themed native scrollbars for any element using `overflow-*` (the

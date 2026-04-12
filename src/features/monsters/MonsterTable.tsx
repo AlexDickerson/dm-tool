@@ -95,7 +95,7 @@ export function MonsterTable({
       {/* Column headers */}
       <div
         className="grid shrink-0 items-center border-b border-border px-3"
-        style={{ gridTemplateColumns: gridTemplate, height: 32 }}
+        style={{ gridTemplateColumns: gridTemplate, height: 32, background: 'hsl(var(--muted) / 0.5)' }}
       >
         {COLUMNS.map((col) => (
           <button
@@ -103,11 +103,13 @@ export function MonsterTable({
             type="button"
             onClick={() => col.sortKey && onSort(col.sortKey)}
             className={cn(
-              'flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground',
+              'flex items-center gap-1 text-[10px] uppercase tracking-wider transition-colors hover:text-foreground',
               col.align === 'right' && 'justify-end',
               col.sortKey && 'cursor-pointer',
               !col.sortKey && 'cursor-default',
+              col.sortKey === sortBy ? 'text-primary' : 'text-muted-foreground',
             )}
+            style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}
           >
             {col.label}
             {col.sortKey && col.sortKey === sortBy ? (
@@ -134,7 +136,11 @@ export function MonsterTable({
                 key={vRow.index}
                 className={cn(
                   'absolute left-0 right-0 grid cursor-pointer items-center border-b border-border/50 px-3 transition-colors',
-                  isSelected ? 'bg-accent text-foreground' : 'hover:bg-accent/40',
+                  isSelected
+                    ? 'bg-primary/10 text-foreground'
+                    : vRow.index % 2 === 1
+                      ? 'bg-muted/30 hover:bg-accent/40'
+                      : 'hover:bg-accent/40',
                 )}
                 style={{
                   gridTemplateColumns: gridTemplate,

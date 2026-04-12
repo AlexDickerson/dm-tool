@@ -60,8 +60,13 @@ export function ItemTable({ groups, selectedId, onSelect, sortBy, sortDir, onSor
     <div className="flex h-full flex-col">
       {/* Header */}
       <div
-        className="flex shrink-0 items-center border-b border-border bg-card px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
-        style={{ height: ROW_HEIGHT }}
+        className="flex shrink-0 items-center border-b border-border px-3 text-[10px] uppercase tracking-wider text-muted-foreground"
+        style={{
+          height: ROW_HEIGHT,
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+          background: 'hsl(var(--muted) / 0.5)',
+        }}
       >
         <SortHeader
           label="Name"
@@ -111,7 +116,11 @@ export function ItemTable({ groups, selectedId, onSelect, sortBy, sortDir, onSor
                   key={item.id}
                   className={cn(
                     'absolute left-0 flex w-full cursor-pointer items-center border-b border-border/50 px-3 text-xs transition-colors',
-                    isSelected ? 'bg-accent text-foreground' : 'hover:bg-accent/40',
+                    isSelected
+                      ? 'bg-primary/10 text-foreground'
+                      : vRow.index % 2 === 1
+                        ? 'bg-muted/30 hover:bg-accent/40'
+                        : 'hover:bg-accent/40',
                   )}
                   style={{
                     height: ROW_HEIGHT,
@@ -205,7 +214,7 @@ function SortHeader({
     <button
       type="button"
       onClick={() => onSort(field)}
-      className={cn('flex items-center gap-0.5 hover:text-foreground', className)}
+      className={cn('flex items-center gap-0.5 hover:text-foreground', isActive && 'text-primary', className)}
     >
       {label}
       {isActive ? (
