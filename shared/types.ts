@@ -356,4 +356,8 @@ export interface ElectronAPI {
   } | null>;
   /** Open a file picker to import a .uvtt file for the given map. */
   autoWallImportUvtt(fileName: string): Promise<boolean>;
+  /** Read the raw .uvtt sidecar JSON for a map. Returns null if no
+   *  sidecar exists. The returned object can be passed directly to
+   *  foundry-mcp's create_scene_from_uvtt tool. */
+  getMapUvtt(fileName: string): Promise<Record<string, unknown> | null>;
 }
