@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings, Swords } from 'lucide-react';
+import {
+  Backpack,
+  BookOpen,
+  ClipboardCopy,
+  FolderOpen,
+  Map,
+  MessageSquare,
+  RotateCcw,
+  Settings,
+  Skull,
+  Swords,
+} from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
@@ -214,21 +225,16 @@ function MainApp() {
           <D20Icon className="h-8 w-8 text-primary" />
         </h1>
         <nav className="flex items-center gap-0.5" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <NavTab active={activeTab === 'maps'} onClick={() => setActiveTab('maps')}>
-            Maps
-          </NavTab>
-          <NavTab active={activeTab === 'books'} onClick={() => setActiveTab('books')}>
-            Books
-          </NavTab>
-          <NavTab active={activeTab === 'combat'} onClick={() => setActiveTab('combat')}>
-            Combat
-          </NavTab>
-          <NavTab active={activeTab === 'monsters'} onClick={() => setActiveTab('monsters')}>
-            Monsters
-          </NavTab>
-          <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')}>
-            Items
-          </NavTab>
+          <NavTab active={activeTab === 'maps'} onClick={() => setActiveTab('maps')} icon={Map} label="Maps" />
+          <NavTab active={activeTab === 'books'} onClick={() => setActiveTab('books')} icon={BookOpen} label="Books" />
+          <NavTab active={activeTab === 'combat'} onClick={() => setActiveTab('combat')} icon={Swords} label="Combat" />
+          <NavTab
+            active={activeTab === 'monsters'}
+            onClick={() => setActiveTab('monsters')}
+            icon={Skull}
+            label="Monsters"
+          />
+          <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')} icon={Backpack} label="Items" />
         </nav>
         {/* Settings gear pushed to the right edge of the draggable
             region (just before the reserved native button strip). The
@@ -340,18 +346,35 @@ function D20Icon({ className }: { className?: string }) {
   );
 }
 
-function NavTab({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
+function NavTab({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      title={label}
       className={cn(
-        'relative px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-widest transition-colors',
+        'relative flex items-center gap-1.5 px-3 py-2 transition-colors',
         active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
       )}
-      style={{ fontFamily: 'var(--font-display)' }}
     >
-      {children}
+      <Icon className="h-4 w-4" />
+      <span
+        className="text-[0.65rem] font-semibold uppercase tracking-widest"
+        style={{ fontFamily: 'var(--font-display)' }}
+      >
+        {label}
+      </span>
       {active && (
         <span
           className="absolute bottom-0 left-1/2 h-[2px] rounded-full bg-primary"
