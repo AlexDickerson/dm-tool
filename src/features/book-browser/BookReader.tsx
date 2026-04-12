@@ -1108,7 +1108,7 @@ function PageIndicator({
             e.stopPropagation(); // don't trigger reader shortcuts
           }}
           onBlur={handleSubmit}
-          className="w-12 rounded border border-border bg-background px-1 py-0.5 text-center text-[10px] text-foreground outline-none focus:border-primary"
+          className="w-12 rounded border border-border bg-background px-1 py-0.5 text-center text-[10px] text-foreground outline-hidden focus:border-primary"
         />
         <span className="text-muted-foreground">/ {totalPages}</span>
       </span>

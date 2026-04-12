@@ -619,7 +619,7 @@ function SettingsDialog({
               id="chat-model"
               value={chatModel}
               onChange={(e) => onChatModelChange(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <option value="claude-haiku-4-5-20251001">Haiku 4.5 — fast, cheap</option>
               <option value="claude-sonnet-4-6">Sonnet 4.6 — balanced</option>

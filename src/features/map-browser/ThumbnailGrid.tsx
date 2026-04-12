@@ -210,7 +210,7 @@ function ThumbnailCard({ item, isSelected, mergeChecked, mergeMode, onClick, hei
           its position is identical on every card regardless of how the
           inner flex layout resolves. */}
       {variantCount > 1 && (
-        <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-md bg-black/70 px-2 py-0.5 text-sm font-semibold text-white shadow-sm">
+        <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-md bg-black/70 px-2 py-0.5 text-sm font-semibold text-white shadow-xs">
           {variantCount}
         </div>
       )}
