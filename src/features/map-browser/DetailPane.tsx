@@ -166,7 +166,7 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
                     type="button"
                     onClick={() => onSelectVariant(gridCounterpart.fileName)}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-white shadow-sm transition-colors',
+                      'flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-white shadow-xs transition-colors',
                       detail.gridVisible === 'gridded'
                         ? 'bg-primary/85 hover:bg-primary'
                         : 'bg-black/70 hover:bg-black/85',
@@ -193,7 +193,7 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
                       }
                     }}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-white shadow-sm transition-colors',
+                      'flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-white shadow-xs transition-colors',
                       showWalls ? 'bg-primary/85 hover:bg-primary' : 'bg-black/70 hover:bg-black/85',
                     )}
                     style={{
@@ -235,7 +235,7 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
                   </svg>
                 )}
                 <div
-                  className="rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm"
+                  className="rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-xs"
                   style={{ position: 'absolute', left: 8, bottom: 8 }}
                 >
                   {detail.widthPx}×{detail.heightPx}
@@ -243,7 +243,7 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
                 <button
                   type="button"
                   onClick={() => openInExplorer(detail.fileName)}
-                  className="flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm transition-colors hover:bg-black/85"
+                  className="flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-xs transition-colors hover:bg-black/85"
                   style={{ position: 'absolute', right: 8, bottom: 8 }}
                   title="Show in folder"
                 >

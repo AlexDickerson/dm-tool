@@ -562,7 +562,7 @@ function ApCard({ group, onClick }: { group: ApGroup; onClick: () => void }) {
         ingested={coverBook?.ingested ?? false}
       />
       {/* AP badge */}
-      <div className="pointer-events-none absolute right-1 top-1 flex items-center gap-0.5 rounded bg-primary/90 px-1 py-0.5 text-[9px] font-semibold text-primary-foreground shadow-sm">
+      <div className="pointer-events-none absolute right-1 top-1 flex items-center gap-0.5 rounded bg-primary/90 px-1 py-0.5 text-[9px] font-semibold text-primary-foreground shadow-xs">
         <Layers className="h-2.5 w-2.5" />
         {group.parts.length}
       </div>
@@ -621,7 +621,7 @@ function RulesetBadge({ ruleset }: { ruleset: 'legacy' | 'remastered' }) {
   return (
     <div
       className={cn(
-        'pointer-events-none absolute right-1 top-1 rounded px-1 py-0.5 text-[9px] font-semibold uppercase shadow-sm',
+        'pointer-events-none absolute right-1 top-1 rounded px-1 py-0.5 text-[9px] font-semibold uppercase shadow-xs',
         ruleset === 'remastered' ? 'bg-primary/90 text-primary-foreground' : 'bg-muted-foreground/80 text-background',
       )}
     >
