@@ -83,7 +83,7 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
               {/* Speed, Skills, Immunities/Weaknesses/Resistances */}
               <div className="space-y-1 text-xs">
                 <Stat label="Speed" value={detail.speed} />
-                {detail.skills && <Stat label="Skills" value={detail.skills} />}
+                {detail.skills && <Stat label="Skills" value={formatSkills(detail.skills)} />}
                 {detail.immunities && <Stat label="Immunities" value={detail.immunities} />}
                 {detail.weaknesses && <Stat label="Weaknesses" value={detail.weaknesses} />}
                 {detail.resistances && <Stat label="Resistances" value={detail.resistances} />}
@@ -160,6 +160,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h3>
   );
+}
+
+function formatSkills(raw: string): string {
+  try {
+    const obj: Record<string, number> = JSON.parse(raw);
+    return Object.entries(obj)
+      .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)} ${v >= 0 ? '+' : ''}${v}`)
+      .join(', ');
+  } catch {
+    return raw;
+  }
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
