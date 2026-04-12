@@ -1,7 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, Info, Layers, Merge, Plus, Rows, X } from 'lucide-react';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
+import { DetailOverlay } from '@/components/FloatingPanel';
 import { FilterPanel } from './FilterPanel';
 import { ThumbnailGrid, type ThumbnailItem } from './ThumbnailGrid';
 import { DetailPane } from './DetailPane';
@@ -23,12 +25,18 @@ interface MapBrowserProps {
   /** Bumped by App when pack mapping is imported via Settings, so we
    *  know to re-fetch the cached mapping. */
   packMappingVersion?: number;
+  /** Search keywords from the shared header search bar. */
+  keywords?: string;
 }
 
 // Top-level state for the browser. All mutable state lives here so the
 // FilterPanel, ThumbnailGrid and DetailPane stay presentational.
-export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVersion = 0 }: MapBrowserProps) {
-  const [keywords, setKeywords] = useState('');
+export function MapBrowser({
+  thumbScale = 1,
+  anthropicApiKey = '',
+  packMappingVersion = 0,
+  keywords = '',
+}: MapBrowserProps) {
   const [filters, setFilters] = useState<SearchParams>({});
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   // Default to grouped view — the whole reason we added stemming is that
@@ -97,6 +105,11 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVe
   // pane so the grid-toggle (and any other per-pack UI) can work even
   // when the user is browsing flat.
   const handleSelect = (item: ThumbnailItem) => {
+    if (item.map.fileName === selectedFileName) {
+      closeDetail();
+      return;
+    }
+    setDetailClosing(false);
     setSelectedFileName(item.map.fileName);
     if (!maps) {
       setActiveVariants(null);
@@ -115,26 +128,13 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVe
     setSelectedFileName(fileName);
   };
 
-  // Detail pane exit animation: instead of unmounting immediately, we
-  // flip to the "closing" animation and unmount on animationend.
-  const [detailAnim, setDetailAnim] = useState<'open' | 'closing'>('open');
-  const detailRef = useRef<HTMLDivElement>(null);
+  const [detailClosing, setDetailClosing] = useState(false);
 
-  const closeDetail = useCallback(() => {
-    setDetailAnim('closing');
-    const el = detailRef.current;
-    if (!el) {
-      setSelectedFileName(null);
-      setActiveVariants(null);
-      return;
-    }
-    const onEnd = () => {
-      el.removeEventListener('animationend', onEnd);
-      setSelectedFileName(null);
-      setActiveVariants(null);
-      setDetailAnim('open');
-    };
-    el.addEventListener('animationend', onEnd);
+  const closeDetail = useCallback(() => setDetailClosing(true), []);
+  const handleDetailClosed = useCallback(() => {
+    setSelectedFileName(null);
+    setActiveVariants(null);
+    setDetailClosing(false);
   }, []);
 
   // Merge mode: multi-select packs to merge them into one.
@@ -201,35 +201,12 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVe
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
         {/* Left: filter sidebar */}
-        <div className="w-64 shrink-0">
+        <ResizableSidebar storageKey="dmtool.sidebar.maps">
           <FilterPanel facets={facets} params={filters} onChange={setFilters} />
-        </div>
+        </ResizableSidebar>
 
-        {/* Center: search bar + thumbnail grid. Always flex-1 — the
-          detail pane's proportionally larger flex weight gives it more
-          room without squeezing the grid down to a single column.
-          When the detail pane is open we add right padding so the
-          grid's vertical scrollbar isn't flush against the detail
-          pane's left border. */}
-        <div className={cn('flex min-w-0 flex-1 flex-col', selectedFileName && 'pr-2')}>
+        <div className="relative flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-            <div className="relative max-w-xl flex-1">
-              <Input
-                value={keywords}
-                onChange={(e) => setKeywords(e.target.value)}
-                placeholder="Search — e.g. 'a gloomy castle in a dark forest'"
-                className={cn(keywords && 'pr-8')}
-              />
-              {keywords && (
-                <button
-                  type="button"
-                  onClick={() => setKeywords('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
             <Button
               type="button"
               variant="outline"
@@ -328,31 +305,25 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVe
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right: detail pane gets ~1.8× the grid's flex weight so the
-          main image is large and the variant panel has room, while
-          the grid still has enough room for 2 columns of thumbs. */}
-        {selectedFileName && (
-          <div
-            ref={detailRef}
-            className="flex min-w-0 flex-[1.8]"
-            style={{
-              animation:
-                detailAnim === 'open'
-                  ? 'dmtool-slide-in-right 200ms ease-out'
-                  : 'dmtool-slide-out-right 150ms ease-out forwards',
-            }}
-          >
-            <DetailPane
-              fileName={selectedFileName}
-              variants={activeVariants}
-              onSelectVariant={handleSelectVariant}
-              onClose={closeDetail}
-              anthropicApiKey={anthropicApiKey}
-            />
-          </div>
-        )}
+          {/* Detail overlay */}
+          {selectedFileName && (
+            <DetailOverlay
+              storageKey="dmtool.detail.maps"
+              defaultWidth={780}
+              closing={detailClosing}
+              onClosed={handleDetailClosed}
+            >
+              <DetailPane
+                fileName={selectedFileName}
+                variants={activeVariants}
+                onSelectVariant={handleSelectVariant}
+                onClose={closeDetail}
+                anthropicApiKey={anthropicApiKey}
+              />
+            </DetailOverlay>
+          )}
+        </div>
       </div>
 
       <TaggerDialog

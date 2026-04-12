@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, Library, Layers, RefreshCw } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -24,11 +24,12 @@ type OpenTarget = { kind: 'book'; bookId: number } | { kind: 'ap'; group: ApGrou
 // Top-level component
 // ---------------------------------------------------------------------------
 
-export function BookBrowser() {
+export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   const { data: books, loading, error, refetch } = useBookList();
   const { scan, scanning } = useBookScan();
-  const { ingesting, remaining } = useBackgroundIngest(books, refetch);
-  const [filter, setFilter] = useState('');
+  // Hook triggers background cover extraction — side-effect only.
+  useBackgroundIngest(books, refetch);
+  const filter = keywords;
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [openTarget, setOpenTarget] = useState<OpenTarget>(null);
@@ -159,85 +160,66 @@ export function BookBrowser() {
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
         {/* Category rail */}
-        <div className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
-          <div className="flex h-12 items-center justify-between px-3">
-            <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
-              Categories
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              title="Rescan PDF folder"
-              onClick={handleRescan}
-              disabled={scanning}
-            >
-              <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
-            </Button>
-          </div>
-          <Separator />
-          <ScrollArea className="flex-1">
-            <div className="py-1">
-              <CategoryItem
-                name="All Books"
-                count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
-                active={selectedCategory === null}
-                onClick={() => {
-                  setSelectedCategory(null);
-                  setSelectedSubcategory(null);
-                }}
-              />
-              {categories.map((cat) => (
-                <CategoryGroup
-                  key={cat.name}
-                  category={cat}
-                  activeCategory={selectedCategory}
-                  activeSubcategory={selectedSubcategory}
-                  onSelectCategory={() => {
-                    if (selectedCategory === cat.name && !selectedSubcategory) {
-                      setSelectedCategory(null);
-                    } else {
-                      setSelectedCategory(cat.name);
-                      setSelectedSubcategory(null);
-                    }
-                  }}
-                  onSelectSubcategory={(sub) => {
-                    setSelectedCategory(cat.name);
-                    if (selectedSubcategory === sub) {
-                      setSelectedSubcategory(null);
-                    } else {
-                      setSelectedSubcategory(sub);
-                    }
+        <ResizableSidebar storageKey="dmtool.sidebar.books">
+          <div className="flex h-full flex-col border-r border-border bg-card">
+            <div className="flex h-12 items-center justify-between px-3">
+              <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+                Categories
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                title="Rescan PDF folder"
+                onClick={handleRescan}
+                disabled={scanning}
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
+              </Button>
+            </div>
+            <Separator variant="ornate" />
+            <ScrollArea className="flex-1">
+              <div className="py-1">
+                <CategoryItem
+                  name="All Books"
+                  count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
+                  active={selectedCategory === null}
+                  onClick={() => {
+                    setSelectedCategory(null);
+                    setSelectedSubcategory(null);
                   }}
                 />
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
-
-        {/* Main area: search bar + grid */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-3 border-b border-border px-3 py-2">
-            <Input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Filter by title…"
-              className="max-w-sm"
-            />
-            <span className="text-xs text-muted-foreground">
-              {loading && 'Loading…'}
-              {!loading && error && <span className="text-destructive">Error: {error}</span>}
-              {!loading && !error && (
-                <>
-                  {entries.length} item{entries.length !== 1 ? 's' : ''}
-                  {selectedCategory && <span className="ml-1 text-muted-foreground/70">in {selectedCategory}</span>}
-                  {ingesting && (
-                    <span className="ml-2 text-muted-foreground/70">· extracting covers ({remaining} left)</span>
-                  )}
-                </>
-              )}
-            </span>
+                {categories.map((cat) => (
+                  <CategoryGroup
+                    key={cat.name}
+                    category={cat}
+                    activeCategory={selectedCategory}
+                    activeSubcategory={selectedSubcategory}
+                    onSelectCategory={() => {
+                      if (selectedCategory === cat.name && !selectedSubcategory) {
+                        setSelectedCategory(null);
+                      } else {
+                        setSelectedCategory(cat.name);
+                        setSelectedSubcategory(null);
+                      }
+                    }}
+                    onSelectSubcategory={(sub) => {
+                      setSelectedCategory(cat.name);
+                      if (selectedSubcategory === sub) {
+                        setSelectedSubcategory(null);
+                      } else {
+                        setSelectedSubcategory(sub);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
           </div>
+        </ResizableSidebar>
+
+        {/* Main area: grid */}
+        <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1 overflow-hidden">
             {entries.length === 0 && !loading ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">

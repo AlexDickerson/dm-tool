@@ -1,21 +1,18 @@
 import { ExternalLink, Sparkles, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { cleanFoundryMarkup } from '@/lib/foundry-markup';
 import { useItemDetail } from './useItems';
+import type { ItemBrowserRow } from '@shared/types';
 
 interface ItemDetailPaneProps {
   itemId: string | null;
-  /** Other grade variants of the same base item (e.g. Lesser, Greater).
-   *  When present, rendered as clickable rows so the user can switch. */
   siblings?: ItemBrowserRow[] | null;
   onSelectSibling?: (id: string) => void;
   onClose: () => void;
 }
-
-import type { ItemBrowserRow } from '@shared/types';
 
 const RARITY_CHIP: Record<string, string> = {
   COMMON: 'bg-muted text-foreground border-border',
@@ -30,13 +27,17 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
   if (!itemId) return null;
 
   return (
-    <div className="flex h-full flex-col border-l border-border bg-card" style={{ width: 360 }}>
+    <>
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between px-3">
         <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">{detail?.name ?? 'Loading...'}</h2>
-        <Button variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0" onClick={onClose}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
           <X className="h-4 w-4" />
-        </Button>
+        </button>
       </div>
       <Separator />
 
@@ -45,8 +46,8 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
       )}
       {error && <div className="p-3 text-sm text-destructive">{error}</div>}
       {detail && (
-        <ScrollArea className="flex-1">
-          <div className="space-y-4 p-3">
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-4 p-4">
             {/* Level + rarity row */}
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold tabular-nums text-foreground">
@@ -114,7 +115,6 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
                   <div className="space-y-0.5">
                     {siblings.map((s) => {
                       const isCurrent = s.id === itemId;
-                      // Extract the parenthetical label
                       const match = s.name.match(/\(([^)]+)\)\s*$/);
                       const label = match ? match[1] : s.name;
                       return (
@@ -142,8 +142,7 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
               </>
             )}
 
-            {/* Variants (from item's own variant data) — hidden when
-                siblings cover the same info via the Grades section */}
+            {/* Variants (from item's own variant data) */}
             {detail.variants.length > 0 && !(siblings && siblings.length > 1) && (
               <>
                 <Separator />
@@ -170,8 +169,14 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
             {detail.description && (
               <>
                 <Separator />
-                <div className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
-                  {detail.description}
+                <div className="space-y-2 text-xs leading-relaxed text-foreground/90">
+                  {cleanFoundryMarkup(detail.description)
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter(Boolean)
+                    .map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
                 </div>
               </>
             )}
@@ -193,7 +198,7 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
           </div>
         </ScrollArea>
       )}
-    </div>
+    </>
   );
 }
 

@@ -1,8 +1,7 @@
 import { useRef, useMemo, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
 import type { MonsterSearchParams, MonsterSummary } from '@shared/types';
 
 const RARITY_DOT: Record<string, string> = {
@@ -36,29 +35,15 @@ const COLUMNS: Column[] = [
 
 interface Props {
   monsters: MonsterSummary[];
-  loading: boolean;
   error: string | null;
   selected: string | null;
   onSelect: (name: string) => void;
-  keywords: string;
-  onKeywordsChange: (kw: string) => void;
   sortBy: MonsterSearchParams['sortBy'];
   sortDir: MonsterSearchParams['sortDir'];
   onSort: (col: MonsterSearchParams['sortBy']) => void;
 }
 
-export function MonsterTable({
-  monsters,
-  loading,
-  error,
-  selected,
-  onSelect,
-  keywords,
-  onKeywordsChange,
-  sortBy,
-  sortDir,
-  onSort,
-}: Props) {
+export function MonsterTable({ monsters, error, selected, onSelect, sortBy, sortDir, onSort }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -74,22 +59,6 @@ export function MonsterTable({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      {/* Toolbar */}
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search monsters…"
-            value={keywords}
-            onChange={(e) => onKeywordsChange(e.target.value)}
-            className="h-8 pl-8 text-xs"
-          />
-        </div>
-        <span className="shrink-0 text-[11px] text-muted-foreground">
-          {loading ? 'Loading…' : `${monsters.length} creatures`}
-        </span>
-      </div>
-
       {error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
 
       {/* Column headers */}
@@ -135,12 +104,13 @@ export function MonsterTable({
               <div
                 key={vRow.index}
                 className={cn(
-                  'absolute left-0 right-0 grid cursor-pointer items-center border-b border-border/50 px-3 transition-colors',
+                  'absolute left-0 right-0 grid cursor-pointer items-center border-b border-border/50 px-3 transition-[colors,box-shadow]',
                   isSelected
                     ? 'bg-primary/10 text-foreground'
                     : vRow.index % 2 === 1
                       ? 'bg-muted/30 hover:bg-accent/40'
                       : 'hover:bg-accent/40',
+                  !isSelected && 'hover:shadow-[inset_3px_0_0_hsl(var(--primary))]',
                 )}
                 style={{
                   gridTemplateColumns: gridTemplate,

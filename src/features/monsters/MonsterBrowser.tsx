@@ -1,15 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
+import { DetailOverlay } from '@/components/FloatingPanel';
 import { MonsterFilterPanel } from './MonsterFilterPanel';
-import { MonsterTable } from './MonsterTable';
+import { MonsterCardGrid } from './MonsterCardGrid';
 import { MonsterDetailPane } from './MonsterDetailPane';
 import { useMonsterSearch, useMonsterFacets, useMonsterDetail, useOpenExternal } from './useMonsters';
 import type { MonsterSearchParams } from '@shared/types';
 
-export function MonsterBrowser() {
-  const [keywords, setKeywords] = useState('');
+export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
   const [filters, setFilters] = useState<MonsterSearchParams>({});
   const [selectedMonster, setSelectedMonster] = useState<string | null>(null);
-  const [detailAnim, setDetailAnim] = useState<'open' | 'closing'>('open');
+  const [closing, setClosing] = useState(false);
 
   const searchParams = useMemo<MonsterSearchParams>(
     () => ({
@@ -19,31 +20,27 @@ export function MonsterBrowser() {
     [filters, keywords],
   );
 
-  const { data: monsters, loading, error } = useMonsterSearch(searchParams);
+  const { data: monsters, error } = useMonsterSearch(searchParams);
   const { data: facets } = useMonsterFacets();
   const { data: detail, loading: detailLoading } = useMonsterDetail(selectedMonster);
   const openExternal = useOpenExternal();
 
-  const handleSelect = useCallback((name: string) => {
-    setSelectedMonster((prev) => {
-      if (prev === name) return prev;
-      setDetailAnim('open');
-      return name;
-    });
-  }, []);
-
-  const handleCloseDetail = useCallback(() => {
-    setDetailAnim('closing');
-    setTimeout(() => setSelectedMonster(null), 150);
-  }, []);
-
-  const handleSort = useCallback((col: MonsterSearchParams['sortBy']) => {
-    setFilters((f) => {
-      if (f.sortBy === col) {
-        return { ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' };
+  const handleSelect = useCallback(
+    (name: string) => {
+      if (name === selectedMonster) {
+        setClosing(true);
+      } else {
+        setClosing(false);
+        setSelectedMonster(name);
       }
-      return { ...f, sortBy: col, sortDir: 'asc' };
-    });
+    },
+    [selectedMonster],
+  );
+
+  const handleClose = useCallback(() => setClosing(true), []);
+  const handleClosed = useCallback(() => {
+    setSelectedMonster(null);
+    setClosing(false);
   }, []);
 
   const handleFiltersChange = useCallback((next: MonsterSearchParams) => {
@@ -53,30 +50,24 @@ export function MonsterBrowser() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <MonsterFilterPanel facets={facets} params={filters} onChange={handleFiltersChange} />
+        <ResizableSidebar storageKey="dmtool.sidebar.monsters">
+          <MonsterFilterPanel facets={facets} params={filters} onChange={handleFiltersChange} />
+        </ResizableSidebar>
 
-        <MonsterTable
-          monsters={monsters ?? []}
-          loading={loading}
-          error={error}
-          selected={selectedMonster}
-          onSelect={handleSelect}
-          keywords={keywords}
-          onKeywordsChange={setKeywords}
-          sortBy={filters.sortBy}
-          sortDir={filters.sortDir}
-          onSort={handleSort}
-        />
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          <MonsterCardGrid monsters={monsters ?? []} error={error} selected={selectedMonster} onSelect={handleSelect} />
 
-        {selectedMonster && detail && (
-          <MonsterDetailPane
-            detail={detail}
-            loading={detailLoading}
-            onClose={handleCloseDetail}
-            onOpenExternal={openExternal}
-            anim={detailAnim}
-          />
-        )}
+          {selectedMonster && detail && (
+            <DetailOverlay storageKey="dmtool.detail.monsters" closing={closing} onClosed={handleClosed}>
+              <MonsterDetailPane
+                detail={detail}
+                loading={detailLoading}
+                onOpenExternal={openExternal}
+                onClose={handleClose}
+              />
+            </DetailOverlay>
+          )}
+        </div>
       </div>
     </div>
   );

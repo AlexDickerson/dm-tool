@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { ResizableSidebar } from '@/components/ResizableSidebar';
+import { DetailOverlay } from '@/components/FloatingPanel';
 import { ItemFilterPanel } from './ItemFilterPanel';
-import { ItemTable, type GroupedItem } from './ItemTable';
+import { ItemCardGrid, type GroupedItem } from './ItemCardGrid';
 import { ItemDetailPane } from './ItemDetailPane';
 import { useItemSearch, useItemFacets } from './useItems';
-import type { ItemBrowserRow, ItemSearchParams, ItemSortField, SortDirection } from '@shared/types';
+import type { ItemBrowserRow, ItemSearchParams } from '@shared/types';
 
 /** Strip a trailing parenthetical like "(Greater)" to get the base name.
  *  Returns the original name if there's no parenthetical. */
@@ -46,22 +46,18 @@ function groupItems(items: ItemBrowserRow[]): GroupedItem[] {
   return result;
 }
 
-export function ItemBrowser() {
-  const [keywords, setKeywords] = useState('');
+export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
   const [filters, setFilters] = useState<ItemSearchParams>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<ItemSortField>('name');
-  const [sortDir, setSortDir] = useState<SortDirection>('asc');
+  const [closing, setClosing] = useState(false);
 
   const searchParams = useMemo<ItemSearchParams>(
     () => ({
       ...filters,
       keywords: keywords.trim() || undefined,
-      sortBy,
-      sortDir,
       limit: 5000,
     }),
-    [filters, keywords, sortBy, sortDir],
+    [filters, keywords],
   );
 
   const { data: items, loading } = useItemSearch(searchParams);
@@ -76,20 +72,22 @@ export function ItemBrowser() {
     return group && group.siblings.length > 1 ? group.siblings : null;
   }, [selectedId, grouped]);
 
-  const handleSort = useCallback(
-    (field: ItemSortField) => {
-      if (sortBy === field) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+  const handleSelect = useCallback(
+    (item: ItemBrowserRow) => {
+      if (item.id === selectedId) {
+        setClosing(true);
       } else {
-        setSortBy(field);
-        setSortDir('asc');
+        setClosing(false);
+        setSelectedId(item.id);
       }
     },
-    [sortBy],
+    [selectedId],
   );
 
-  const handleSelect = useCallback((item: ItemBrowserRow) => {
-    setSelectedId((prev) => (prev === item.id ? null : item.id));
+  const handleClose = useCallback(() => setClosing(true), []);
+  const handleClosed = useCallback(() => {
+    setSelectedId(null);
+    setClosing(false);
   }, []);
 
   const handleFilterChange = useCallback((next: ItemSearchParams) => {
@@ -99,42 +97,25 @@ export function ItemBrowser() {
   return (
     <div className="flex h-full">
       {/* Filter panel */}
-      <ItemFilterPanel facets={facets} params={filters} onChange={handleFilterChange} />
+      <ResizableSidebar storageKey="dmtool.sidebar.items">
+        <ItemFilterPanel facets={facets} params={filters} onChange={handleFilterChange} />
+      </ResizableSidebar>
 
-      {/* Center: search + table */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Search bar */}
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search items..."
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
-          />
-        </div>
+      {/* Grid + overlay container */}
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+        <ItemCardGrid groups={grouped} selectedId={selectedId} onSelect={handleSelect} loading={loading} />
 
-        <ItemTable
-          groups={grouped}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          onSort={handleSort}
-          loading={loading}
-        />
+        {selectedId && (
+          <DetailOverlay storageKey="dmtool.detail.items" closing={closing} onClosed={handleClosed}>
+            <ItemDetailPane
+              itemId={selectedId}
+              siblings={selectedSiblings}
+              onSelectSibling={setSelectedId}
+              onClose={handleClose}
+            />
+          </DetailOverlay>
+        )}
       </div>
-
-      {/* Detail pane */}
-      {selectedId && (
-        <ItemDetailPane
-          itemId={selectedId}
-          siblings={selectedSiblings}
-          onSelectSibling={setSelectedId}
-          onClose={() => setSelectedId(null)}
-        />
-      )}
     </div>
   );
 }

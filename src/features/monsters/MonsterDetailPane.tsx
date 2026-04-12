@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { ExternalLink, Image, User, X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { cleanFoundryMarkup } from '@/lib/foundry-markup';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import type { MonsterDetail } from '@shared/types';
 
@@ -16,31 +15,36 @@ const RARITY_BADGE: Record<string, string> = {
 interface Props {
   detail: MonsterDetail;
   loading: boolean;
-  onClose: () => void;
   onOpenExternal: (url: string) => void;
-  anim: 'open' | 'closing';
+  onClose: () => void;
 }
 
-export function MonsterDetailPane({ detail, loading, onClose, onOpenExternal, anim }: Props) {
+export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: Props) {
   const mod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
   return (
-    <div
-      className="flex min-w-0 flex-col border-l border-border bg-card"
-      style={{
-        flex: '1.8',
-        animation:
-          anim === 'open' ? 'dmtool-slide-in-right 200ms ease-out' : 'dmtool-slide-out-right 150ms ease-out forwards',
-      }}
-    >
+    <>
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 className="truncate text-sm font-semibold">{detail.name}</h2>
-          <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-            Lvl {detail.level}
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
+        <h2 className="shrink-0 text-sm font-semibold">{detail.name}</h2>
+        <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+          Lvl {detail.level}
+        </span>
+        <span
+          className={cn(
+            'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium capitalize',
+            RARITY_BADGE[detail.rarity.toLowerCase()] ?? 'bg-zinc-600 text-zinc-100',
+          )}
+        >
+          {detail.rarity}
+        </span>
+        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[11px] capitalize">{detail.size}</span>
+        {detail.traits.map((t) => (
+          <span key={t} className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] capitalize">
+            {t}
           </span>
-        </div>
+        ))}
+        <div className="flex-1" />
         <button
           type="button"
           onClick={onClose}
@@ -53,152 +57,113 @@ export function MonsterDetailPane({ detail, loading, onClose, onOpenExternal, an
       {loading ? (
         <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">Loading…</div>
       ) : (
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-4 p-4">
-            {/* Art + Token hover previews */}
-            {(detail.imageUrl || detail.tokenUrl) && (
-              <div className="flex items-center gap-2">
-                {detail.imageUrl && (
-                  <ImageThumb src={detail.imageUrl} label="Art" icon={<Image className="h-3.5 w-3.5" />} />
-                )}
-                {detail.tokenUrl && (
-                  <ImageThumb src={detail.tokenUrl} label="Token" icon={<User className="h-3.5 w-3.5" />} />
-                )}
-              </div>
-            )}
+        <div className="flex min-h-0 flex-1">
+          {/* Left stat column */}
+          <div className="flex w-16 shrink-0 flex-col items-center gap-3 border-r border-border py-3 text-[10px]">
+            <StatCell label="AC" value={String(detail.ac)} />
+            <StatCell label="HP" value={String(detail.hp)} />
+            <Separator className="w-8" />
+            <StatCell label="Fort" value={mod(detail.fort)} />
+            <StatCell label="Ref" value={mod(detail.ref)} />
+            <StatCell label="Will" value={mod(detail.will)} />
+            <StatCell label="Perc" value={mod(detail.perception)} />
+            <Separator className="w-8" />
+            {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((a) => (
+              <StatCell key={a} label={a.toUpperCase()} value={mod(detail[a])} />
+            ))}
+          </div>
 
-            {/* Rarity + Size + Traits */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span
-                className={cn(
-                  'rounded px-1.5 py-0.5 text-[11px] font-medium capitalize',
-                  RARITY_BADGE[detail.rarity.toLowerCase()] ?? 'bg-zinc-600 text-zinc-100',
-                )}
-              >
-                {detail.rarity}
-              </span>
-              <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] capitalize">{detail.size}</span>
-              {detail.traits.map((t) => (
-                <span key={t} className="rounded border border-border px-1.5 py-0.5 text-[10px] capitalize">
-                  {t}
-                </span>
-              ))}
-            </div>
+          {/* Right content */}
+          <ScrollArea className="min-h-0 min-w-0 flex-1">
+            <div className="space-y-4 p-4">
+              {/* Description */}
+              {detail.description && (
+                <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
+              )}
 
-            <Separator />
-
-            {/* Ability scores */}
-            <section>
-              <SectionLabel>Ability Modifiers</SectionLabel>
-              <div className="grid grid-cols-6 gap-2">
-                {(['str', 'dex', 'con', 'int', 'wis', 'cha'] as const).map((a) => (
-                  <div key={a} className="text-center">
-                    <div className="text-[10px] font-semibold uppercase text-muted-foreground">{a}</div>
-                    <div className="text-sm font-medium tabular-nums">{mod(detail[a])}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <Separator />
-
-            {/* Defenses */}
-            <section>
-              <SectionLabel>Defenses</SectionLabel>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
-                <Stat label="AC" value={String(detail.ac)} />
-                <Stat label="HP" value={String(detail.hp)} />
-                <Stat label="Fort" value={mod(detail.fort)} />
-                <Stat label="Ref" value={mod(detail.ref)} />
-                <Stat label="Will" value={mod(detail.will)} />
-                <Stat label="Perception" value={mod(detail.perception)} />
-              </div>
-            </section>
-
-            {(detail.immunities || detail.weaknesses || detail.resistances) && (
-              <section className="space-y-1 text-xs">
+              {/* Speed, Skills, Immunities/Weaknesses/Resistances */}
+              <div className="space-y-1 text-xs">
+                <Stat label="Speed" value={detail.speed} />
+                {detail.skills && <Stat label="Skills" value={formatSkills(detail.skills)} />}
                 {detail.immunities && <Stat label="Immunities" value={detail.immunities} />}
                 {detail.weaknesses && <Stat label="Weaknesses" value={detail.weaknesses} />}
                 {detail.resistances && <Stat label="Resistances" value={detail.resistances} />}
-              </section>
-            )}
+              </div>
 
-            <Separator />
+              {/* Attacks */}
+              {(detail.melee || detail.ranged) && (
+                <>
+                  <Separator />
+                  <section>
+                    <SectionLabel>Attacks</SectionLabel>
+                    <div className="space-y-1.5 text-xs">
+                      {detail.melee &&
+                        cleanFoundryMarkup(detail.melee)
+                          .split(';')
+                          .map((a) => a.trim())
+                          .filter(Boolean)
+                          .map((a, i) => (
+                            <div key={`m${i}`}>
+                              <span className="font-semibold text-muted-foreground">Melee </span>
+                              {a}
+                            </div>
+                          ))}
+                      {detail.ranged &&
+                        cleanFoundryMarkup(detail.ranged)
+                          .split(';')
+                          .map((a) => a.trim())
+                          .filter(Boolean)
+                          .map((a, i) => (
+                            <div key={`r${i}`}>
+                              <span className="font-semibold text-muted-foreground">Ranged </span>
+                              {a}
+                            </div>
+                          ))}
+                    </div>
+                  </section>
+                </>
+              )}
 
-            {/* Speed + Skills */}
-            <section className="space-y-1 text-xs">
-              <Stat label="Speed" value={detail.speed} />
-              {detail.skills && <Stat label="Skills" value={detail.skills} />}
-            </section>
+              {/* Abilities */}
+              {detail.abilities && (
+                <>
+                  <Separator />
+                  <section>
+                    <SectionLabel>Abilities</SectionLabel>
+                    <AbilityBlock text={detail.abilities} />
+                  </section>
+                </>
+              )}
 
-            {/* Attacks */}
-            {(detail.melee || detail.ranged) && (
-              <>
-                <Separator />
-                <section>
-                  <SectionLabel>Attacks</SectionLabel>
-                  <div className="space-y-1.5 text-xs">
-                    {detail.melee && (
-                      <div>
-                        <span className="font-semibold">Melee </span>
-                        {detail.melee}
-                      </div>
-                    )}
-                    {detail.ranged && (
-                      <div>
-                        <span className="font-semibold">Ranged </span>
-                        {detail.ranged}
-                      </div>
-                    )}
-                  </div>
-                </section>
-              </>
-            )}
-
-            {/* Abilities */}
-            {detail.abilities && (
-              <>
-                <Separator />
-                <section>
-                  <SectionLabel>Abilities</SectionLabel>
-                  <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
-                    {detail.abilities}
-                  </pre>
-                </section>
-              </>
-            )}
-
-            {/* Description */}
-            {detail.description && (
-              <>
-                <Separator />
-                <section>
-                  <SectionLabel>Description</SectionLabel>
-                  <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
-                </section>
-              </>
-            )}
-
-            {/* Source + AoN link */}
-            <Separator />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">{detail.source}</span>
-              {detail.aonUrl && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 text-xs"
-                  onClick={() => onOpenExternal(detail.aonUrl)}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Archives of Nethys
-                </Button>
+              {/* Full art */}
+              {detail.imageUrl && (
+                <>
+                  <Separator />
+                  <img src={detail.imageUrl} alt={detail.name} className="w-full rounded-md object-contain" />
+                </>
               )}
             </div>
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
       )}
-    </div>
+
+      {/* Source + AoN link — pinned to bottom */}
+      {!loading && (
+        <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-1.5">
+          <span className="text-[11px] text-muted-foreground">{detail.source}</span>
+          {detail.aonUrl && (
+            <button
+              type="button"
+              onClick={() => onOpenExternal(detail.aonUrl)}
+              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Archives of Nethys
+            </button>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -206,6 +171,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h3>
   );
+}
+
+function formatSkills(raw: string): string {
+  try {
+    const obj: Record<string, number> = JSON.parse(raw);
+    return Object.entries(obj)
+      .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)} ${v >= 0 ? '+' : ''}${v}`)
+      .join(', ');
+  } catch {
+    return raw;
+  }
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -217,32 +193,43 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ImageThumb({ src, label, icon }: { src: string; label: string; icon: React.ReactNode }) {
-  const [show, setShow] = useState(false);
-  const [imgError, setImgError] = useState(false);
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col items-center leading-none">
+      <span className="font-semibold uppercase text-muted-foreground">{label}</span>
+      <span className="mt-0.5 text-sm font-medium tabular-nums text-foreground">{value}</span>
+    </div>
+  );
+}
 
-  if (imgError) return null;
+/** Render ability text as formatted blocks with separators. */
+function AbilityBlock({ text }: { text: string }) {
+  const cleaned = cleanFoundryMarkup(text);
+  const lines = cleaned.split('\n');
 
   return (
-    <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      <div className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-border bg-muted text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
-        {icon}
-      </div>
-      <span className="mt-0.5 block text-center text-[9px] text-muted-foreground">{label}</span>
-      {show && (
-        <div
-          className="absolute left-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border bg-card shadow-xl"
-          style={{ width: 280 }}
-        >
-          <img
-            src={src}
-            alt={label}
-            className="h-auto w-full object-contain"
-            style={{ maxHeight: 400 }}
-            onError={() => setImgError(true)}
-          />
-        </div>
-      )}
+    <div className="space-y-2 text-xs leading-relaxed text-foreground/90">
+      {lines.map((raw, i) => {
+        const line = raw.trim();
+        if (!line) return null;
+        if (/^-{3,}$/.test(line)) return <Separator key={i} />;
+
+        // Detect ability name: optional action glyphs, then Title-Case words
+        // before a parenthetical trait list or a sentence continuation.
+        const m = line.match(/^(◆{1,3}\s*)?([A-Z][A-Za-z]+(?: [A-Z][A-Za-z]+)*(?:\s+\d+)?)\s*(.*)/);
+        if (m) {
+          const [, actions, name, rest] = m;
+          return (
+            <p key={i}>
+              {actions && <span className="text-foreground/50">{actions}</span>}
+              <span className="font-semibold">{name}</span>
+              {rest && ` ${rest}`}
+            </p>
+          );
+        }
+
+        return <p key={i}>{line}</p>;
+      })}
     </div>
   );
 }

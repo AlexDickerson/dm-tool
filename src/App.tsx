@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings, Swords } from 'lucide-react';
+import {
+  Backpack,
+  BookOpen,
+  ClipboardCopy,
+  FolderOpen,
+  Map,
+  MessageSquare,
+  RotateCcw,
+  Search,
+  Settings,
+  Skull,
+  Swords,
+} from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
@@ -41,6 +53,24 @@ const THUMB_SCALE_KEY = 'dmtool.thumbScale';
 const THUMB_DEFAULT = 1;
 const THUMB_MIN = 0.7;
 const THUMB_MAX = 2;
+
+// Body font preference — sans-serif (default) or serif.
+const FONT_KEY = 'dmtool.fontFamily';
+type FontFamily = 'sans-serif' | 'serif';
+const FONT_SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif";
+const FONT_SERIF = "'Crimson Pro', 'Palatino Linotype', Georgia, serif";
+
+// Color theme — maps to [data-theme] attribute on <html>.
+const THEME_KEY = 'dmtool.theme';
+type ThemeId = 'ember' | 'arcane' | 'verdant' | 'frost' | 'parchment';
+const THEME_DEFAULT: ThemeId = 'ember';
+const THEMES: Array<{ id: ThemeId; label: string; swatch: string }> = [
+  { id: 'ember', label: 'Ember', swatch: 'hsl(32 95% 52%)' },
+  { id: 'arcane', label: 'Arcane', swatch: 'hsl(265 85% 60%)' },
+  { id: 'verdant', label: 'Verdant', swatch: 'hsl(145 70% 45%)' },
+  { id: 'frost', label: 'Frost', swatch: 'hsl(210 80% 55%)' },
+  { id: 'parchment', label: 'Parchment', swatch: 'hsl(25 85% 40%)' },
+];
 
 // Anthropic API key — used by the encounter-hook regenerator in the
 const MODEL_KEY = 'dmtool.chatModel';
@@ -92,7 +122,10 @@ function MainApp() {
   );
   const [anthropicApiKey, setAnthropicApiKey] = useState<string>('');
   const [chatModel, setChatModel] = useState<string>(() => loadString(MODEL_KEY) || MODEL_DEFAULT);
+  const [fontFamily, setFontFamily] = useState<FontFamily>(() => (loadString(FONT_KEY) as FontFamily) || 'sans-serif');
+  const [theme, setTheme] = useState<ThemeId>(() => (loadString(THEME_KEY) as ThemeId) || THEME_DEFAULT);
   const [chatOpen, setChatOpen] = useState(false);
+  const [keywords, setKeywords] = useState('');
 
   // Load API key from secure storage on mount
   useEffect(() => {
@@ -154,6 +187,28 @@ function MainApp() {
     }
   }, [chatModel]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--font-body', fontFamily === 'serif' ? FONT_SERIF : FONT_SANS);
+    try {
+      localStorage.setItem(FONT_KEY, fontFamily);
+    } catch {
+      // non-fatal
+    }
+  }, [fontFamily]);
+
+  useEffect(() => {
+    if (theme === THEME_DEFAULT) {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // non-fatal
+    }
+  }, [theme]);
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       {/* Custom title bar. The native OS chrome is hidden via
@@ -172,28 +227,41 @@ function MainApp() {
           <D20Icon className="h-8 w-8 text-primary" />
         </h1>
         <nav className="flex items-center gap-0.5" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <NavTab active={activeTab === 'maps'} onClick={() => setActiveTab('maps')}>
-            Maps
-          </NavTab>
-          <NavTab active={activeTab === 'books'} onClick={() => setActiveTab('books')}>
-            Books
-          </NavTab>
-          <NavTab active={activeTab === 'combat'} onClick={() => setActiveTab('combat')}>
-            Combat
-          </NavTab>
-          <NavTab active={activeTab === 'monsters'} onClick={() => setActiveTab('monsters')}>
-            Monsters
-          </NavTab>
-          <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')}>
-            Items
-          </NavTab>
+          <NavTab active={activeTab === 'maps'} onClick={() => setActiveTab('maps')} icon={Map} label="Maps" />
+          <NavTab active={activeTab === 'books'} onClick={() => setActiveTab('books')} icon={BookOpen} label="Books" />
+          <NavTab active={activeTab === 'combat'} onClick={() => setActiveTab('combat')} icon={Swords} label="Combat" />
+          <NavTab
+            active={activeTab === 'monsters'}
+            onClick={() => setActiveTab('monsters')}
+            icon={Skull}
+            label="Monsters"
+          />
+          <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')} icon={Backpack} label="Items" />
         </nav>
-        {/* Settings gear pushed to the right edge of the draggable
-            region (just before the reserved native button strip). The
-            Dialog trigger lives inside a `no-drag` wrapper so the click
-            actually reaches the button instead of starting a window
-            drag. */}
-        <div className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {/* Search bar — shared across all tabs */}
+        <div
+          className="relative mx-2 flex max-w-md flex-1 items-center"
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        >
+          <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={keywords}
+            onChange={(e) => setKeywords(e.target.value)}
+            placeholder={
+              activeTab === 'maps'
+                ? 'Search maps…'
+                : activeTab === 'books'
+                  ? 'Filter books…'
+                  : activeTab === 'monsters'
+                    ? 'Search monsters…'
+                    : activeTab === 'items'
+                      ? 'Search items…'
+                      : 'Search…'
+            }
+            className="h-8 bg-background/50 pl-8 text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             type="button"
             aria-label="Toggle chat"
@@ -208,6 +276,10 @@ function MainApp() {
           <SettingsDialog
             uiScale={uiScale}
             onUiScaleChange={setUiScale}
+            fontFamily={fontFamily}
+            onFontFamilyChange={setFontFamily}
+            theme={theme}
+            onThemeChange={setTheme}
             thumbScale={thumbScale}
             onThumbScaleChange={setThumbScale}
             anthropicApiKey={anthropicApiKey}
@@ -229,18 +301,26 @@ function MainApp() {
         }}
       />
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <main className="h-full overflow-hidden">
+        <main className="relative h-full overflow-hidden">
           {activeTab === 'maps' && (
             <MapBrowser
               thumbScale={thumbScale}
               anthropicApiKey={anthropicApiKey}
               packMappingVersion={packMappingVersion}
+              keywords={keywords}
             />
           )}
-          {activeTab === 'books' && <BookBrowser />}
+          {activeTab === 'books' && <BookBrowser keywords={keywords} />}
           {activeTab === 'combat' && <CombatPlaceholder />}
-          {activeTab === 'monsters' && <MonsterBrowser />}
-          {activeTab === 'items' && <ItemBrowser />}
+          {activeTab === 'monsters' && <MonsterBrowser keywords={keywords} />}
+          {activeTab === 'items' && <ItemBrowser keywords={keywords} />}
+          {/* Vignette overlay — darkens edges for a "torchlight" feel */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: 'radial-gradient(ellipse at center, transparent 60%, hsl(var(--background) / 0.4) 100%)',
+            }}
+          />
         </main>
         <ChatDrawer
           open={chatOpen}
@@ -287,22 +367,36 @@ function D20Icon({ className }: { className?: string }) {
   );
 }
 
-function NavTab({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) {
+function NavTab({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      title={label}
       className={cn(
-        'relative px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-widest transition-colors',
+        'relative px-3 py-2 transition-colors',
         active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
       )}
-      style={{ fontFamily: 'var(--font-display)' }}
     >
-      {children}
+      <Icon className="h-4 w-4" />
       {active && (
         <span
-          className="absolute bottom-0 left-1/2 h-[2px] -translate-x-1/2 rounded-full bg-primary"
-          style={{ width: '60%' }}
+          className="absolute bottom-0 left-1/2 h-[2px] rounded-full bg-primary"
+          style={{
+            width: '60%',
+            animation: 'dmtool-tab-reveal 200ms ease-out forwards',
+          }}
         />
       )}
     </button>
@@ -325,6 +419,10 @@ type SettingsTab = 'paths' | 'maps' | 'books' | 'combat' | 'monsters' | 'items';
 function SettingsDialog({
   uiScale,
   onUiScaleChange,
+  fontFamily,
+  onFontFamilyChange,
+  theme,
+  onThemeChange,
   thumbScale,
   onThumbScaleChange,
   anthropicApiKey,
@@ -335,6 +433,10 @@ function SettingsDialog({
 }: {
   uiScale: number;
   onUiScaleChange: (n: number) => void;
+  fontFamily: FontFamily;
+  onFontFamilyChange: (f: FontFamily) => void;
+  theme: ThemeId;
+  onThemeChange: (t: ThemeId) => void;
   thumbScale: number;
   onThumbScaleChange: (n: number) => void;
   anthropicApiKey: string;
@@ -459,6 +561,50 @@ function SettingsDialog({
               value={[uiScale]}
               onValueChange={(v) => onUiScaleChange(v[0] ?? uiScale)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Font</Label>
+            <div className="flex gap-1">
+              {(['sans-serif', 'serif'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => onFontFamilyChange(f)}
+                  className={cn(
+                    'rounded-md border px-3 py-1 text-xs capitalize transition-colors',
+                    fontFamily === f
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background hover:bg-accent',
+                  )}
+                  style={{ fontFamily: f === 'serif' ? FONT_SERIF : FONT_SANS }}
+                >
+                  {f === 'sans-serif' ? 'Sans-Serif' : 'Serif'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Theme</Label>
+            <div className="flex gap-1">
+              {THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onThemeChange(t.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors',
+                    theme === t.id
+                      ? 'border-primary bg-primary/15 text-foreground'
+                      : 'border-border bg-background hover:bg-accent',
+                  )}
+                >
+                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: t.swatch }} />
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Per-page tabs */}

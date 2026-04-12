@@ -115,12 +115,13 @@ export function ItemTable({ groups, selectedId, onSelect, sortBy, sortDir, onSor
                 <div
                   key={item.id}
                   className={cn(
-                    'absolute left-0 flex w-full cursor-pointer items-center border-b border-border/50 px-3 text-xs transition-colors',
+                    'absolute left-0 flex w-full cursor-pointer items-center border-b border-border/50 px-3 text-xs transition-[colors,box-shadow]',
                     isSelected
                       ? 'bg-primary/10 text-foreground'
                       : vRow.index % 2 === 1
                         ? 'bg-muted/30 hover:bg-accent/40'
                         : 'hover:bg-accent/40',
+                    !isSelected && 'hover:shadow-[inset_3px_0_0_hsl(var(--primary))]',
                   )}
                   style={{
                     height: ROW_HEIGHT,

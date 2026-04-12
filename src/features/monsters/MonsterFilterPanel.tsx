@@ -70,7 +70,7 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
   }, [facets, traitFilter]);
 
   return (
-    <div className="flex h-full flex-col border-r border-border bg-card" style={{ width: 256 }}>
+    <div className="flex h-full flex-col border-r border-border bg-card">
       <div className="flex h-12 shrink-0 items-center justify-between px-3">
         <div className="flex items-center gap-2">
           <span className="text-xs" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
@@ -88,7 +88,7 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
           </button>
         )}
       </div>
-      <Separator />
+      <Separator variant="ornate" />
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 p-3">
           {/* Level range */}
