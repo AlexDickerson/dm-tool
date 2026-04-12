@@ -23,10 +23,11 @@ import {
 import { join, normalize, sep, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
-import { loadConfig, type DmToolConfig } from "./config.js";
+import { configExists, loadConfig, type DmToolConfig } from "./config.js";
 import { MapDb } from "./db.js";
 import { BookDb } from "./book-db.js";
 import { registerIpcHandlers } from "./ipc.js";
+import { registerSetupIpcHandlers } from "./setup-ipc.js";
 import { scanBookRoot } from "./book-scanner.js";
 import { openPf2eDb, closePf2eDb } from "./pf2e-db.js";
 
@@ -269,6 +270,29 @@ function registerBookFileProtocol(
 }
 
 async function startup(): Promise<void> {
+  // First-run: no config.json found anywhere — boot into the setup screen
+  // so the user can pick paths via native dialogs. Only the minimal IPC
+  // surface is registered; the full app (maps, books, chat, etc.) is
+  // unavailable until a valid config exists and the app restarts.
+  if (!configExists()) {
+    registerSetupIpcHandlers(() => mainWindow);
+    Menu.setApplicationMenu(null);
+
+    ipcMain.handle("setTitleBarOverlayHeight", (_e, height: number) => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (typeof height !== "number" || !Number.isFinite(height)) return;
+      const clamped = Math.max(24, Math.min(120, Math.round(height)));
+      mainWindow.setTitleBarOverlay({
+        color: OVERLAY_COLOR,
+        symbolColor: OVERLAY_SYMBOL_COLOR,
+        height: clamped,
+      });
+    });
+
+    createWindow();
+    return;
+  }
+
   let cfg: DmToolConfig;
   try {
     cfg = loadConfig();

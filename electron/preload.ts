@@ -14,11 +14,13 @@ import type {
   ChatChunk,
   ChatMessage,
   ChatModel,
+  ConfigPaths,
   ElectronAPI,
   Facets,
   FinalizeIngestArgs,
   MapDetail,
   MapSummary,
+  PickPathArgs,
   SearchParams,
   TaggerProgress,
   TaggerRunArgs,
@@ -26,6 +28,17 @@ import type {
 } from "../shared/types.js";
 
 const api: ElectronAPI = {
+  // App mode + config
+  getAppMode: (): Promise<"normal" | "setup"> =>
+    ipcRenderer.invoke("getAppMode"),
+  getConfig: (): Promise<ConfigPaths> =>
+    ipcRenderer.invoke("getConfig"),
+  pickPath: (args: PickPathArgs): Promise<string | null> =>
+    ipcRenderer.invoke("pickPath", args),
+  saveConfigAndRestart: (paths: ConfigPaths): Promise<void> =>
+    ipcRenderer.invoke("saveConfigAndRestart", paths),
+
+  // Maps
   searchMaps: (params: SearchParams): Promise<MapSummary[]> =>
     ipcRenderer.invoke("searchMaps", params),
   getMapDetail: (fileName: string): Promise<MapDetail | null> =>

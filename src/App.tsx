@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { ClipboardCopy, FolderOpen, MessageSquare, Settings } from "lucide-react";
+import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings } from "lucide-react";
 import { MapBrowser } from "./features/map-browser/MapBrowser";
 import { BookBrowser } from "./features/book-browser/BookBrowser";
 import { ChatDrawer } from "./features/chat/ChatDrawer";
+import { SetupScreen } from "./features/setup/SetupScreen";
+import { PathField } from "./components/PathField";
 import { cn } from "./lib/utils";
 import {
   Dialog,
@@ -16,6 +18,7 @@ import { Button } from "./components/ui/button";
 import { Slider } from "./components/ui/slider";
 import { Label } from "./components/ui/label";
 import { Input } from "./components/ui/input";
+import type { ConfigPaths } from "../shared/types";
 
 // UI scale knob — wired through to the root font-size in CSS so every
 // rem-based Tailwind utility responds. Stored in localStorage so the
@@ -68,6 +71,19 @@ function loadNumber(key: string, fallback: number, min: number, max: number): nu
 type ActiveTab = "maps" | "books" | "combat" | "monsters" | "items";
 
 export default function App() {
+  const [appMode, setAppMode] = useState<"loading" | "normal" | "setup">("loading");
+
+  useEffect(() => {
+    window.electronAPI.getAppMode().then(setAppMode);
+  }, []);
+
+  if (appMode === "loading") return null;
+  if (appMode === "setup") return <SetupScreen />;
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("maps");
   // Bumped when pack mapping is imported via Settings so MapBrowser
   // knows to re-fetch. Passed as a prop — MapBrowser watches it.
@@ -291,7 +307,7 @@ function NavTab({
   );
 }
 
-type SettingsTab = "maps" | "books" | "combat" | "monsters" | "items";
+type SettingsTab = "paths" | "maps" | "books" | "combat" | "monsters" | "items";
 
 function SettingsDialog({
   uiScale,
@@ -314,9 +330,50 @@ function SettingsDialog({
   chatModel: string;
   onChatModelChange: (s: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTab>("maps");
   const [exportCopied, setExportCopied] = useState(false);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  // Config paths state — loaded on dialog open, written via Save & Restart.
+  const [configPaths, setConfigPaths] = useState<ConfigPaths | null>(null);
+  const [initialPaths, setInitialPaths] = useState<ConfigPaths | null>(null);
+  const [pathsSaving, setPathsSaving] = useState(false);
+  const [pathsError, setPathsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      window.electronAPI.getConfig().then((c) => {
+        setConfigPaths(c);
+        setInitialPaths(c);
+        setPathsError(null);
+      });
+    }
+  }, [open]);
+
+  const setPath = useCallback(
+    <K extends keyof ConfigPaths>(field: K) =>
+      (value: ConfigPaths[K]) =>
+        setConfigPaths((p) => (p ? { ...p, [field]: value } : p)),
+    [],
+  );
+
+  const pathsChanged =
+    configPaths != null &&
+    initialPaths != null &&
+    JSON.stringify(configPaths) !== JSON.stringify(initialPaths);
+
+  const handleSaveAndRestart = async () => {
+    if (!configPaths) return;
+    setPathsSaving(true);
+    setPathsError(null);
+    try {
+      await window.electronAPI.saveConfigAndRestart(configPaths);
+    } catch (e) {
+      setPathsError((e as Error).message);
+      setPathsSaving(false);
+    }
+  };
 
   const handleExportPrompt = useCallback(async () => {
     const prompt = await window.electronAPI.exportPackGroupingPrompt();
@@ -340,7 +397,7 @@ function SettingsDialog({
   }, [onPackMappingImported]);
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -350,7 +407,7 @@ function SettingsDialog({
           <Settings className="h-4 w-4" />
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -400,8 +457,8 @@ function SettingsDialog({
 
           {/* Per-page tabs */}
           <div className="border-t border-border pt-4">
-            <nav className="flex gap-1">
-              {(["maps", "books", "combat", "monsters", "items"] as const).map((t) => (
+            <nav className="flex flex-wrap gap-1">
+              {(["paths", "maps", "books", "combat", "monsters", "items"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -419,6 +476,101 @@ function SettingsDialog({
             </nav>
 
             <div className="mt-4 space-y-4">
+              {tab === "paths" && configPaths && (
+                <>
+                  <PathField
+                    label="Map Library"
+                    description="Folder containing tagged map images and thumbnails."
+                    value={configPaths.libraryPath}
+                    onChange={setPath("libraryPath")}
+                    mode="directory"
+                    required
+                  />
+                  <PathField
+                    label="Map Index DB"
+                    description="SQLite database maintained by the map tagger."
+                    value={configPaths.indexDbPath}
+                    onChange={setPath("indexDbPath")}
+                    mode="file"
+                    required
+                    filters={[{ name: "SQLite", extensions: ["sqlite", "sqlite3", "db"] }]}
+                  />
+                  <PathField
+                    label="Tagger Inbox"
+                    description="Staging folder for new maps before processing."
+                    value={configPaths.inboxPath}
+                    onChange={setPath("inboxPath")}
+                    mode="directory"
+                    required
+                  />
+                  <PathField
+                    label="Quarantine"
+                    description="Folder for maps that fail tagging."
+                    value={configPaths.quarantinePath}
+                    onChange={setPath("quarantinePath")}
+                    mode="directory"
+                    required
+                  />
+                  <PathField
+                    label="Tagger Binary"
+                    description="Path to map-tagger.exe."
+                    value={configPaths.taggerBinPath}
+                    onChange={setPath("taggerBinPath")}
+                    mode="file"
+                    required
+                    filters={[{ name: "Executable", extensions: ["exe"] }]}
+                  />
+
+                  <div className="border-t border-border pt-3">
+                    <p className="mb-3 text-[11px] font-medium text-muted-foreground">
+                      Optional integrations
+                    </p>
+                    <div className="space-y-4">
+                      <PathField
+                        label="Books Root"
+                        description="Root folder of TTRPG PDFs (enables the Books tab)."
+                        value={configPaths.booksPath}
+                        onChange={setPath("booksPath")}
+                        mode="directory"
+                      />
+                      <PathField
+                        label="Auto-Wall Binary"
+                        description="Path to Auto-Wall.exe for wall detection."
+                        value={configPaths.autoWallBinPath}
+                        onChange={setPath("autoWallBinPath")}
+                        mode="file"
+                        filters={[{ name: "Executable", extensions: ["exe"] }]}
+                      />
+                      <PathField
+                        label="PF2e Database"
+                        description="PF2e rules/monsters SQLite database for offline lookups."
+                        value={configPaths.pf2eDbPath}
+                        onChange={setPath("pf2eDbPath")}
+                        mode="file"
+                        filters={[{ name: "SQLite", extensions: ["sqlite", "sqlite3", "db"] }]}
+                      />
+                    </div>
+                  </div>
+
+                  {pathsError && (
+                    <p className="text-xs text-destructive">{pathsError}</p>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveAndRestart}
+                    disabled={!pathsChanged || pathsSaving}
+                    className="w-full gap-1.5"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {pathsSaving ? "Saving..." : "Save & Restart"}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Changing paths requires an app restart to take effect.
+                  </p>
+                </>
+              )}
+
               {tab === "maps" && (
                 <>
                   <div className="space-y-2">

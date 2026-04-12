@@ -69,6 +69,21 @@ function resolveConfigPath(): string {
   return projectConfig;
 }
 
+/** Returns true if a config.json file exists at any of the search locations.
+ *  Used by the startup flow to decide between setup mode and normal mode
+ *  without loading/parsing the file. */
+export function configExists(): boolean {
+  const fromEnv = process.env.DM_TOOL_CONFIG;
+  if (fromEnv && existsSync(fromEnv)) return true;
+
+  const projectRootGuess = app.isPackaged ? app.getAppPath() : process.cwd();
+  if (existsSync(join(projectRootGuess, "config.json"))) return true;
+
+  if (existsSync(join(app.getPath("userData"), "config.json"))) return true;
+
+  return false;
+}
+
 export function loadConfig(): DmToolConfig {
   const path = resolveConfigPath();
   if (!existsSync(path)) {

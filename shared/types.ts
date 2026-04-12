@@ -171,6 +171,29 @@ export interface AonGenericPreview {
 export type AonPreviewData = AonCreaturePreview | AonGenericPreview;
 
 // ---------------------------------------------------------------------------
+// Config (exposed to renderer for Settings UI / first-run setup)
+// ---------------------------------------------------------------------------
+
+/** All config paths surfaced to the renderer. Optional fields use "" when
+ *  not configured rather than undefined — simpler for controlled inputs. */
+export interface ConfigPaths {
+  libraryPath: string;
+  indexDbPath: string;
+  inboxPath: string;
+  quarantinePath: string;
+  taggerBinPath: string;
+  booksPath: string;
+  autoWallBinPath: string;
+  pf2eDbPath: string;
+}
+
+export interface PickPathArgs {
+  mode: "directory" | "file";
+  title?: string;
+  filters?: { name: string; extensions: string[] }[];
+}
+
+// ---------------------------------------------------------------------------
 // Map tagger
 // ---------------------------------------------------------------------------
 
@@ -196,6 +219,19 @@ export interface TaggerResult {
  *  and a corresponding type declaration on `window.electronAPI` in the
  *  renderer's global types. */
 export interface ElectronAPI {
+  // -----------------------------------------------------------------------
+  // App mode + config
+  // -----------------------------------------------------------------------
+
+  /** Returns "setup" on first run (no config.json found), "normal" otherwise. */
+  getAppMode(): Promise<"normal" | "setup">;
+  /** Current config paths for display in the Settings UI. */
+  getConfig(): Promise<ConfigPaths>;
+  /** Open a native folder or file picker dialog. */
+  pickPath(args: PickPathArgs): Promise<string | null>;
+  /** Write config.json to userData and restart the app. */
+  saveConfigAndRestart(paths: ConfigPaths): Promise<void>;
+
   searchMaps(params: SearchParams): Promise<MapSummary[]>;
   getMapDetail(fileName: string): Promise<MapDetail | null>;
   getFacets(): Promise<Facets>;
