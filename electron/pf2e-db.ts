@@ -23,6 +23,20 @@ function requireDb(): Database.Database {
 
 // --- Helpers for cleaning Foundry-style markup ---
 
+/** Map PF2e action-glyph font characters to Unicode symbols. */
+const ACTION_GLYPH: Record<string, string> = {
+  '1': '◆',
+  A: '◆',
+  '2': '◆◆',
+  D: '◆◆',
+  '3': '◆◆◆',
+  T: '◆◆◆',
+  r: '↺',
+  R: '↺',
+  f: '◇',
+  F: '◇',
+};
+
 /** Strip Foundry @UUID/@ references and basic HTML from descriptions. */
 function cleanDescription(html: string | null): string {
   if (!html) return '';
@@ -30,6 +44,15 @@ function cleanDescription(html: string | null): string {
     .replace(/@UUID\[Compendium\.[^\]]+\]\{([^}]+)\}/g, '$1')
     .replace(/@UUID\[Compendium\.[^\]]+\]/g, '')
     .replace(/@Check\[([^|]+)\|dc:(\d+)\]/g, '$1 DC $2')
+    // Convert action-glyph spans to Unicode before stripping HTML
+    .replace(
+      /<span[^>]*class="[^"]*action-glyph[^"]*"[^>]*>([^<]*)<\/span>/gi,
+      (_, ch: string) => ACTION_GLYPH[ch.trim()] ?? ch,
+    )
+    .replace(
+      /<span[^>]*class="[^"]*pf2-icon[^"]*"[^>]*>([^<]*)<\/span>/gi,
+      (_, ch: string) => ACTION_GLYPH[ch.trim()] ?? ch,
+    )
     .replace(/<hr\s*\/?>/gi, '\n---\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/?(p|div|li|ul|ol|h[1-6])[\s>]/gi, '\n');
