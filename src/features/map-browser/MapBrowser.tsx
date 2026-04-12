@@ -105,6 +105,11 @@ export function MapBrowser({
   // pane so the grid-toggle (and any other per-pack UI) can work even
   // when the user is browsing flat.
   const handleSelect = (item: ThumbnailItem) => {
+    if (item.map.fileName === selectedFileName) {
+      closeDetail();
+      return;
+    }
+    setDetailClosing(false);
     setSelectedFileName(item.map.fileName);
     if (!maps) {
       setActiveVariants(null);

@@ -25,13 +25,17 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
   const { data: detail, loading: detailLoading } = useMonsterDetail(selectedMonster);
   const openExternal = useOpenExternal();
 
-  const handleSelect = useCallback((name: string) => {
-    setSelectedMonster((prev) => {
-      if (prev === name) return prev;
-      setClosing(false);
-      return name;
-    });
-  }, []);
+  const handleSelect = useCallback(
+    (name: string) => {
+      if (name === selectedMonster) {
+        handleClose();
+      } else {
+        setClosing(false);
+        setSelectedMonster(name);
+      }
+    },
+    [selectedMonster, handleClose],
+  );
 
   const handleClose = useCallback(() => setClosing(true), []);
   const handleClosed = useCallback(() => {

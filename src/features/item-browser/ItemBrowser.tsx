@@ -72,13 +72,17 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
     return group && group.siblings.length > 1 ? group.siblings : null;
   }, [selectedId, grouped]);
 
-  const handleSelect = useCallback((item: ItemBrowserRow) => {
-    setSelectedId((prev) => {
-      if (prev === item.id) return prev;
-      setClosing(false);
-      return item.id;
-    });
-  }, []);
+  const handleSelect = useCallback(
+    (item: ItemBrowserRow) => {
+      if (item.id === selectedId) {
+        handleClose();
+      } else {
+        setClosing(false);
+        setSelectedId(item.id);
+      }
+    },
+    [selectedId, handleClose],
+  );
 
   const handleClose = useCallback(() => setClosing(true), []);
   const handleClosed = useCallback(() => {
