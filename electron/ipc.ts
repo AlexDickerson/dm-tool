@@ -498,18 +498,12 @@ export function registerIpcHandlers(
     },
   );
 
-  ipcMain.handle(
-    'getMapUvtt',
-    (
-      _e,
-      fileName: string,
-    ): Record<string, unknown> | null => {
-      validatePlainFileName(fileName, 'getMapUvtt');
-      const path = uvttPath(fileName);
-      if (!existsSync(path)) return null;
-      return JSON.parse(readFileSync(path, 'utf-8')) as Record<string, unknown>;
-    },
-  );
+  ipcMain.handle('getMapUvtt', (_e, fileName: string): Record<string, unknown> | null => {
+    validatePlainFileName(fileName, 'getMapUvtt');
+    const path = uvttPath(fileName);
+    if (!existsSync(path)) return null;
+    return JSON.parse(readFileSync(path, 'utf-8')) as Record<string, unknown>;
+  });
 
   ipcMain.handle('autoWallImportUvtt', async (_e, fileName: string): Promise<boolean> => {
     validatePlainFileName(fileName, 'autoWallImportUvtt');
