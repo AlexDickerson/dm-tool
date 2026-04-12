@@ -13,14 +13,17 @@ interface AonHit {
 
 /** Strip HTML tags so the model sees clean text. */
 function stripHtml(html: string): string {
-  return html
+  let text = html
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n');
+  let prev: string;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, '');
+  } while (text !== prev);
+  const entities: Record<string, string> = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
+  return text
+    .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => entities[m])
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

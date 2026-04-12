@@ -24,7 +24,7 @@ function renderActionIcons(text: string): string {
 function extractAonPath(href: string): string | null {
   try {
     const url = new URL(href);
-    if (!url.hostname.includes('aonprd.com')) return null;
+    if (url.hostname !== 'aonprd.com' && !url.hostname.endsWith('.aonprd.com')) return null;
     return url.pathname + url.search;
   } catch {
     return null;

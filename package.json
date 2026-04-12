@@ -101,7 +101,6 @@
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^39.8.5",
     "electron-builder": "^26.8.1",
-    "electron-rebuild": "^3.2.9",
     "electron-vite": "^5.0.0",
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",

@@ -28,6 +28,11 @@ import type {
 } from '../shared/types.js';
 
 const api: ElectronAPI = {
+  // Secure storage
+  secureStore: (key: string, value: string): Promise<void> => ipcRenderer.invoke('secureStore', key, value),
+  secureLoad: (key: string): Promise<string> => ipcRenderer.invoke('secureLoad', key),
+  secureDelete: (key: string): Promise<void> => ipcRenderer.invoke('secureDelete', key),
+
   // App mode + config
   getAppMode: (): Promise<'normal' | 'setup'> => ipcRenderer.invoke('getAppMode'),
   getConfig: (): Promise<ConfigPaths> => ipcRenderer.invoke('getConfig'),

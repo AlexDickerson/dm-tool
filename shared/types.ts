@@ -217,6 +217,13 @@ export interface TaggerResult {
  *  renderer's global types. */
 export interface ElectronAPI {
   // -----------------------------------------------------------------------
+  // Secure storage (OS keychain-backed via Electron safeStorage)
+  // -----------------------------------------------------------------------
+  secureStore(key: string, value: string): Promise<void>;
+  secureLoad(key: string): Promise<string>;
+  secureDelete(key: string): Promise<void>;
+
+  // -----------------------------------------------------------------------
   // App mode + config
   // -----------------------------------------------------------------------
 

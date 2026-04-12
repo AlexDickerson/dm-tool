@@ -26,18 +26,21 @@ function requireDb(): Database.Database {
 /** Strip Foundry @UUID/@ references and basic HTML from descriptions. */
 function cleanDescription(html: string | null): string {
   if (!html) return '';
-  return html
+  let text = html
     .replace(/@UUID\[Compendium\.[^\]]+\]\{([^}]+)\}/g, '$1')
     .replace(/@UUID\[Compendium\.[^\]]+\]/g, '')
     .replace(/@Check\[([^|]+)\|dc:(\d+)\]/g, '$1 DC $2')
     .replace(/<hr\s*\/?>/gi, '\n---\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6])[\s>]/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6])[\s>]/gi, '\n');
+  let prev: string;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, '');
+  } while (text !== prev);
+  const entities: Record<string, string> = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
+  return text
+    .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => entities[m])
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

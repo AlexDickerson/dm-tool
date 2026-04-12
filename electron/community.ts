@@ -4,16 +4,22 @@
 
 /** Strip HTML tags for Stack Exchange bodies. */
 function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|pre|code|blockquote)[\s>]/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+  let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/?(p|div|li|ul|ol|h[1-6]|pre|code|blockquote)[\s>]/gi, '\n');
+  let prev: string;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, '');
+  } while (text !== prev);
+  const entities: Record<string, string> = {
+    '&nbsp;': ' ',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+  };
+  return text
+    .replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g, (m) => entities[m])
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ClipboardCopy, FolderOpen, MessageSquare, RotateCcw, Settings } from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
@@ -41,10 +41,6 @@ const THUMB_MIN = 0.7;
 const THUMB_MAX = 2;
 
 // Anthropic API key — used by the encounter-hook regenerator in the
-// detail pane. Stored in localStorage rather than the OS keychain because
-// this is a single-user personal tool; if/when this app grows to multi-
-// user we should move it to safeStorage.
-const API_KEY_KEY = 'dmtool.anthropicApiKey';
 const MODEL_KEY = 'dmtool.chatModel';
 const MODEL_DEFAULT = 'claude-sonnet-4-6';
 
@@ -92,9 +88,16 @@ function MainApp() {
   const [thumbScale, setThumbScale] = useState<number>(() =>
     loadNumber(THUMB_SCALE_KEY, THUMB_DEFAULT, THUMB_MIN, THUMB_MAX),
   );
-  const [anthropicApiKey, setAnthropicApiKey] = useState<string>(() => loadString(API_KEY_KEY));
+  const [anthropicApiKey, setAnthropicApiKey] = useState<string>('');
   const [chatModel, setChatModel] = useState<string>(() => loadString(MODEL_KEY) || MODEL_DEFAULT);
   const [chatOpen, setChatOpen] = useState(false);
+
+  // Load API key from secure storage on mount
+  useEffect(() => {
+    window.electronAPI?.secureLoad('anthropicApiKey').then((key) => {
+      if (key) setAnthropicApiKey(key);
+    });
+  }, []);
 
   // Apply the UI scale to the root <html> element and tell the main
   // process to resize the native title-bar overlay to match. Runs on
@@ -126,18 +129,18 @@ function MainApp() {
     }
   }, [thumbScale]);
 
-  // Persist API key. Empty string means "not set" — the regenerate
-  // button in DetailPane checks for this and surfaces a friendly error
-  // pointing the user back to the settings dialog.
+  // Persist API key via secure storage (OS keychain-backed).
+  // Skip the initial empty string — only persist user-initiated changes.
+  const apiKeyInitialized = useRef(false);
   useEffect(() => {
-    try {
-      if (anthropicApiKey) {
-        localStorage.setItem(API_KEY_KEY, anthropicApiKey);
-      } else {
-        localStorage.removeItem(API_KEY_KEY);
-      }
-    } catch {
-      // non-fatal
+    if (!apiKeyInitialized.current) {
+      if (anthropicApiKey) apiKeyInitialized.current = true;
+      else return;
+    }
+    if (anthropicApiKey) {
+      window.electronAPI?.secureStore('anthropicApiKey', anthropicApiKey);
+    } else {
+      window.electronAPI?.secureDelete('anthropicApiKey');
     }
   }, [anthropicApiKey]);
 
