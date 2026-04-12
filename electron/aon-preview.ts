@@ -4,6 +4,37 @@ import type { AonPreviewData } from '../shared/types.js';
 
 const AON_URL = 'https://elasticsearch.aonprd.com/aon/_search';
 
+interface AonSource {
+  name: string;
+  category: string;
+  text: string;
+  url: string;
+  summary?: string;
+  level?: number;
+  hp?: number;
+  hp_raw?: string;
+  ac?: number;
+  fortitude_save?: number;
+  reflex_save?: number;
+  will_save?: number;
+  perception?: number;
+  speed_raw?: string;
+  size?: string | string[];
+  trait_raw?: string[];
+  creature_ability?: string[];
+  creature_family?: string;
+  immunity?: string[];
+  weakness_raw?: string;
+  resistance?: string;
+  rarity?: string;
+  strength?: number;
+  dexterity?: number;
+  constitution?: number;
+  intelligence?: number;
+  wisdom?: number;
+  charisma?: number;
+}
+
 function stripHtml(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -66,7 +97,7 @@ export async function fetchAonPreview(urlPath: string): Promise<AonPreviewData |
 
     if (!res.ok) return null;
 
-    const data = await res.json();
+    const data = (await res.json()) as { hits?: { hits?: Array<{ _source: AonSource }> } };
     const hit = data.hits?.hits?.[0]?._source;
     if (!hit) return null;
 
@@ -80,13 +111,13 @@ export async function fetchAonPreview(urlPath: string): Promise<AonPreviewData |
       return {
         type: 'creature',
         name: hit.name,
-        level: hit.level,
-        hp: hit.hp,
-        ac: hit.ac,
-        fortitude: hit.fortitude_save,
-        reflex: hit.reflex_save,
-        will: hit.will_save,
-        perception: hit.perception,
+        level: hit.level ?? 0,
+        hp: hit.hp ?? 0,
+        ac: hit.ac ?? 0,
+        fortitude: hit.fortitude_save ?? 0,
+        reflex: hit.reflex_save ?? 0,
+        will: hit.will_save ?? 0,
+        perception: hit.perception ?? 0,
         speed: hit.speed_raw ?? '',
         size: Array.isArray(hit.size) ? hit.size[0] : (hit.size ?? ''),
         traits: hit.trait_raw ?? [],
@@ -95,12 +126,12 @@ export async function fetchAonPreview(urlPath: string): Promise<AonPreviewData |
         weaknesses: hit.weakness_raw ?? '',
         rarity: hit.rarity ?? 'common',
         summary: hit.summary ?? '',
-        strength: hit.strength,
-        dexterity: hit.dexterity,
-        constitution: hit.constitution,
-        intelligence: hit.intelligence,
-        wisdom: hit.wisdom,
-        charisma: hit.charisma,
+        strength: hit.strength ?? 0,
+        dexterity: hit.dexterity ?? 0,
+        constitution: hit.constitution ?? 0,
+        intelligence: hit.intelligence ?? 0,
+        wisdom: hit.wisdom ?? 0,
+        charisma: hit.charisma ?? 0,
         statBlock,
       };
     }
