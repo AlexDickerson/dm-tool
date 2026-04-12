@@ -49,6 +49,34 @@ const VARIANT_TOKENS: ReadonlySet<string> = new Set([
   // Atmospheric state
   "apocalyptic", "cosmic", "astral", "void", "ethereal", "eldritch",
   "bloodbath", "cultsummoning", "moonlightmassacre", "noxiousfog",
+  // Hazards / environmental effects (added to cover packs like
+  // `Church_Catacombus_acid_*`, where the hazard word is what
+  // distinguishes variants and was previously slipping through into
+  // the stem). Keep these unambiguous — they should never plausibly
+  // be the *primary* noun in a battlemap title.
+  "acid", "acidic", "poisoned", "toxic", "noxious",
+  "flooded", "drowned", "submerged", "sunken",
+  "corroded", "rusted", "rusty", "decayed", "decaying",
+  "cursed", "blessed", "holy", "unholy", "sacred", "profane",
+  "haunted", "possessed", "infested", "infected",
+  "overgrown", "mossy",
+  "abandoned", "deserted", "forgotten",
+  "burned", "burnt", "ashen", "charred", "scorched",
+  "frosted", "frostbitten",
+  "muddy", "sandy", "dusty", "wet", "dry",
+  "shattered", "broken", "cracked",
+  "battle", "combat", "ambush", "summoning", "summoned",
+  // Radiation / pollution / cleanliness state
+  "irradiated", "radioactive", "pristine", "polluted", "filthy",
+  // Vertical / spatial state
+  "subterranean", "underground", "aboveground", "surface",
+  // Mood adjectives that consistently appear AFTER the map noun in
+  // filenames (i.e. they're qualifiers, not titles). Don't add words
+  // like `grimy` / `modest` / `stately` here — those tend to be part
+  // of the actual title and would over-merge unrelated packs.
+  "spooky", "creepy", "eerie", "ominous", "sinister",
+  "evil", "good", "pure", "corrupted",
+  "magical", "enchanted", "mundane",
   // Colors (used as shading variants in some packs)
   "red", "blue", "green", "yellow", "purple", "orange", "pink",
   "black", "white", "gold", "silver", "crimson", "azure",
@@ -72,6 +100,13 @@ function isVariantToken(tok: string): boolean {
   if (/^\d+$/.test(t)) return true;          // pure number
   if (/^v\d+$/.test(t)) return true;         // v1, v2, ...
   if (/^alternate\d*$/.test(t)) return true; // alternate, alternate1, ...
+  // `<variantword><digit>` like "sunset2", "night3", "dawn1". Some
+  // packs disambiguate multiple takes on the same variant by suffixing
+  // an index — "Night1", "Night2", "Night3" of one map. Strip trailing
+  // digits and re-check the base. Safe because we only match when the
+  // stripped base is a known variant word; "Hall2" stays a head token.
+  const stripped = t.replace(/\d+$/, "");
+  if (stripped !== t && VARIANT_TOKENS.has(stripped)) return true;
   return false;
 }
 
@@ -94,6 +129,18 @@ function stripCzepekuPrefix(fileName: string): [string | null, string] {
   return [null, fileName];
 }
 
+/** Hand-curated pack stems that should always group together regardless
+ *  of where the matching word sequence appears in the filename. Use this
+ *  escape hatch when a pack's variants don't follow the algorithmic
+ *  rules — typically because the pack uses unusual qualifier words that
+ *  we can't safely add to VARIANT_TOKENS, or because some files have
+ *  qualifiers PREFIXED to the pack name (which suffix-merge doesn't
+ *  catch). Compared as whole-word sequences so "vampire manor" matches
+ *  `Old_Vampire_Manor_Day` but not `vampiremanorsmith`. */
+const KNOWN_STEMS: readonly string[] = [
+  "vampire manor",
+];
+
 /**
  * Compute the "pack stem" for a filename. Files with the same stem are
  * grouped as variants of the same base map.
@@ -104,6 +151,14 @@ function stripCzepekuPrefix(fileName: string): [string | null, string] {
 export function mapStem(fileName: string): string {
   const [prefix, rest] = stripCzepekuPrefix(fileName);
   const normalized = normalize(rest);
+
+  // Known-stem override wins over both the Czepeku and first-variant
+  // paths. Surround with spaces so we match whole word sequences only.
+  const padded = ` ${normalized.toLowerCase()} `;
+  for (const known of KNOWN_STEMS) {
+    if (padded.includes(` ${known} `)) return known;
+  }
+
   const tokens = normalized.split(" ").filter((t) => t.length > 0);
 
   if (prefix) {
@@ -111,10 +166,27 @@ export function mapStem(fileName: string): string {
     return tokens[0]?.toLowerCase() ?? "";
   }
 
-  // Everything else: first-variant split
+  // Everything else: first-variant split. We also break when we see
+  // a "no <noun>" / "without <noun>" / "with <noun>" pair, because the
+  // noun being absent or present is itself the variant signal — files
+  // like `Church_no_bridge`, `Tavern_with_props`, `Castle_without_grid`
+  // all fit this shape, regardless of what the noun is. The known-token
+  // list can't capture these because the noun is the load-bearing part
+  // and we don't want to add `bridge` / `props` / etc. to VARIANT_TOKENS
+  // (they're real map nouns elsewhere).
+  //
+  // Tradeoff: a literal title like "House With No Walls" would resolve
+  // to "house" instead of the full title. Acceptable — variant-marker
+  // prepositions in battlemap filenames almost always signal a propless
+  // / structural variant, not a literal noun phrase.
   const head: string[] = [];
-  for (const t of tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
     if (isVariantToken(t)) break;
+    const lower = t.toLowerCase();
+    if ((lower === "no" || lower === "without" || lower === "with") && i + 1 < tokens.length) {
+      break;
+    }
     head.push(t);
   }
   if (head.length === 0) {
@@ -154,6 +226,51 @@ export function groupByStem<T extends { fileName: string }>(
     }
     list.push(m);
   }
+
+  // --- Suffix-merge pass --------------------------------------------------
+  //
+  // Fold packs whose stem is a multi-word suffix of another stem into the
+  // shorter one. The concrete case this fixes: a library may have both
+  // `Mead_Hall_*.jpg` and `Plains_Mead_Hall_*.jpg` — the same underlying
+  // map, with a biome prefix as the only difference. Stem `mead hall`
+  // absorbs `plains mead hall`.
+  //
+  // We can't solve this by extending VARIANT_TOKENS — biome words like
+  // `plains` or `forest` are often the actual subject of a map, not a
+  // qualifier. The suffix relationship between two existing stems is a
+  // much stronger signal that one is a qualified version of the other.
+  //
+  // Safety constraints:
+  //   - Only absorb into suffixes of ≥2 words. Single-word stems like
+  //     `lair` or `castle` would otherwise become magnets that swallow
+  //     every map ending in those words.
+  //   - Strict suffix only — never merge a stem into itself.
+  //   - Walk the longest possible suffix first so chains like
+  //     `cold_plains_mead_hall → plains_mead_hall → mead_hall` resolve
+  //     correctly in a single pass.
+  //
+  // Known tradeoff: if a library has a generic 2-word pack (e.g.
+  // `Throne_Room_*`) AND qualifier-prefixed siblings (`Goblin_Throne_Room_*`,
+  // `Dwarven_Throne_Room_*`), all three collapse into one card. Acceptable
+  // — flipping Grouped → Flat shows them separately. Bump MIN_SUFFIX_WORDS
+  // to 3 if this regression becomes annoying.
+  const MIN_SUFFIX_WORDS = 2;
+  for (const stem of Array.from(buckets.keys())) {
+    const source = buckets.get(stem);
+    if (!source) continue; // already merged away in an earlier iteration
+    const words = stem.split(" ");
+    if (words.length <= MIN_SUFFIX_WORDS) continue;
+    for (let start = 1; start <= words.length - MIN_SUFFIX_WORDS; start++) {
+      const candidate = words.slice(start).join(" ");
+      const target = buckets.get(candidate);
+      if (target && target !== source) {
+        target.push(...source);
+        buckets.delete(stem);
+        break;
+      }
+    }
+  }
+
   const result: MapGroup<T>[] = [];
   for (const [stem, list] of buckets) {
     const sorted = [...list].sort((a, b) => a.fileName.localeCompare(b.fileName));

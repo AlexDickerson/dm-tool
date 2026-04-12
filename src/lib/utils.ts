@@ -29,3 +29,18 @@ export function mapFileUrl(fileName: string): string {
 export function thumbnailUrl(fileName: string): string {
   return mapFileUrl(`${fileName}.thumb.jpg`);
 }
+
+/** Convert a raw tag value from the tagger index into a display string.
+ *  Tags come out of the DB as lowercase snake/kebab-case (`river_lake`,
+ *  `ancient-ruins`, `feywild`). This splits on separators and title-cases
+ *  each word so the filter panel and detail pane read like prose. The raw
+ *  string is still used as the key for selection/lookup — only the
+ *  rendered text is rewritten. */
+export function formatTag(raw: string): string {
+  return raw
+    .replace(/[_-]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}

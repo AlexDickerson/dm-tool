@@ -107,7 +107,7 @@ export class MapDb {
     }
 
     const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
-    const limit = Math.max(1, Math.min(params.limit ?? 200, 2000));
+    const limit = Math.max(1, Math.min(params.limit ?? 200, 10000));
 
     const sql =
       "SELECT file_name, title, description, interior_exterior, time_of_day, " +
@@ -151,6 +151,10 @@ export class MapDb {
       mood: sidecar.mood ?? [],
       features: sidecar.features ?? [],
       encounterHooks: sidecar.encounter_hooks ?? [],
+      // The DB has no notion of dm-tool-owned override hooks; ipc.ts
+      // layers those in from hooks-store.ts before returning to the
+      // renderer. Default to empty here so the type checks.
+      additionalEncounterHooks: [],
       taggedAt: sidecar.tagged_at ?? "",
       model: sidecar.model ?? "",
     };

@@ -1,7 +1,9 @@
-import { ExternalLink, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ExternalLink, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { api } from "@/lib/api";
 import { cn, mapFileUrl, thumbnailUrl } from "@/lib/utils";
 import type { MapSummary } from "@shared/types";
 import { useMapDetail, useOpenInExplorer } from "./useMaps";
@@ -15,6 +17,10 @@ interface DetailPaneProps {
   variants?: MapSummary[] | null;
   onSelectVariant?: (fileName: string) => void;
   onClose: () => void;
+  /** Anthropic API key from Settings. Required for the encounter-hook
+   *  refresh button. Empty string disables the button (with a tooltip
+   *  pointing the user back to settings). */
+  anthropicApiKey?: string;
 }
 
 export function DetailPane({
@@ -22,9 +28,44 @@ export function DetailPane({
   variants,
   onSelectVariant,
   onClose,
+  anthropicApiKey = "",
 }: DetailPaneProps) {
   const { data: detail, loading, error } = useMapDetail(fileName);
   const openInExplorer = useOpenInExplorer();
+
+  // Local copy of the additional (AI-generated) hooks. We mirror the
+  // value from detail when it loads so we can later swap it out in one
+  // assignment after a regenerate, without re-fetching the whole detail
+  // object. Reset whenever the user navigates to a different map.
+  const [additionalHooks, setAdditionalHooks] = useState<string[]>([]);
+  const [regenLoading, setRegenLoading] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAdditionalHooks(detail?.additionalEncounterHooks ?? []);
+    setRegenError(null);
+  }, [detail]);
+
+  const handleRegenerate = async () => {
+    if (!fileName || regenLoading) return;
+    if (!anthropicApiKey) {
+      setRegenError("Add an Anthropic API key in Settings first.");
+      return;
+    }
+    setRegenLoading(true);
+    setRegenError(null);
+    try {
+      const next = await api.regenerateEncounterHooks({
+        fileName,
+        apiKey: anthropicApiKey,
+      });
+      setAdditionalHooks(next);
+    } catch (e) {
+      setRegenError((e as Error).message);
+    } finally {
+      setRegenLoading(false);
+    }
+  };
 
   if (!fileName) return null;
 
@@ -33,17 +74,35 @@ export function DetailPane({
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col border-l border-border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-3 py-2">
-        <span className="text-xs uppercase tracking-wide text-muted-foreground">
-          Details
-        </span>
-        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
+      {/* Header now carries the map identity (title + filename + dims)
+          instead of a generic "Details" label. The whole row is one
+          baseline-aligned flex with the title shrink-0 (never truncates)
+          and the filename truncating in the middle. Falls back to a
+          spinner / placeholder while detail is loading. */}
+      <div className="flex h-12 items-center justify-between gap-3 border-b border-border px-3">
+        {detail ? (
+          <div className="flex min-w-0 flex-1 items-baseline gap-3">
+            <h2 className="shrink-0 text-base font-semibold leading-tight">
+              {detail.title}
+            </h2>
+            <p
+              className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+              style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" }}
+              title={detail.fileName}
+            >
+              {detail.fileName}
+            </p>
+          </div>
+        ) : (
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">
+            {loading ? "Loading…" : "Details"}
+          </span>
+        )}
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 shrink-0">
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Main two-column area: image + metadata on the left, variant
-          browser on the right (only when the pack has siblings). */}
       <div className="flex min-h-0 flex-1">
         <ScrollArea className="min-w-0 flex-1">
           {loading && (
@@ -57,99 +116,55 @@ export function DetailPane({
               {/* The image gets whatever width the detail pane has
                   (which is large now that the grid rail is narrow).
                   object-contain on a max-height keeps very tall maps
-                  from pushing the metadata offscreen. */}
-              <div className="overflow-hidden rounded-md border border-border bg-muted">
+                  from pushing the metadata offscreen. Dimensions sit
+                  in a small chip at the bottom-left, anchored to the
+                  image container (which is `relative`). Inline style
+                  for the chip's positioning so it doesn't depend on
+                  Tailwind utilities that might not be in the JIT
+                  bundle. */}
+              <div className="relative overflow-hidden rounded-md border border-border bg-muted">
                 <img
                   src={mapFileUrl(detail.fileName)}
                   alt={detail.title}
                   className="mx-auto h-auto max-h-[70vh] w-full object-contain"
                 />
+                <div
+                  className="rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm"
+                  style={{ position: "absolute", left: 8, bottom: 8 }}
+                >
+                  {detail.widthPx}×{detail.heightPx}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openInExplorer(detail.fileName)}
+                  className="flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm transition-colors hover:bg-black/85"
+                  style={{ position: "absolute", right: 8, bottom: 8 }}
+                  title="Show in folder"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Show in folder
+                </button>
               </div>
 
-              <div>
-                <h2 className="text-lg font-semibold leading-tight">
-                  {detail.title}
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {detail.fileName}
-                </p>
-              </div>
+              <EncounterHooksSection
+                baseHooks={detail.encounterHooks}
+                additionalHooks={additionalHooks}
+                onRegenerate={handleRegenerate}
+                regenLoading={regenLoading}
+                regenError={regenError}
+                hasApiKey={!!anthropicApiKey}
+              />
 
-              <p className="text-sm leading-relaxed text-foreground/90">
-                {detail.description}
-              </p>
-
-              <Separator />
-
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-xs">
-                <Metadata label="Dimensions">
-                  {detail.widthPx} × {detail.heightPx}px
-                </Metadata>
-                {detail.gridCells && (
-                  <Metadata label="Grid">{detail.gridCells}</Metadata>
-                )}
-                {detail.gridVisible && detail.gridVisible !== "unknown" && (
-                  <Metadata label="Grid visible">{detail.gridVisible}</Metadata>
-                )}
-                {detail.interiorExterior && detail.interiorExterior !== "unknown" && (
-                  <Metadata label="Indoor/outdoor">
-                    {detail.interiorExterior}
-                  </Metadata>
-                )}
-                {detail.timeOfDay && detail.timeOfDay !== "unknown" && (
-                  <Metadata label="Time of day">{detail.timeOfDay}</Metadata>
-                )}
-                {detail.approxPartyScale && (
-                  <Metadata label="Party scale">{detail.approxPartyScale}</Metadata>
-                )}
-              </dl>
-
-              {detail.biomes.length > 0 && (
-                <TagRow label="Biomes" tags={detail.biomes} />
-              )}
-              {detail.locationTypes.length > 0 && (
-                <TagRow label="Locations" tags={detail.locationTypes} />
-              )}
-              {detail.mood.length > 0 && <TagRow label="Mood" tags={detail.mood} />}
-              {detail.features.length > 0 && (
-                <TagRow label="Features" tags={detail.features} />
-              )}
-
-              {detail.encounterHooks.length > 0 && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Encounter hooks
-                    </h3>
-                    <ul className="space-y-1.5 text-sm text-foreground/90">
-                      {detail.encounterHooks.map((h, i) => (
-                        <li key={i} className="leading-snug">
-                          – {h}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </>
-              )}
-
-              <Separator />
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => openInExplorer(detail.fileName)}
-              >
-                <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                Show in folder
-              </Button>
             </div>
           )}
         </ScrollArea>
 
-        {hasVariantPanel && (
-          <VariantPanel
+        {/* Variant column lives as a sibling of the main scroll area so
+            it pins to the right edge and scrolls independently of the
+            map details. Single column of full-width thumbs, fixed
+            sidebar width. */}
+        {detail && hasVariantPanel && (
+          <VariantColumn
             variants={variants!}
             selected={fileName}
             onSelect={onSelectVariant!}
@@ -160,26 +175,15 @@ export function DetailPane({
   );
 }
 
-function Metadata({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-foreground">{children}</dd>
-    </>
-  );
-}
+// Right-side variant column — fixed-width sidebar of full-width thumbs
+// stacked vertically. Lives as a sibling of the main detail ScrollArea
+// so it scrolls independently. Inline styles for sizing throughout
+// because of the Tailwind JIT quirk in this project.
+const VARIANT_COL_WIDTH = 168;
+const VARIANT_THUMB_GAP = 8;
+const VARIANT_THUMB_ASPECT = "4 / 3";
 
-// Right-side variant browser. A fixed-width vertical panel with a
-// wrapping grid of larger thumbnails so a 70-variant pack is actually
-// scannable. Not virtualized — worst case is ~70 small images, which is
-// nothing; if a future pack dwarfs that we can virtualize.
-function VariantPanel({
+function VariantColumn({
   variants,
   selected,
   onSelect,
@@ -188,20 +192,21 @@ function VariantPanel({
   selected: string | null;
   onSelect: (fileName: string) => void;
 }) {
-  // Extract a short variant label from the filename by stripping the
-  // pack prefix chunk. This is cosmetic — the thumb + hover tooltip
-  // carry the full filename, this just helps scanning.
   return (
-    // min-h-0 on the flex column is load-bearing: without it, the
-    // inner ScrollArea's flex-1 resolves to min-content (i.e. "as tall
-    // as the grid") and the scrollbar never engages. With it, flex-1
-    // is bounded by the parent's height and overflow kicks in.
-    <div className="flex w-52 min-h-0 shrink-0 flex-col border-l border-border bg-background/50">
-      <div className="border-b border-border px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Variants in pack ({variants.length})
+    <div
+      className="flex shrink-0 flex-col border-l border-border bg-background/40"
+      style={{ width: VARIANT_COL_WIDTH }}
+    >
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          In pack
+        </div>
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+          {variants.length}
+        </span>
       </div>
-      <ScrollArea className="min-h-0 flex-1">
-        <div className="grid grid-cols-3 gap-1.5 p-2">
+      <ScrollArea className="flex-1">
+        <div className="flex flex-col p-2" style={{ gap: VARIANT_THUMB_GAP }}>
           {variants.map((v) => (
             <VariantThumb
               key={v.fileName}
@@ -213,6 +218,127 @@ function VariantPanel({
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+// Encounter hooks panel. Renders the additional (AI-generated) hooks at
+// the top of the list and the base sidecar hooks below, separated by a
+// faint divider when both are present. The list itself scrolls inside a
+// max-height container so the regenerate button stays in view as the
+// list grows. Inline styles for max-height because the JIT pipeline in
+// this project sometimes drops freshly-introduced max-h utilities.
+function EncounterHooksSection({
+  baseHooks,
+  additionalHooks,
+  onRegenerate,
+  regenLoading,
+  regenError,
+  hasApiKey,
+}: {
+  baseHooks: string[];
+  additionalHooks: string[];
+  onRegenerate: () => void;
+  regenLoading: boolean;
+  regenError: string | null;
+  hasApiKey: boolean;
+}) {
+  const hasAny = baseHooks.length > 0 || additionalHooks.length > 0;
+
+  return (
+    <>
+      <Separator />
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Encounter hooks
+          </h3>
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={regenLoading}
+            title={
+              hasApiKey
+                ? "Generate 3 new encounter hooks via Claude"
+                : "Add an Anthropic API key in Settings to use this"
+            }
+            className={cn(
+              "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+              regenLoading && "cursor-not-allowed opacity-60",
+            )}
+          >
+            {regenLoading ? (
+              <Loader2
+                className="h-3.5 w-3.5"
+                style={{ animation: "dmtool-spin 1s linear infinite" }}
+              />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </div>
+        {regenError && (
+          <p className="mb-2 text-[11px] leading-snug text-destructive">
+            {regenError}
+          </p>
+        )}
+        {!hasAny && !regenLoading && (
+          <p className="text-xs text-muted-foreground">
+            No encounter hooks yet. Click the refresh icon to generate some.
+          </p>
+        )}
+        {hasAny && (
+          <div
+            className="overflow-y-auto pr-1"
+            style={{ maxHeight: 280 }}
+          >
+            <ul className="space-y-1.5 text-sm text-foreground/90">
+              {additionalHooks.map((h, i) => (
+                <HookListItem key={`add-${i}`} text={h} accent />
+              ))}
+              {additionalHooks.length > 0 && baseHooks.length > 0 && (
+                <li
+                  aria-hidden
+                  style={{
+                    height: 1,
+                    background: "hsl(var(--border))",
+                    margin: "6px 0",
+                  }}
+                />
+              )}
+              {baseHooks.map((h, i) => (
+                <HookListItem key={`base-${i}`} text={h} />
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// Single bullet row. The bullet vertical-alignment trick (inline-flex
+// wrapper sized to leading-snug line-height) survives the JIT quirk
+// because the height is hard-coded in em units. The `accent` flag
+// brightens the bullet for AI-generated hooks so the user can tell at a
+// glance which ones are fresh.
+function HookListItem({ text, accent }: { text: string; accent?: boolean }) {
+  return (
+    <li className="flex gap-2 leading-snug">
+      <span
+        className="shrink-0"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          height: "1.375em",
+        }}
+      >
+        <span
+          className={accent ? "rounded-full bg-primary" : "rounded-full bg-primary/60"}
+          style={{ width: 4, height: 4 }}
+        />
+      </span>
+      <span>{text}</span>
+    </li>
   );
 }
 
@@ -231,36 +357,23 @@ function VariantThumb({
       onClick={onClick}
       title={variant.fileName}
       className={cn(
-        "relative aspect-[4/3] overflow-hidden rounded border border-border bg-muted transition-all hover:border-primary/60",
+        "relative overflow-hidden rounded border border-border bg-muted transition-all hover:border-primary/60",
         isSelected && "border-primary ring-2 ring-primary/40",
       )}
+      style={{ width: "100%", aspectRatio: VARIANT_THUMB_ASPECT }}
     >
       <img
         src={thumbnailUrl(variant.fileName)}
         alt={variant.title}
         loading="lazy"
-        className="h-full w-full object-cover"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+        }}
       />
     </button>
   );
 }
 
-function TagRow({ label, tags }: { label: string; tags: string[] }) {
-  return (
-    <div>
-      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {tags.map((t) => (
-          <span
-            key={t}
-            className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] text-secondary-foreground"
-          >
-            {t}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}

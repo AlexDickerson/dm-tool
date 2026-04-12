@@ -42,6 +42,18 @@
   * {
     @apply border-border;
   }
+  /* Scale the root font size up from the browser default (16px). Tailwind
+   * spacing utilities (p-*, gap-*, h-*) and text sizes are `rem`-based so
+   * this single knob grows the entire UI chrome (title bar, filter panel,
+   * nav tabs, detail pane text) without touching individual components.
+   * The thumbnail grid is intentionally unaffected — ThumbnailGrid.tsx
+   * uses pixel constants for THUMB_WIDTH/HEIGHT, so the map grid keeps
+   * its existing density. If the header height changes here, update
+   * `titleBarOverlay.height` in electron/main.ts to match, or the native
+   * min/max/close button strip will drift out of alignment. */
+  html {
+    font-size: 18px;
+  }
   html,
   body,
   #root {
@@ -52,5 +64,49 @@
     font-feature-settings: "rlig" 1, "calt" 1;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
       "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* Themed native scrollbars for any element using `overflow-*` (the
+   * thumbnail grid, the variant strip, etc.). Radix ScrollArea hides
+   * native scrollbars and renders its own, so this only affects plain
+   * overflow containers. Chromium-only, which is fine — the app ships
+   * inside Electron. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border: 2px solid hsl(var(--background));
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.6);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background: hsl(var(--primary) / 0.7);
+  }
+  ::-webkit-scrollbar-corner {
+    background: hsl(var(--background));
+  }
+
+  /* Firefox fallback (no-op in Electron, but keeps the rule honest if
+   * the renderer ever changes). */
+  * {
+    scrollbar-color: hsl(var(--border)) hsl(var(--background));
+    scrollbar-width: thin;
+  }
+
+  /* Lightweight keyframes spinner for Loader2 icons. The JIT quirk in
+   * this project sometimes drops freshly-introduced animate-* classes
+   * during HMR; defining the keyframes here lets us trigger the spin
+   * via inline `animation` style and bypass the utility entirely. */
+  @keyframes dmtool-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 }

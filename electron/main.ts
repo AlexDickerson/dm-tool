@@ -11,7 +11,15 @@
 // Failures during startup show an error dialog and quit rather than
 // leaving the user staring at a blank window.
 
-import { app, BrowserWindow, dialog, protocol, net } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  protocol,
+  net,
+} from "electron";
 import { join, normalize, sep, resolve as resolvePath } from "node:path";
 import { pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
@@ -38,13 +46,44 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow: BrowserWindow | null = null;
 let db: MapDb | null = null;
 
+// Colors for the native window-control overlay strip. These must match the
+// React header so the min/max/close buttons blend into the custom title
+// bar. The height is controlled by the renderer at runtime (see the
+// `setTitleBarOverlayHeight` IPC handler) because the React header height
+// scales with the UI size slider in settings.
+const OVERLAY_COLOR = "#0e0e11";
+const OVERLAY_SYMBOL_COLOR = "#a1a1aa";
+// Default overlay height in CSS pixels. Matches h-12 (3rem) at the default
+// root font-size of 18px. If the user has a saved UI scale, the renderer
+// will correct this via IPC shortly after window creation.
+const DEFAULT_OVERLAY_HEIGHT = 54;
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    backgroundColor: "#0a0a0a",
+    // Match the app's `--background` token (hsl(240 10% 6%) ≈ #0e0e11)
+    // so the pre-paint flash and the window-control overlay strip both
+    // blend seamlessly into the React header.
+    backgroundColor: "#0e0e11",
+    // Hide the native OS title bar and render our own in the renderer.
+    // `titleBarOverlay` keeps the native minimize/maximize/close buttons
+    // as a transparent overlay on the right side of the window so we
+    // don't have to reimplement window controls — we just reserve space
+    // for them in the React header via padding-right. The colors match
+    // our dark theme so the overlay blends into the custom title bar.
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      // Must match the React header height (h-12 = 3rem). Root font-size
+      // is controlled by the UI size slider in settings, so the renderer
+      // updates this at runtime via the `setTitleBarOverlayHeight` IPC
+      // call — see OVERLAY_* constants above.
+      color: OVERLAY_COLOR,
+      symbolColor: OVERLAY_SYMBOL_COLOR,
+      height: DEFAULT_OVERLAY_HEIGHT,
+    },
     webPreferences: {
       // electron-vite emits preload to out/preload/index.mjs in both dev
       // and prod. __dirname here resolves into that out/main folder, so
@@ -165,8 +204,34 @@ async function startup(): Promise<void> {
     return;
   }
 
+  // Kill the default Electron application menu (File/Edit/View/...).
+  // Our custom title bar in the renderer replaces it. Standard OS
+  // accelerators (Alt+F4, copy/paste inside inputs, etc.) still work
+  // because they're handled at the OS level, not by the menu.
+  Menu.setApplicationMenu(null);
+
   registerMapFileProtocol(cfg);
   registerIpcHandlers(db, cfg);
+
+  // Renderer-driven runtime resize of the native window-control overlay.
+  // This lives in main.ts (rather than ipc.ts) because it needs the
+  // BrowserWindow instance — ipc.ts only sees the DB + config. The
+  // renderer calls this on startup and whenever the user moves the UI
+  // size slider in settings, so the OS min/max/close button strip stays
+  // matched to the React header height.
+  ipcMain.handle("setTitleBarOverlayHeight", (_e, height: number) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (typeof height !== "number" || !Number.isFinite(height)) return;
+    // Clamp defensively — Electron throws if height is <= 0, and a
+    // ridiculously tall overlay would eat the entire window.
+    const clamped = Math.max(24, Math.min(120, Math.round(height)));
+    mainWindow.setTitleBarOverlay({
+      color: OVERLAY_COLOR,
+      symbolColor: OVERLAY_SYMBOL_COLOR,
+      height: clamped,
+    });
+  });
+
   createWindow();
 }
 

@@ -8,15 +8,28 @@ import { ipcMain, shell } from "electron";
 import { join } from "node:path";
 import type { MapDb } from "./db.js";
 import type { DmToolConfig } from "./config.js";
-import type { SearchParams } from "../shared/types.js";
+import type { MapDetail, SearchParams } from "../shared/types.js";
+import {
+  appendAdditionalHooks,
+  getAdditionalHooks,
+} from "./hooks-store.js";
+import { generateEncounterHooks } from "./anthropic.js";
 
 export function registerIpcHandlers(db: MapDb, cfg: DmToolConfig): void {
   ipcMain.handle("searchMaps", (_e, params: SearchParams) => {
     return db.search(params ?? {});
   });
 
-  ipcMain.handle("getMapDetail", (_e, fileName: string) => {
-    return db.getDetail(fileName);
+  // The base detail comes from the read-only DB; we layer on the
+  // dm-tool-owned override list of additional encounter hooks before
+  // returning. Renderer doesn't have to know the two storage layers exist.
+  ipcMain.handle("getMapDetail", (_e, fileName: string): MapDetail | null => {
+    const detail = db.getDetail(fileName);
+    if (!detail) return null;
+    return {
+      ...detail,
+      additionalEncounterHooks: getAdditionalHooks(fileName),
+    };
   });
 
   ipcMain.handle("getFacets", () => {
@@ -38,4 +51,45 @@ export function registerIpcHandlers(db: MapDb, cfg: DmToolConfig): void {
     const fullPath = join(cfg.libraryPath, fileName);
     shell.showItemInFolder(fullPath);
   });
+
+  // Regenerate encounter hooks via the Anthropic API and persist them to
+  // the override store. Returns the FULL list of additional hooks (newest
+  // first) so the renderer can swap its local state in one assignment.
+  ipcMain.handle(
+    "regenerateEncounterHooks",
+    async (
+      _e,
+      args: { fileName: string; apiKey: string },
+    ): Promise<string[]> => {
+      if (!args || typeof args.fileName !== "string") {
+        throw new Error("regenerateEncounterHooks: fileName is required");
+      }
+      // Reject anything but a plain filename — same defense as
+      // openInExplorer. The fileName flows into a disk path inside
+      // anthropic.ts and we don't want a renderer bug to walk the FS.
+      if (args.fileName.includes("/") || args.fileName.includes("\\")) {
+        throw new Error(
+          "regenerateEncounterHooks: fileName must not contain path separators",
+        );
+      }
+
+      const baseDetail = db.getDetail(args.fileName);
+      if (!baseDetail) {
+        throw new Error(`Unknown map: ${args.fileName}`);
+      }
+      // Build a MapDetail with the current additional hooks merged in so
+      // the prompt can ask the model not to repeat them.
+      const detail: MapDetail = {
+        ...baseDetail,
+        additionalEncounterHooks: getAdditionalHooks(args.fileName),
+      };
+
+      const newHooks = await generateEncounterHooks({
+        apiKey: args.apiKey,
+        libraryPath: cfg.libraryPath,
+        detail,
+      });
+      return appendAdditionalHooks(args.fileName, newHooks);
+    },
+  );
 }

@@ -6,3 +6,6 @@ dist/
 
 # Personal config — contains absolute paths to the map-tagger data
 config.json
+
+# Local tooling scratch (Claude Code session screenshots, plans, etc.)
+.claude-work/

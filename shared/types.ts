@@ -37,6 +37,12 @@ export interface MapDetail extends MapSummary {
   mood: string[];
   features: string[];
   encounterHooks: string[];
+  /** Additional encounter hooks generated client-side via the Anthropic
+   *  API and persisted to a dm-tool-owned override file (see
+   *  electron/hooks-store.ts). The DB is read-only, so these can't live
+   *  in the sidecar JSON. Newest first — UI prepends to this list when
+   *  the user clicks the refresh button. */
+  additionalEncounterHooks: string[];
   taggedAt: string; // ISO 8601
   model: string;
 }
@@ -72,4 +78,18 @@ export interface ElectronAPI {
   getFacets(): Promise<Facets>;
   getLibraryPath(): Promise<string>;
   openInExplorer(fileName: string): Promise<void>;
+  /** Update the native title bar overlay height at runtime so the OS
+   *  min/max/close button strip stays matched to the React header when
+   *  the user changes the UI scale in settings. */
+  setTitleBarOverlayHeight(height: number): Promise<void>;
+  /** Generate fresh encounter hooks for a map via the Anthropic API and
+   *  append them to the dm-tool override store. Returns the FULL list of
+   *  additional hooks (newest first) so the renderer can replace its
+   *  local state in one shot. The API key is passed in by the renderer
+   *  rather than read from disk in main — the renderer owns persistence
+   *  via localStorage and we want to avoid duplicating that. */
+  regenerateEncounterHooks(args: {
+    fileName: string;
+    apiKey: string;
+  }): Promise<string[]>;
 }

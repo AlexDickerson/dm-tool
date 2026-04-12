@@ -10,9 +10,20 @@ import { cn } from "@/lib/utils";
 import type { MapSummary, SearchParams } from "@shared/types";
 import { groupByStem } from "@shared/map-stem";
 
+interface MapBrowserProps {
+  /** Multiplier for the thumbnail card width/height. Owned by App.tsx
+   *  so the settings dialog can change it without MapBrowser knowing
+   *  about persistence. Defaults to 1 (the original tuned size). */
+  thumbScale?: number;
+  /** Anthropic API key from Settings. Passed through to DetailPane so
+   *  the encounter-hook regenerate button can use it. Empty string means
+   *  not configured — the button will surface a friendly error. */
+  anthropicApiKey?: string;
+}
+
 // Top-level state for the browser. All mutable state lives here so the
 // FilterPanel, ThumbnailGrid and DetailPane stay presentational.
-export function MapBrowser() {
+export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserProps) {
   const [keywords, setKeywords] = useState("");
   const [filters, setFilters] = useState<SearchParams>({});
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -32,7 +43,7 @@ export function MapBrowser() {
     () => ({
       ...filters,
       keywords: keywords.trim() || undefined,
-      limit: 500,
+      limit: 10000,
     }),
     [filters, keywords],
   );
@@ -60,8 +71,9 @@ export function MapBrowser() {
   }, [maps, grouped]);
 
   // Look up the variant set for a given representative fileName. This is
-  // O(n) per click which is fine for result sets ≤ 500; if it ever gets
-  // hot we can memoize an index from stem → variants.
+  // O(n) per click which is fine for result sets up to the search limit
+  // (currently 10k — microseconds per click); if it ever gets hot we can
+  // memoize an index from stem → variants.
   const handleSelect = (item: ThumbnailItem) => {
     setSelectedFileName(item.map.fileName);
     if (grouped && maps) {
@@ -101,8 +113,16 @@ export function MapBrowser() {
 
       {/* Center: search bar + thumbnail grid. Always flex-1 — the
           detail pane's proportionally larger flex weight gives it more
-          room without squeezing the grid down to a single column. */}
-      <div className="flex min-w-0 flex-1 flex-col">
+          room without squeezing the grid down to a single column.
+          When the detail pane is open we add right padding so the
+          grid's vertical scrollbar isn't flush against the detail
+          pane's left border. */}
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          selectedFileName && "pr-2",
+        )}
+      >
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <Input
             value={keywords}
@@ -148,6 +168,7 @@ export function MapBrowser() {
             items={items}
             selected={selectedFileName}
             onSelect={handleSelect}
+            scale={thumbScale}
           />
         </div>
       </div>
@@ -162,6 +183,7 @@ export function MapBrowser() {
             variants={activeVariants}
             onSelectVariant={handleSelectVariant}
             onClose={closeDetail}
+            anthropicApiKey={anthropicApiKey}
           />
         </div>
       )}

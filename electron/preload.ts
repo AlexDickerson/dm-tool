@@ -24,6 +24,13 @@ const api: ElectronAPI = {
   getLibraryPath: (): Promise<string> => ipcRenderer.invoke("getLibraryPath"),
   openInExplorer: (fileName: string): Promise<void> =>
     ipcRenderer.invoke("openInExplorer", fileName),
+  setTitleBarOverlayHeight: (height: number): Promise<void> =>
+    ipcRenderer.invoke("setTitleBarOverlayHeight", height),
+  regenerateEncounterHooks: (args: {
+    fileName: string;
+    apiKey: string;
+  }): Promise<string[]> =>
+    ipcRenderer.invoke("regenerateEncounterHooks", args),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

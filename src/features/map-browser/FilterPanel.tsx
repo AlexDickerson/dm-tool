@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatTag } from "@/lib/utils";
 import type {
   Facets,
   GridVisible,
@@ -40,10 +40,7 @@ const GRID_OPTS: Array<{ value: GridVisible; label: string }> = [
 export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
   // Stable update helpers — each produces a new params object with one
   // field flipped. Callers use these in event handlers.
-  const toggleTag = (
-    field: "biomes" | "locationTypes" | "mood" | "features",
-    value: string,
-  ) => {
+  const toggleTag = (field: "biomes" | "locationTypes", value: string) => {
     const current = params[field] ?? [];
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
@@ -62,8 +59,6 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
     let n = 0;
     if (params.biomes?.length) n += params.biomes.length;
     if (params.locationTypes?.length) n += params.locationTypes.length;
-    if (params.mood?.length) n += params.mood.length;
-    if (params.features?.length) n += params.features.length;
     if (params.interiorExterior) n += 1;
     if (params.timeOfDay) n += 1;
     if (params.gridVisible) n += 1;
@@ -72,10 +67,23 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
 
   return (
     <div className="flex h-full flex-col border-r border-border bg-card">
-      <div className="flex items-center justify-between px-3 py-2">
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-          Filters {activeCount > 0 && <span>({activeCount})</span>}
-        </Label>
+      {/* Fixed row height — without it, the row grows when the Clear
+          button appears (the button is taller than the label alone) and
+          every filter below visibly shifts down. Header upgraded from
+          tiny uppercase muted to a proper section title; the active
+          count moves into a primary-tinted chip so it reads as a state
+          indicator instead of a parenthetical. */}
+      <div className="flex h-12 items-center justify-between px-3">
+        <div className="flex items-center gap-2">
+          <Label className="text-sm font-semibold tracking-wide text-foreground">
+            Filters
+          </Label>
+          {activeCount > 0 && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              {activeCount}
+            </span>
+          )}
+        </div>
         {activeCount > 0 && (
           <Button
             variant="ghost"
@@ -92,95 +100,85 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
       <Separator />
       <ScrollArea className="flex-1">
         <div className="space-y-4 p-3">
-          <AxisGroup
-            label="Indoor/outdoor"
-            options={INTERIOR_OPTS}
-            selected={params.interiorExterior}
-            onSelect={(v) => setAxis("interiorExterior", v)}
-          />
-          <AxisGroup
-            label="Time of day"
-            options={TIME_OPTS}
-            selected={params.timeOfDay}
-            onSelect={(v) => setAxis("timeOfDay", v)}
-          />
-          <AxisGroup
-            label="Grid"
-            options={GRID_OPTS}
-            selected={params.gridVisible}
-            onSelect={(v) => setAxis("gridVisible", v)}
-          />
+          {/* Indoor/outdoor, time of day, and grid are merged into one
+              flowing pill bar. The three axes are still independent
+              (each has its own setAxis call) but the labels are dropped
+              — the pill text is self-explanatory. */}
+          <div className="flex flex-wrap gap-1">
+            {INTERIOR_OPTS.map((opt) => (
+              <PillButton
+                key={opt.value}
+                label={opt.label}
+                active={params.interiorExterior === opt.value}
+                onClick={() => setAxis("interiorExterior", opt.value)}
+              />
+            ))}
+            {TIME_OPTS.map((opt) => (
+              <PillButton
+                key={opt.value}
+                label={opt.label}
+                active={params.timeOfDay === opt.value}
+                onClick={() => setAxis("timeOfDay", opt.value)}
+              />
+            ))}
+            {GRID_OPTS.map((opt) => (
+              <PillButton
+                key={opt.value}
+                label={opt.label}
+                active={params.gridVisible === opt.value}
+                onClick={() => setAxis("gridVisible", opt.value)}
+              />
+            ))}
+          </div>
 
           <Separator />
 
-          <TagGroup
-            label="Biomes"
-            values={facets?.biomes ?? []}
-            selected={params.biomes ?? []}
-            onToggle={(v) => toggleTag("biomes", v)}
-          />
-          <TagGroup
-            label="Locations"
-            values={facets?.locationTypes ?? []}
-            selected={params.locationTypes ?? []}
-            onToggle={(v) => toggleTag("locationTypes", v)}
-          />
-          <TagGroup
-            label="Mood"
-            values={facets?.moods ?? []}
-            selected={params.mood ?? []}
-            onToggle={(v) => toggleTag("mood", v)}
-          />
-          <TagGroup
-            label="Features"
-            values={facets?.features ?? []}
-            selected={params.features ?? []}
-            onToggle={(v) => toggleTag("features", v)}
-            collapsible
-          />
+          {/* Biomes and Locations sit side-by-side in a 2-column grid so
+              the two longest checkbox lists aren't stacked in a single
+              tall column. gap-x keeps them visually separate; each column
+              still scrolls with the outer ScrollArea. */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+            <TagGroup
+              label="Locations"
+              values={facets?.locationTypes ?? []}
+              selected={params.locationTypes ?? []}
+              onToggle={(v) => toggleTag("locationTypes", v)}
+            />
+            <TagGroup
+              label="Biomes"
+              values={facets?.biomes ?? []}
+              selected={params.biomes ?? []}
+              onToggle={(v) => toggleTag("biomes", v)}
+            />
+          </div>
         </div>
       </ScrollArea>
     </div>
   );
 }
 
-interface AxisGroupProps<T extends string> {
-  label: string;
-  options: Array<{ value: T; label: string }>;
-  selected: T | undefined;
-  onSelect: (value: T) => void;
-}
-
-function AxisGroup<T extends string>({
+function PillButton({
   label,
-  options,
-  selected,
-  onSelect,
-}: AxisGroupProps<T>) {
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
-    <div>
-      <Label className="mb-1.5 block text-xs font-semibold">{label}</Label>
-      <div className="flex flex-wrap gap-1">
-        {options.map((opt) => {
-          const active = selected === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onSelect(opt.value)}
-              className={cn(
-                "rounded-md border border-border px-2 py-1 text-xs transition-colors",
-                active
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "bg-background hover:bg-accent",
-              )}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md border border-border px-2 py-1 text-xs transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "bg-background hover:bg-accent",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -189,30 +187,29 @@ interface TagGroupProps {
   values: string[];
   selected: string[];
   onToggle: (value: string) => void;
-  /** If true, only show the first N values until expanded. Useful for
-   *  the `features` list which can be long. */
-  collapsible?: boolean;
 }
 
-function TagGroup({
-  label,
-  values,
-  selected,
-  onToggle,
-  collapsible = false,
-}: TagGroupProps) {
+function TagGroup({ label, values, selected, onToggle }: TagGroupProps) {
   if (values.length === 0) return null;
 
-  // For the MVP we don't bother with an expand/collapse mechanism. If a
-  // list is genuinely long we cap it at 50 visible items — that's enough
-  // to browse. If the user needs more they can search by keyword.
-  const visible = collapsible ? values.slice(0, 50) : values;
-
+  // Section header gets a hairline rule above it and the count of
+  // selected items as a tiny primary chip. Children indent slightly so
+  // the eye can see where one section's items end and the next begins.
+  const selectedCount = selected.length;
   return (
     <div>
-      <Label className="mb-1.5 block text-xs font-semibold">{label}</Label>
-      <div className="space-y-1">
-        {visible.map((v) => {
+      <div className="mb-2 flex items-center justify-between border-t border-border pt-2">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </Label>
+        {selectedCount > 0 && (
+          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+            {selectedCount}
+          </span>
+        )}
+      </div>
+      <div className="space-y-1 pl-1">
+        {values.map((v) => {
           const checked = selected.includes(v);
           const id = `tag-${label}-${v}`;
           return (
@@ -226,16 +223,11 @@ function TagGroup({
                 htmlFor={id}
                 className="cursor-pointer text-xs text-foreground/90"
               >
-                {v}
+                {formatTag(v)}
               </label>
             </div>
           );
         })}
-        {collapsible && values.length > visible.length && (
-          <p className="pt-1 text-[10px] text-muted-foreground">
-            + {values.length - visible.length} more (use keyword search)
-          </p>
-        )}
       </div>
     </div>
   );
