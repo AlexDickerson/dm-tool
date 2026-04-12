@@ -98,6 +98,46 @@ const PAGE_GAP = 8;
 const SEPARATOR_HEIGHT = 48;
 
 // ---------------------------------------------------------------------------
+// localStorage helpers for reader preferences
+// ---------------------------------------------------------------------------
+
+const ZOOM_STORAGE_KEY = "dmtool.reader.zoom";
+const SCROLL_PREFIX = "dmtool.reader.scroll.";
+
+function loadZoom(): ZoomPreset {
+  try {
+    const v = localStorage.getItem(ZOOM_STORAGE_KEY);
+    if (v && ZOOM_PRESETS.some((p) => p.value === v)) return v as ZoomPreset;
+  } catch { /* ignore */ }
+  return "fit-width";
+}
+
+function saveZoom(z: ZoomPreset) {
+  try { localStorage.setItem(ZOOM_STORAGE_KEY, z); } catch { /* ignore */ }
+}
+
+/** Stable key for scroll position: single book uses the bookId, merged
+ *  APs use "ap-<subcategory>". */
+function scrollKey(bookId?: number, apGroup?: ApGroup): string | null {
+  if (apGroup) return `${SCROLL_PREFIX}ap-${apGroup.subcategory}`;
+  if (bookId != null) return `${SCROLL_PREFIX}${bookId}`;
+  return null;
+}
+
+function loadScroll(key: string | null): number {
+  if (!key) return 0;
+  try {
+    const v = localStorage.getItem(key);
+    return v ? Number(v) || 0 : 0;
+  } catch { return 0; }
+}
+
+function saveScroll(key: string | null, top: number) {
+  if (!key) return;
+  try { localStorage.setItem(key, String(Math.round(top))); } catch { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
 // Main reader component
 // ---------------------------------------------------------------------------
 
@@ -106,9 +146,23 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
   const [title, setTitle] = useState("");
   const [totalPages, setTotalPages] = useState(0);
   const [slots, setSlots] = useState<DocSlot[]>([]);
+  const slotsRef = useRef<DocSlot[]>([]);
+  slotsRef.current = slots;
   const [tocOpen, setTocOpen] = useState(true);
-  const [zoom, setZoom] = useState<ZoomPreset>("fit-width");
+  const [zoom, setZoom] = useState<ZoomPreset>(loadZoom);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageInputOpen, setPageInputOpen] = useState(false);
+
+  // Destroy all loaded PDFDocumentProxy objects on unmount so they don't
+  // leak memory across open/close cycles.
+  useEffect(() => {
+    return () => {
+      for (const s of slotsRef.current) {
+        if (s.doc) s.doc.destroy();
+      }
+    };
+  }, []);
 
   const [pageSize, setPageSize] = useState<{
     width: number;
@@ -290,16 +344,11 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
   }, [apGroup, isMulti]);
 
   // Lazy-load a doc when the user scrolls near it (called by PageSlot).
+  // Uses slotsRef to avoid closing over a stale `slots` array, which
+  // would make this callback recreate on every slots change and cause
+  // unnecessary PageSlot re-renders.
   const loadSlotDoc = useCallback(async (slotIndex: number) => {
-    setSlots((prev) => {
-      const s = prev[slotIndex];
-      if (!s || s.doc) return prev;
-      // Mark as loading by returning same array — the actual load happens below.
-      return prev;
-    });
-
-    // Check if already loaded (race with concurrent calls).
-    const current = slots[slotIndex];
+    const current = slotsRef.current[slotIndex];
     if (!current || current.doc) return current?.doc ?? null;
 
     const url = await api.booksGetFileUrl(current.bookId);
@@ -321,7 +370,10 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
     });
 
     return doc;
-  }, [slots]);
+  }, []);
+
+  // Persist zoom preference.
+  useEffect(() => { saveZoom(zoom); }, [zoom]);
 
   // Computed scale.
   const scale = useMemo(() => {
@@ -366,17 +418,103 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
 
   // Resolve a TOC destination to an exact scroll position using the
   // precomputed slot offsets — no independent formula.
+  const slotTopOffsetsRef = useRef(slotTopOffsets);
+  slotTopOffsetsRef.current = slotTopOffsets;
+  const pageHeightRef = useRef(pageHeight);
+  pageHeightRef.current = pageHeight;
+
+  // -----------------------------------------------------------------------
+  // Current page tracking + scroll position save/restore
+  // -----------------------------------------------------------------------
+  const sKey = scrollKey(bookId, apGroup);
+
+  // Derive current 1-based page number from scroll position.
+  const computeCurrentPage = useCallback(
+    (scrollTop: number) => {
+      if (!pageHeight || slots.length === 0) return 1;
+      for (let si = slots.length - 1; si >= 0; si--) {
+        const slotTop = slotTopOffsets[si] ?? 0;
+        if (scrollTop >= slotTop) {
+          const local = Math.floor(
+            (scrollTop - slotTop) / (pageHeight + PAGE_GAP),
+          );
+          const globalOffset = slots[si]!.globalPageOffset;
+          return Math.min(globalOffset + local + 1, totalPages);
+        }
+      }
+      return 1;
+    },
+    [slots, slotTopOffsets, pageHeight, totalPages],
+  );
+
+  // Track scroll → update current page + debounced save.
+  const saveTimerRef = useRef<number | null>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      setCurrentPage(computeCurrentPage(el.scrollTop));
+      // Debounce the localStorage write.
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = window.setTimeout(() => {
+        saveScroll(sKey, el.scrollTop);
+      }, 300);
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", handleScroll);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [computeCurrentPage, sKey]);
+
+  // Restore saved scroll position once pages are laid out.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current || !pageHeight || slots.length === 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const saved = loadScroll(sKey);
+    if (saved > 0) {
+      el.scrollTop = saved;
+      setCurrentPage(computeCurrentPage(saved));
+    }
+    restoredRef.current = true;
+  }, [pageHeight, slots, sKey, computeCurrentPage]);
+
+  // Jump to a specific 1-based page number.
+  const jumpToPage = useCallback(
+    (page: number) => {
+      const el = scrollRef.current;
+      if (!el || !pageHeight || slots.length === 0) return;
+      const clamped = Math.max(1, Math.min(page, totalPages));
+      // Find which slot this page belongs to.
+      let targetTop = 0;
+      for (let si = 0; si < slots.length; si++) {
+        const slot = slots[si]!;
+        const slotEnd = slot.globalPageOffset + slot.pageCount;
+        if (clamped <= slotEnd) {
+          const local = clamped - 1 - slot.globalPageOffset;
+          targetTop = (slotTopOffsets[si] ?? 0) + local * (pageHeight + PAGE_GAP);
+          break;
+        }
+      }
+      el.scrollTop = targetTop;
+    },
+    [slots, slotTopOffsets, pageHeight, totalPages],
+  );
+
   const resolveDest = useCallback(
     async (
       dest: string | unknown[] | null,
       slotIndex: number,
     ): Promise<number | null> => {
-      const slotTop = slotTopOffsets[slotIndex];
-      if (slotTop == null || !pageHeight) return null;
-      const slot = slots[slotIndex];
+      const offsets = slotTopOffsetsRef.current;
+      const ph = pageHeightRef.current;
+      const slotTop = offsets[slotIndex];
+      if (slotTop == null || !ph) return null;
+      const slot = slotsRef.current[slotIndex];
       if (!slot) return null;
 
-      // Synthetic part-header node: scroll to the slot's first page.
       if (!dest) return slotTop;
 
       let doc = slot.doc;
@@ -396,16 +534,19 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
       const localPageIndex = await doc.getPageIndex(
         resolved[0] as { num: number; gen: number },
       );
-      return slotTop + localPageIndex * (pageHeight + PAGE_GAP);
+      return slotTop + localPageIndex * (ph + PAGE_GAP);
     },
-    [slots, slotTopOffsets, pageHeight, loadSlotDoc],
+    [loadSlotDoc],
   );
 
   // Keyboard shortcuts.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Don't capture keys when the page-number input is focused.
+      if (pageInputOpen) return;
       const el = scrollRef.current;
       if (!el) return;
+      const ph = pageHeightRef.current;
       switch (e.key) {
         case "+":
         case "=":
@@ -428,9 +569,17 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           e.preventDefault();
           el.scrollTop = el.scrollHeight;
           break;
+        case "PageDown":
+          e.preventDefault();
+          if (ph) el.scrollTop += ph + PAGE_GAP;
+          break;
+        case "PageUp":
+          e.preventDefault();
+          if (ph) el.scrollTop -= ph + PAGE_GAP;
+          break;
       }
     },
-    [zoom],
+    [zoom, pageInputOpen],
   );
 
   if (error) {
@@ -467,9 +616,15 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           {title || "Loading…"}
         </span>
         {totalPages > 0 && (
-          <span className="text-[10px] text-muted-foreground">
-            ({totalPages} pages{isMulti ? ` · ${slots.length} parts` : ""})
-          </span>
+          <PageIndicator
+            currentPage={currentPage}
+            totalPages={totalPages}
+            isMulti={isMulti}
+            slotCount={slots.length}
+            open={pageInputOpen}
+            onOpenChange={setPageInputOpen}
+            onJump={jumpToPage}
+          />
         )}
         <div className="ml-auto flex items-center gap-1">
           <Button
@@ -526,11 +681,16 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           </div>
         )}
 
-        {/* Page scroll container */}
+        {/* Page scroll container — double-click toggles between
+            fit-width and 100% for quick switching between reading
+            and inspecting art/maps. */}
         <div
           ref={scrollRef}
           className="flex-1 overflow-auto bg-muted/30"
           style={{ outline: "none" }}
+          onDoubleClick={() =>
+            setZoom((z) => (z === "fit-width" ? "100" : "fit-width"))
+          }
         >
           {slots.length > 0 && pageSize ? (
             <MultiDocPageList
@@ -746,6 +906,10 @@ function PageSlot({
         const textDiv = textLayerRef.current;
         if (!textDiv || cancelled) return;
         textDiv.innerHTML = "";
+        // pdfjs TextLayer uses the CSS variable --scale-factor to compute
+        // span transforms. Without it, the text spans drift from the canvas.
+        // See: https://github.com/mozilla/pdf.js/discussions/18068
+        textDiv.style.setProperty("--scale-factor", String(scale));
         textDiv.style.width = `${viewport.width}px`;
         textDiv.style.height = `${viewport.height}px`;
 
@@ -800,11 +964,7 @@ function PageSlot({
       {doc ? (
         <>
           <canvas ref={canvasRef} style={{ display: "block" }} />
-          <div
-            ref={textLayerRef}
-            className="textLayer"
-            style={{ position: "absolute", top: 0, left: 0 }}
-          />
+          <div ref={textLayerRef} className="textLayer" />
         </>
       ) : (
         <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
@@ -919,6 +1079,80 @@ function TocNode({
         </ul>
       )}
     </li>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page indicator — shows "Page N / M", click to open jump-to-page input
+// ---------------------------------------------------------------------------
+
+function PageIndicator({
+  currentPage,
+  totalPages,
+  isMulti,
+  slotCount,
+  open,
+  onOpenChange,
+  onJump,
+}: {
+  currentPage: number;
+  totalPages: number;
+  isMulti: boolean;
+  slotCount: number;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onJump: (page: number) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [inputValue, setInputValue] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setInputValue(String(currentPage));
+      // Focus after React renders the input.
+      requestAnimationFrame(() => inputRef.current?.select());
+    }
+  }, [open, currentPage]);
+
+  const handleSubmit = () => {
+    const n = parseInt(inputValue, 10);
+    if (Number.isFinite(n)) onJump(n);
+    onOpenChange(false);
+  };
+
+  if (open) {
+    return (
+      <span className="flex items-center gap-1 text-[10px]">
+        <span className="text-muted-foreground">Page</span>
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSubmit();
+            if (e.key === "Escape") onOpenChange(false);
+            e.stopPropagation(); // don't trigger reader shortcuts
+          }}
+          onBlur={handleSubmit}
+          className="w-12 rounded border border-border bg-background px-1 py-0.5 text-center text-[10px] text-foreground outline-none focus:border-primary"
+        />
+        <span className="text-muted-foreground">/ {totalPages}</span>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenChange(true)}
+      className="text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+      title="Click to jump to a page"
+    >
+      Page {currentPage} / {totalPages}
+      {isMulti && ` · ${slotCount} parts`}
+    </button>
   );
 }
 
