@@ -1,11 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ResizableSidebar } from '@/components/ResizableSidebar';
-import { FloatingPanel } from '@/components/FloatingPanel';
+import { DetailOverlay } from '@/components/FloatingPanel';
 import { ItemFilterPanel } from './ItemFilterPanel';
 import { ItemCardGrid, type GroupedItem } from './ItemCardGrid';
 import { ItemDetailPane } from './ItemDetailPane';
 import { useItemSearch, useItemFacets } from './useItems';
-import { useHoverIntent } from '@/hooks/useHoverIntent';
 import type { ItemBrowserRow, ItemSearchParams } from '@shared/types';
 
 /** Strip a trailing parenthetical like "(Greater)" to get the base name.
@@ -49,6 +48,8 @@ function groupItems(items: ItemBrowserRow[]): GroupedItem[] {
 
 export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
   const [filters, setFilters] = useState<ItemSearchParams>({});
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
 
   const searchParams = useMemo<ItemSearchParams>(
     () => ({
@@ -64,14 +65,26 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
 
   const grouped = useMemo(() => groupItems(items ?? []), [items]);
 
-  const { hover, onEnter, onLeave, cancelHide, setKey } = useHoverIntent<string>();
-
-  // Find siblings for the hovered item
-  const hoveredSiblings = useMemo(() => {
-    if (!hover) return null;
-    const group = grouped.find((g) => g.siblings.some((s) => s.id === hover.key));
+  // Find siblings for the selected item
+  const selectedSiblings = useMemo(() => {
+    if (!selectedId) return null;
+    const group = grouped.find((g) => g.siblings.some((s) => s.id === selectedId));
     return group && group.siblings.length > 1 ? group.siblings : null;
-  }, [hover, grouped]);
+  }, [selectedId, grouped]);
+
+  const handleSelect = useCallback((item: ItemBrowserRow) => {
+    setSelectedId((prev) => {
+      if (prev === item.id) return prev;
+      setClosing(false);
+      return item.id;
+    });
+  }, []);
+
+  const handleClose = useCallback(() => setClosing(true), []);
+  const handleClosed = useCallback(() => {
+    setSelectedId(null);
+    setClosing(false);
+  }, []);
 
   const handleFilterChange = useCallback((next: ItemSearchParams) => {
     setFilters(next);
@@ -84,15 +97,21 @@ export function ItemBrowser({ keywords = '' }: { keywords?: string }) {
         <ItemFilterPanel facets={facets} params={filters} onChange={handleFilterChange} />
       </ResizableSidebar>
 
-      {/* Center: card grid */}
-      <ItemCardGrid groups={grouped} loading={loading} onHoverStart={onEnter} onHoverEnd={onLeave} />
+      {/* Grid + overlay container */}
+      <div className="relative min-w-0 flex-1 overflow-hidden">
+        <ItemCardGrid groups={grouped} selectedId={selectedId} onSelect={handleSelect} loading={loading} />
 
-      {/* Hover detail */}
-      {hover && (
-        <FloatingPanel anchorRect={hover.rect} onMouseEnter={cancelHide} onMouseLeave={onLeave}>
-          <ItemDetailPane itemId={hover.key} siblings={hoveredSiblings} onSelectSibling={setKey} />
-        </FloatingPanel>
-      )}
+        {selectedId && (
+          <DetailOverlay closing={closing} onClosed={handleClosed}>
+            <ItemDetailPane
+              itemId={selectedId}
+              siblings={selectedSiblings}
+              onSelectSibling={setSelectedId}
+              onClose={handleClose}
+            />
+          </DetailOverlay>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,15 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ResizableSidebar } from '@/components/ResizableSidebar';
-import { FloatingPanel } from '@/components/FloatingPanel';
+import { DetailOverlay } from '@/components/FloatingPanel';
 import { MonsterFilterPanel } from './MonsterFilterPanel';
 import { MonsterCardGrid } from './MonsterCardGrid';
 import { MonsterDetailPane } from './MonsterDetailPane';
 import { useMonsterSearch, useMonsterFacets, useMonsterDetail, useOpenExternal } from './useMonsters';
-import { useHoverIntent } from '@/hooks/useHoverIntent';
 import type { MonsterSearchParams } from '@shared/types';
 
 export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
   const [filters, setFilters] = useState<MonsterSearchParams>({});
+  const [selectedMonster, setSelectedMonster] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
 
   const searchParams = useMemo<MonsterSearchParams>(
     () => ({
@@ -21,10 +22,22 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
 
   const { data: monsters, error } = useMonsterSearch(searchParams);
   const { data: facets } = useMonsterFacets();
+  const { data: detail, loading: detailLoading } = useMonsterDetail(selectedMonster);
   const openExternal = useOpenExternal();
 
-  const { hover, onEnter, onLeave, cancelHide } = useHoverIntent<string>();
-  const { data: detail, loading: detailLoading } = useMonsterDetail(hover?.key ?? null);
+  const handleSelect = useCallback((name: string) => {
+    setSelectedMonster((prev) => {
+      if (prev === name) return prev;
+      setClosing(false);
+      return name;
+    });
+  }, []);
+
+  const handleClose = useCallback(() => setClosing(true), []);
+  const handleClosed = useCallback(() => {
+    setSelectedMonster(null);
+    setClosing(false);
+  }, []);
 
   const handleFiltersChange = useCallback((next: MonsterSearchParams) => {
     setFilters(next);
@@ -37,17 +50,20 @@ export function MonsterBrowser({ keywords = '' }: { keywords?: string }) {
           <MonsterFilterPanel facets={facets} params={filters} onChange={handleFiltersChange} />
         </ResizableSidebar>
 
-        <MonsterCardGrid monsters={monsters ?? []} error={error} onHoverStart={onEnter} onHoverEnd={onLeave} />
+        <div className="relative min-w-0 flex-1 overflow-hidden">
+          <MonsterCardGrid monsters={monsters ?? []} error={error} selected={selectedMonster} onSelect={handleSelect} />
 
-        {hover && (
-          <FloatingPanel anchorRect={hover.rect} onMouseEnter={cancelHide} onMouseLeave={onLeave}>
-            {detailLoading || !detail ? (
-              <div className="p-4 text-xs text-muted-foreground">Loading…</div>
-            ) : (
-              <MonsterDetailPane detail={detail} onOpenExternal={openExternal} />
-            )}
-          </FloatingPanel>
-        )}
+          {selectedMonster && detail && (
+            <DetailOverlay closing={closing} onClosed={handleClosed}>
+              <MonsterDetailPane
+                detail={detail}
+                loading={detailLoading}
+                onOpenExternal={openExternal}
+                onClose={handleClose}
+              />
+            </DetailOverlay>
+          )}
+        </div>
       </div>
     </div>
   );

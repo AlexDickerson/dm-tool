@@ -33,12 +33,12 @@ function levelRange(siblings: ItemBrowserRow[]): string {
 
 interface Props {
   groups: GroupedItem[];
+  selectedId: string | null;
+  onSelect: (item: ItemBrowserRow) => void;
   loading?: boolean;
-  onHoverStart?: (id: string, rect: DOMRect) => void;
-  onHoverEnd?: () => void;
 }
 
-export function ItemCardGrid({ groups, loading, onHoverStart, onHoverEnd }: Props) {
+export function ItemCardGrid({ groups, selectedId, onSelect, loading }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(4);
 
@@ -99,16 +99,16 @@ export function ItemCardGrid({ groups, loading, onHoverStart, onHoverEnd }: Prop
                   {rowItems.map((group) => {
                     const item = group.representative;
                     const isGroup = group.siblings.length > 1;
+                    const isSelected = group.siblings.some((s) => s.id === selectedId);
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        onMouseEnter={(e) => onHoverStart?.(item.id, e.currentTarget.getBoundingClientRect())}
-                        onMouseLeave={() => onHoverEnd?.()}
+                        onClick={() => onSelect(item)}
                         className={cn(
                           'flex flex-col rounded-md border border-l-[3px] p-2 text-left text-xs transition-colors',
                           RARITY_BORDER[item.rarity] ?? 'border-l-border',
-                          'border-border bg-card hover:bg-accent/40',
+                          isSelected ? 'border-primary/50 bg-primary/10' : 'border-border bg-card hover:bg-accent/40',
                         )}
                         style={{ height: CARD_H }}
                       >

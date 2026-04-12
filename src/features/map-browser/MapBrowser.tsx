@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, Info, Layers, Merge, Plus, Rows, X } from 'lucide-react';
 import { ResizableSidebar } from '@/components/ResizableSidebar';
+import { DetailOverlay } from '@/components/FloatingPanel';
 import { FilterPanel } from './FilterPanel';
 import { ThumbnailGrid, type ThumbnailItem } from './ThumbnailGrid';
 import { DetailPane } from './DetailPane';
@@ -122,26 +123,13 @@ export function MapBrowser({
     setSelectedFileName(fileName);
   };
 
-  // Detail pane exit animation: instead of unmounting immediately, we
-  // flip to the "closing" animation and unmount on animationend.
-  const [detailAnim, setDetailAnim] = useState<'open' | 'closing'>('open');
-  const detailRef = useRef<HTMLDivElement>(null);
+  const [detailClosing, setDetailClosing] = useState(false);
 
-  const closeDetail = useCallback(() => {
-    setDetailAnim('closing');
-    const el = detailRef.current;
-    if (!el) {
-      setSelectedFileName(null);
-      setActiveVariants(null);
-      return;
-    }
-    const onEnd = () => {
-      el.removeEventListener('animationend', onEnd);
-      setSelectedFileName(null);
-      setActiveVariants(null);
-      setDetailAnim('open');
-    };
-    el.addEventListener('animationend', onEnd);
+  const closeDetail = useCallback(() => setDetailClosing(true), []);
+  const handleDetailClosed = useCallback(() => {
+    setSelectedFileName(null);
+    setActiveVariants(null);
+    setDetailClosing(false);
   }, []);
 
   // Merge mode: multi-select packs to merge them into one.
@@ -212,7 +200,7 @@ export function MapBrowser({
           <FilterPanel facets={facets} params={filters} onChange={setFilters} />
         </ResizableSidebar>
 
-        <div className={cn('flex min-w-0 flex-1 flex-col', selectedFileName && 'pr-2')}>
+        <div className="relative flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <Button
               type="button"
@@ -312,31 +300,20 @@ export function MapBrowser({
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right: detail pane gets ~1.8× the grid's flex weight so the
-          main image is large and the variant panel has room, while
-          the grid still has enough room for 2 columns of thumbs. */}
-        {selectedFileName && (
-          <div
-            ref={detailRef}
-            className="flex min-w-0 flex-[1.8]"
-            style={{
-              animation:
-                detailAnim === 'open'
-                  ? 'dmtool-slide-in-right 200ms ease-out'
-                  : 'dmtool-slide-out-right 150ms ease-out forwards',
-            }}
-          >
-            <DetailPane
-              fileName={selectedFileName}
-              variants={activeVariants}
-              onSelectVariant={handleSelectVariant}
-              onClose={closeDetail}
-              anthropicApiKey={anthropicApiKey}
-            />
-          </div>
-        )}
+          {/* Detail overlay */}
+          {selectedFileName && (
+            <DetailOverlay width={520} closing={detailClosing} onClosed={handleDetailClosed}>
+              <DetailPane
+                fileName={selectedFileName}
+                variants={activeVariants}
+                onSelectVariant={handleSelectVariant}
+                onClose={closeDetail}
+                anthropicApiKey={anthropicApiKey}
+              />
+            </DetailOverlay>
+          )}
+        </div>
       </div>
 
       <TaggerDialog

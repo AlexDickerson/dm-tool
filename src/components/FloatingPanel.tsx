@@ -1,38 +1,50 @@
-import { createPortal } from 'react-dom';
+import { useEffect, useRef } from 'react';
 
-interface FloatingPanelProps {
-  /** Bounding rect of the element that triggered the hover. */
-  anchorRect: DOMRect;
-  width?: number;
+interface DetailOverlayProps {
   children: React.ReactNode;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
+  /** Pixel width of the panel (default 400). */
+  width?: number;
+  /** Set to true to play the close animation. When complete, `onClosed` fires. */
+  closing?: boolean;
+  /** Called after the close animation finishes so the parent can unmount. */
+  onClosed: () => void;
 }
 
 /**
- * Fixed-position floating panel anchored to a trigger element.
- * Prefers the right side of the anchor; falls back to left if
- * there isn't enough viewport space.
+ * Semi-transparent overlay panel that slides in from the right edge,
+ * matching the chat drawer's frosted-glass look.
+ *
+ * Render inside a `relative overflow-hidden` container so it covers
+ * the content beneath.
  */
-export function FloatingPanel({ anchorRect, width = 380, children, onMouseEnter, onMouseLeave }: FloatingPanelProps) {
-  const gap = 8;
-  const margin = 16;
+export function DetailOverlay({ children, width = 400, closing = false, onClosed }: DetailOverlayProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
 
-  const fitsRight = anchorRect.right + gap + width <= window.innerWidth - margin;
-  const left = fitsRight ? anchorRect.right + gap : anchorRect.left - gap - width;
+  useEffect(() => {
+    if (!closing) return;
+    const el = ref.current;
+    if (!el) {
+      onClosedRef.current();
+      return;
+    }
+    const handler = () => onClosedRef.current();
+    el.addEventListener('animationend', handler);
+    return () => el.removeEventListener('animationend', handler);
+  }, [closing]);
 
-  const maxH = window.innerHeight - margin * 2;
-  const top = Math.max(margin, Math.min(anchorRect.top, window.innerHeight - maxH - margin));
-
-  return createPortal(
+  return (
     <div
-      className="fixed z-50 overflow-auto rounded-lg border border-border bg-card text-card-foreground shadow-xl"
-      style={{ left, top, width, maxHeight: maxH }}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      ref={ref}
+      className="absolute inset-y-0 right-0 z-20 flex flex-col border-l border-border backdrop-blur-md"
+      style={{
+        width,
+        backgroundColor: 'hsl(var(--background) / 0.85)',
+        animation: closing ? 'dmtool-slide-out-right 150ms ease-out forwards' : 'dmtool-slide-in-right 200ms ease-out',
+      }}
     >
       {children}
-    </div>,
-    document.body,
+    </div>
   );
 }
