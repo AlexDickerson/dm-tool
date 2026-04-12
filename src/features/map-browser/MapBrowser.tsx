@@ -303,7 +303,7 @@ export function MapBrowser({
 
           {/* Detail overlay */}
           {selectedFileName && (
-            <DetailOverlay width={520} closing={detailClosing} onClosed={handleDetailClosed}>
+            <DetailOverlay width={780} closing={detailClosing} onClosed={handleDetailClosed}>
               <DetailPane
                 fileName={selectedFileName}
                 variants={activeVariants}
