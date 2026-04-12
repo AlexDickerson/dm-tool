@@ -65,14 +65,12 @@ jobs:
 
       - run: npm run build
 
-      - run: npx electron-builder --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: npx electron-builder --win --publish never
 
       - uses: actions/upload-artifact@v4
         with:
           name: dm-tool-windows
-          path: dist/*.exe
+          path: dist/DM-Tool-Setup-*.exe
 
   release:
     runs-on: ubuntu-latest
