@@ -21,6 +21,10 @@ export interface DmToolConfig {
   libraryPath: string;
   /** Absolute path to the map-tagger's SQLite index file. */
   indexDbPath: string;
+  /** Absolute path to the root folder of TTRPG PDFs (Adventure Paths,
+   *  Rulebooks, etc). Optional — if missing, the book catalog feature is
+   *  disabled and the tab shows a friendly "configure me" message. */
+  booksPath?: string;
 }
 
 /** The config file is looked up in this order:
@@ -92,5 +96,15 @@ export function loadConfig(): DmToolConfig {
     );
   }
 
-  return { libraryPath, indexDbPath };
+  // booksPath is optional — if set, we resolve and lightly validate, but
+  // a missing folder at startup isn't fatal: the catalog will just show
+  // empty until the user fixes the config. This keeps the rest of the app
+  // (map browser) usable even if the books tree is on a network drive
+  // that's currently offline.
+  let booksPath: string | undefined;
+  if (cfg.booksPath && typeof cfg.booksPath === "string" && cfg.booksPath.trim().length > 0) {
+    booksPath = resolve(cfg.booksPath);
+  }
+
+  return { libraryPath, indexDbPath, booksPath };
 }

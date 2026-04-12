@@ -8,8 +8,11 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  Book,
+  BookScanResult,
   ElectronAPI,
   Facets,
+  FinalizeIngestArgs,
   MapDetail,
   MapSummary,
   SearchParams,
@@ -31,6 +34,18 @@ const api: ElectronAPI = {
     apiKey: string;
   }): Promise<string[]> =>
     ipcRenderer.invoke("regenerateEncounterHooks", args),
+
+  // Book catalog + reader
+  booksScan: (): Promise<BookScanResult> => ipcRenderer.invoke("booksScan"),
+  booksList: (): Promise<Book[]> => ipcRenderer.invoke("booksList"),
+  booksGet: (id: number): Promise<Book | null> =>
+    ipcRenderer.invoke("booksGet", id),
+  booksFinalizeIngest: (args: FinalizeIngestArgs): Promise<Book> =>
+    ipcRenderer.invoke("booksFinalizeIngest", args),
+  booksGetFileUrl: (id: number): Promise<string> =>
+    ipcRenderer.invoke("booksGetFileUrl", id),
+  booksGetCoverUrl: (id: number): Promise<string> =>
+    ipcRenderer.invoke("booksGetCoverUrl", id),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

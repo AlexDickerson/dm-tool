@@ -1,21 +1,49 @@
-// Wires the MapDb into ipcMain handlers matching the ElectronAPI surface.
+// Wires the MapDb and BookDb into ipcMain handlers matching the
+// ElectronAPI surface.
 //
 // Every handler name here must match exactly the method name on
 // `shared/types.ts::ElectronAPI` and the corresponding contextBridge
 // exposure in preload.ts — the three files form one contract.
 
-import { ipcMain, shell } from "electron";
+import { app, ipcMain, shell } from "electron";
 import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import type { MapDb } from "./db.js";
+import type { BookDb } from "./book-db.js";
 import type { DmToolConfig } from "./config.js";
-import type { MapDetail, SearchParams } from "../shared/types.js";
+import type {
+  Book,
+  BookScanResult,
+  FinalizeIngestArgs,
+  MapDetail,
+  SearchParams,
+} from "../shared/types.js";
 import {
   appendAdditionalHooks,
   getAdditionalHooks,
 } from "./hooks-store.js";
 import { generateEncounterHooks } from "./anthropic.js";
+import { scanBookRoot } from "./book-scanner.js";
 
-export function registerIpcHandlers(db: MapDb, cfg: DmToolConfig): void {
+/** Resolved paths for the book cover cache. Computed once at startup so
+ *  every handler doesn't have to recompute them. `relative` is the
+ *  per-book subdirectory name that's stored in the DB's cover_path column
+ *  — staying relative keeps the DB portable across userData moves. */
+interface CoverPaths {
+  /** Absolute path to the cover cache root, e.g.
+   *  `C:/Users/foo/AppData/Roaming/dm-tool/book-covers`. */
+  absRoot: string;
+}
+
+export function registerIpcHandlers(
+  db: MapDb,
+  bookDb: BookDb | null,
+  cfg: DmToolConfig,
+): void {
+  const coverPaths: CoverPaths = {
+    absRoot: join(app.getPath("userData"), "book-covers"),
+  };
+
   ipcMain.handle("searchMaps", (_e, params: SearchParams) => {
     return db.search(params ?? {});
   });
@@ -92,4 +120,94 @@ export function registerIpcHandlers(db: MapDb, cfg: DmToolConfig): void {
       return appendAdditionalHooks(args.fileName, newHooks);
     },
   );
+
+  // --- Book catalog + reader --------------------------------------------
+  //
+  // All book handlers are registered even when bookDb is null (no
+  // booksPath configured), so the renderer gets a clean error string
+  // instead of an opaque "handler not registered" IPC failure. The
+  // catalog UI checks for the "not configured" error and shows a friendly
+  // configure-me panel.
+
+  const requireBookDb = (): BookDb => {
+    if (!bookDb) {
+      throw new Error(
+        "Book catalog not configured. Set `booksPath` in config.json to the root of your PDF library.",
+      );
+    }
+    return bookDb;
+  };
+
+  ipcMain.handle("booksScan", async (): Promise<BookScanResult> => {
+    const b = requireBookDb();
+    if (!cfg.booksPath) {
+      // requireBookDb would have thrown already — this narrows cfg.booksPath
+      // for TypeScript. Defensive.
+      throw new Error("booksScan: booksPath is not set");
+    }
+    const scanned = scanBookRoot(cfg.booksPath);
+    return b.reconcile(scanned);
+  });
+
+  ipcMain.handle("booksList", async (): Promise<Book[]> => {
+    return requireBookDb().listAll();
+  });
+
+  ipcMain.handle("booksGet", async (_e, id: number): Promise<Book | null> => {
+    return requireBookDb().getById(id);
+  });
+
+  ipcMain.handle(
+    "booksFinalizeIngest",
+    async (_e, args: FinalizeIngestArgs): Promise<Book> => {
+      const b = requireBookDb();
+      if (!args || typeof args.id !== "number" || typeof args.pageCount !== "number") {
+        throw new Error("booksFinalizeIngest: id and pageCount are required");
+      }
+      if (!(args.coverPngBytes instanceof Uint8Array)) {
+        // structured-clone delivers Uint8Array on the main side. If the
+        // renderer accidentally sent an ArrayBuffer (Electron used to
+        // transfer as ArrayBuffer pre-v25) we wrap it defensively.
+        throw new Error("booksFinalizeIngest: coverPngBytes must be a Uint8Array");
+      }
+      // Make sure the row still exists — a rescan may have deleted it
+      // between the open and the finalize.
+      const existing = b.getById(args.id);
+      if (!existing) {
+        throw new Error(`booksFinalizeIngest: unknown book id ${args.id}`);
+      }
+
+      await mkdir(coverPaths.absRoot, { recursive: true });
+      // Cover filename is deterministic: `<id>.png`. The cover_path we
+      // store in the DB is just that filename (not the full path) so the
+      // DB stays portable across userData moves.
+      const relName = `${args.id}.png`;
+      const absPath = join(coverPaths.absRoot, relName);
+      await writeFile(absPath, args.coverPngBytes);
+
+      const updated = b.finalizeIngest(args.id, args.pageCount, relName);
+      if (!updated) {
+        throw new Error(`booksFinalizeIngest: row vanished for id ${args.id}`);
+      }
+      return updated;
+    },
+  );
+
+  // The renderer never sees absolute paths — it gets a `book-file://`
+  // URL and hands it to pdfjs. Main resolves the id to a path at fetch
+  // time inside the protocol handler.
+  ipcMain.handle("booksGetFileUrl", async (_e, id: number): Promise<string> => {
+    const b = requireBookDb();
+    const path = b.getPath(id);
+    if (!path) throw new Error(`booksGetFileUrl: unknown book id ${id}`);
+    return `book-file://files/${id}`;
+  });
+
+  ipcMain.handle("booksGetCoverUrl", async (_e, id: number): Promise<string> => {
+    // Don't check for existence here — we return the URL unconditionally
+    // so the <img> tag can use onError for the placeholder fallback. The
+    // protocol handler returns 404 if the cover file is missing.
+    requireBookDb();
+    return `book-file://covers/${id}`;
+  });
 }

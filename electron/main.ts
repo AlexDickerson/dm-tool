@@ -25,14 +25,29 @@ import { pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
 import { loadConfig, type DmToolConfig } from "./config.js";
 import { MapDb } from "./db.js";
+import { BookDb } from "./book-db.js";
 import { registerIpcHandlers } from "./ipc.js";
+import { scanBookRoot } from "./book-scanner.js";
 
-// `map-file://` must be registered as a privileged scheme BEFORE app.ready
-// fires, otherwise the CSP `img-src map-file:` rule in index.html won't
-// match and images will be blocked.
+// `map-file://` and `book-file://` must be registered as privileged
+// schemes BEFORE app.ready fires, otherwise the CSP rules in index.html
+// won't match and images/PDFs will be blocked. `supportFetchAPI` is what
+// lets pdfjs's internal `fetch()` target the scheme; `stream: true` lets
+// net.fetch on file:// URLs deliver ranged responses for big PDFs, which
+// is why the 68 MB AV Hardcover doesn't fully load into memory.
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "map-file",
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: false,
+      stream: true,
+    },
+  },
+  {
+    scheme: "book-file",
     privileges: {
       standard: true,
       secure: true,
@@ -45,6 +60,7 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null;
 let db: MapDb | null = null;
+let bookDb: BookDb | null = null;
 
 // Colors for the native window-control overlay strip. These must match the
 // React header so the min/max/close buttons blend into the custom title
@@ -175,6 +191,82 @@ function registerMapFileProtocol(cfg: DmToolConfig): void {
   });
 }
 
+/** Register the `book-file://` protocol handler.
+ *
+ *  Two URL shapes, distinguished by host:
+ *
+ *    book-file://files/<id>    → the PDF at books[id].path
+ *    book-file://covers/<id>   → the cached cover PNG at
+ *                                <userData>/book-covers/<id>.png
+ *
+ *  The renderer never sees absolute paths — it just hands the URL to
+ *  pdfjs (or an <img> tag). Main resolves the id to a real path here, so
+ *  a renderer bug can't be tricked into reading arbitrary filesystem
+ *  locations: the id must be an integer that resolves to a known row.
+ *
+ *  Range-request support for the PDFs comes free via `net.fetch` on the
+ *  underlying `file://` URL — the Chromium PDF layer asks for chunks as
+ *  the user scrolls, so a 68 MB file doesn't have to be fully loaded to
+ *  show page 1. */
+function registerBookFileProtocol(
+  getBookDb: () => BookDb | null,
+  coverCacheRoot: string,
+): void {
+  protocol.handle("book-file", async (request) => {
+    try {
+      const url = new URL(request.url);
+      const host = url.host;
+      const rawPath = url.pathname.startsWith("/")
+        ? url.pathname.slice(1)
+        : url.pathname;
+      const key = decodeURIComponent(rawPath);
+
+      if (!key) {
+        return new Response("Empty key", { status: 400 });
+      }
+
+      if (host === "files") {
+        const id = Number(key);
+        if (!Number.isFinite(id) || !Number.isInteger(id)) {
+          return new Response("Bad file id", { status: 400 });
+        }
+        const b = getBookDb();
+        if (!b) return new Response("Book catalog not configured", { status: 503 });
+        const absPath = b.getPath(id);
+        if (!absPath) return new Response(`Unknown book id ${id}`, { status: 404 });
+        if (!existsSync(absPath)) {
+          return new Response(`Book file missing: ${absPath}`, { status: 404 });
+        }
+        return net.fetch(pathToFileURL(absPath).toString());
+      }
+
+      if (host === "covers") {
+        const id = Number(key);
+        if (!Number.isFinite(id) || !Number.isInteger(id)) {
+          return new Response("Bad cover id", { status: 400 });
+        }
+        // Cover filenames are `<id>.png`. Normalize + verify we stay
+        // inside the cover cache root (belt-and-suspenders; the filename
+        // is derived from a number so traversal isn't actually possible).
+        const target = normalize(join(coverCacheRoot, `${id}.png`));
+        if (!target.startsWith(coverCacheRoot + sep) && target !== coverCacheRoot) {
+          return new Response("Forbidden", { status: 403 });
+        }
+        if (!existsSync(target)) {
+          // Not an error — the renderer's <img> tag uses onError to fall
+          // back to a placeholder until phase-2 ingest runs.
+          return new Response("Cover not yet cached", { status: 404 });
+        }
+        return net.fetch(pathToFileURL(target).toString());
+      }
+
+      return new Response(`Bad host: ${host}`, { status: 400 });
+    } catch (e) {
+      return new Response(`Error: ${(e as Error).message}`, { status: 500 });
+    }
+  });
+}
+
 async function startup(): Promise<void> {
   let cfg: DmToolConfig;
   try {
@@ -203,6 +295,41 @@ async function startup(): Promise<void> {
     return;
   }
 
+  // Open the dm-tool-owned book catalog DB. Unlike MapDb (which fails
+  // startup if the tagger index is missing) this one is optional — we
+  // always create the file but only run the phase-1 scan if booksPath is
+  // configured. That way users who don't have a PDF library yet can
+  // still use the map browser.
+  try {
+    const bookDbPath = join(app.getPath("userData"), "books.sqlite");
+    bookDb = new BookDb(bookDbPath);
+  } catch (e) {
+    // Non-fatal — log and disable the book catalog. The IPC handlers
+    // will surface a user-friendly error if the renderer tries to use
+    // them, so the map browser stays usable.
+    console.error("Failed to open book catalog DB:", (e as Error).message);
+    bookDb = null;
+  }
+
+  // Phase-1 scan: cheap file-metadata walk. Runs here (before window
+  // creation) because it completes in well under the 2-second budget
+  // for ~100 books and lets the catalog render immediately on first
+  // paint. Phase-2 (cover extraction) is lazy — triggered by the
+  // renderer when the user opens a book for the first time.
+  if (bookDb && cfg.booksPath) {
+    try {
+      const scanned = scanBookRoot(cfg.booksPath);
+      const result = bookDb.reconcile(scanned);
+      console.log(
+        `Book scan: +${result.added} ~${result.updated} -${result.removed} (total ${result.total})`,
+      );
+    } catch (e) {
+      console.error("Book scan failed:", (e as Error).message);
+    }
+  }
+
+  const coverCacheRoot = resolvePath(join(app.getPath("userData"), "book-covers"));
+
   // Kill the default Electron application menu (File/Edit/View/...).
   // Our custom title bar in the renderer replaces it. Standard OS
   // accelerators (Alt+F4, copy/paste inside inputs, etc.) still work
@@ -210,7 +337,8 @@ async function startup(): Promise<void> {
   Menu.setApplicationMenu(null);
 
   registerMapFileProtocol(cfg);
-  registerIpcHandlers(db, cfg);
+  registerBookFileProtocol(() => bookDb, coverCacheRoot);
+  registerIpcHandlers(db, bookDb, cfg);
 
   // Renderer-driven runtime resize of the native window-control overlay.
   // This lives in main.ts (rather than ipc.ts) because it needs the
@@ -252,5 +380,9 @@ app.on("will-quit", () => {
   if (db) {
     db.close();
     db = null;
+  }
+  if (bookDb) {
+    bookDb.close();
+    bookDb = null;
   }
 });
