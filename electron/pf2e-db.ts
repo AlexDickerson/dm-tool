@@ -87,6 +87,8 @@ export interface MonsterRow {
   actions: string;
   description: string;
   aon_url: string;
+  image_file: string | null;
+  token_file: string | null;
 }
 
 export interface MonsterResult {
@@ -256,6 +258,159 @@ export function searchMonsters(query: string): string {
 
   if (rows.length === 0) return `[No creatures found for "${query}"]`;
   return rows.map((r, i) => formatMonsterResult(rowToResult(r), i + 1)).join('\n\n');
+}
+
+// --- Monster browser queries -----------------------------------------------
+
+import type { MonsterSearchParams, MonsterSummary, MonsterDetail, MonsterFacets } from '../shared/types.js';
+
+function toMonsterFileUrl(relPath: string | null): string | null {
+  if (!relPath) return null;
+  return `monster-file://img/${encodeURIComponent(relPath)}`;
+}
+
+let facetsCache: MonsterFacets | null = null;
+
+export function listMonsters(params: MonsterSearchParams): MonsterSummary[] {
+  const d = requireDb();
+  const clauses: string[] = [];
+  const binds: unknown[] = [];
+
+  if (params.keywords) {
+    clauses.push('name LIKE ?');
+    binds.push(`%${params.keywords}%`);
+  }
+  if (params.levels) {
+    clauses.push('level BETWEEN ? AND ?');
+    binds.push(params.levels[0], params.levels[1]);
+  }
+  if (params.rarities?.length) {
+    clauses.push(`rarity IN (${params.rarities.map(() => '?').join(',')})`);
+    binds.push(...params.rarities);
+  }
+  if (params.sizes?.length) {
+    clauses.push(`size IN (${params.sizes.map(() => '?').join(',')})`);
+    binds.push(...params.sizes);
+  }
+  if (params.creatureTypes?.length) {
+    clauses.push(`creature_type IN (${params.creatureTypes.map(() => '?').join(',')})`);
+    binds.push(...params.creatureTypes);
+  }
+  if (params.traits?.length) {
+    for (const t of params.traits) {
+      clauses.push('traits LIKE ?');
+      binds.push(`%"${t}"%`);
+    }
+  }
+  if (params.sources?.length) {
+    clauses.push(`source IN (${params.sources.map(() => '?').join(',')})`);
+    binds.push(...params.sources);
+  }
+  if (params.hpMin != null) { clauses.push('hp >= ?'); binds.push(params.hpMin); }
+  if (params.hpMax != null) { clauses.push('hp <= ?'); binds.push(params.hpMax); }
+  if (params.acMin != null) { clauses.push('ac >= ?'); binds.push(params.acMin); }
+  if (params.acMax != null) { clauses.push('ac <= ?'); binds.push(params.acMax); }
+  if (params.fortMin != null) { clauses.push('fort >= ?'); binds.push(params.fortMin); }
+  if (params.refMin != null) { clauses.push('ref >= ?'); binds.push(params.refMin); }
+  if (params.willMin != null) { clauses.push('will >= ?'); binds.push(params.willMin); }
+
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+  const sortCol = params.sortBy ?? 'level';
+  const sortDir = params.sortDir ?? 'asc';
+  const orderBy = `ORDER BY ${sortCol} ${sortDir}, name ASC`;
+  const limit = params.limit ?? 5000;
+
+  const sql = `SELECT name, level, hp, ac, fort, ref, will, rarity, size, creature_type, traits, source, aon_url
+    FROM monsters ${where} ${orderBy} LIMIT ?`;
+  const rows = d.prepare(sql).all(...binds, limit) as Array<
+    Pick<MonsterRow, 'name' | 'level' | 'hp' | 'ac' | 'fort' | 'ref' | 'will' | 'rarity' | 'size' | 'creature_type' | 'traits' | 'source' | 'aon_url'>
+  >;
+
+  return rows.map((r) => ({
+    name: r.name,
+    level: r.level,
+    hp: r.hp,
+    ac: r.ac,
+    fort: r.fort,
+    ref: r.ref,
+    will: r.will,
+    rarity: r.rarity,
+    size: r.size,
+    creatureType: r.creature_type,
+    traits: tryParseJson<string[]>(r.traits, []),
+    source: r.source,
+    aonUrl: r.aon_url,
+  }));
+}
+
+export function getMonsterFacets(): MonsterFacets {
+  if (facetsCache) return facetsCache;
+  const d = requireDb();
+
+  const rarities = (d.prepare('SELECT DISTINCT rarity FROM monsters ORDER BY rarity').all() as Array<{ rarity: string }>).map((r) => r.rarity);
+  const sizes = (d.prepare('SELECT DISTINCT size FROM monsters ORDER BY size').all() as Array<{ size: string }>).map((r) => r.size);
+  const creatureTypes = (d.prepare('SELECT DISTINCT creature_type FROM monsters ORDER BY creature_type').all() as Array<{ creature_type: string }>).map((r) => r.creature_type);
+  const sources = (d.prepare('SELECT DISTINCT source FROM monsters ORDER BY source').all() as Array<{ source: string }>).map((r) => r.source);
+  const levelRow = d.prepare('SELECT MIN(level) as min, MAX(level) as max FROM monsters').get() as { min: number; max: number };
+
+  // Traits are stored as JSON arrays — collect all unique values.
+  const traitRows = d.prepare('SELECT DISTINCT traits FROM monsters').all() as Array<{ traits: string }>;
+  const traitSet = new Set<string>();
+  for (const row of traitRows) {
+    for (const t of tryParseJson<string[]>(row.traits, [])) {
+      traitSet.add(t);
+    }
+  }
+  const traits = [...traitSet].sort();
+
+  facetsCache = {
+    rarities,
+    sizes,
+    creatureTypes,
+    traits,
+    sources,
+    levelRange: [levelRow.min, levelRow.max],
+  };
+  return facetsCache;
+}
+
+export function getMonsterByName(name: string): MonsterDetail | null {
+  const d = requireDb();
+  const row = d.prepare('SELECT * FROM monsters WHERE name = ? LIMIT 1').get(name) as MonsterRow | undefined;
+  if (!row) return null;
+  const r = rowToResult(row);
+  return {
+    name: r.name,
+    level: r.level,
+    source: r.source,
+    rarity: r.rarity,
+    size: r.size,
+    traits: r.traits,
+    hp: r.hp,
+    ac: r.ac,
+    fort: r.fort,
+    ref: r.ref,
+    will: r.will,
+    perception: r.perception,
+    skills: row.skills,
+    str: r.str,
+    dex: r.dex,
+    con: r.con,
+    int: r.int,
+    wis: r.wis,
+    cha: r.cha,
+    speed: r.speed,
+    immunities: r.immunities,
+    weaknesses: r.weaknesses,
+    resistances: r.resistances,
+    melee: r.melee,
+    ranged: r.ranged,
+    abilities: r.abilities,
+    description: r.description,
+    aonUrl: r.aon_url,
+    imageUrl: toMonsterFileUrl(row.image_file),
+    tokenUrl: toMonsterFileUrl(row.token_file),
+  };
 }
 
 // --- Item queries -----------------------------------------------------------
