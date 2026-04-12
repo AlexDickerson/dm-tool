@@ -41,6 +41,10 @@
       {
         "from": "tagger/dist/map-tagger.exe",
         "to": "map-tagger.exe"
+      },
+      {
+        "from": "auto-wall-bin/Auto-Wall.exe",
+        "to": "Auto-Wall.exe"
       }
     ],
     "npmRebuild": true,

@@ -31,6 +31,17 @@ function resolveBundledTagger(): string | undefined {
   return undefined;
 }
 
+/** Resolve the bundled Auto-Wall.exe path. Same logic as the tagger. */
+function resolveBundledAutoWall(): string | undefined {
+  const prodPath = join(process.resourcesPath, "Auto-Wall.exe");
+  if (existsSync(prodPath)) return prodPath;
+
+  const devPath = join(app.isPackaged ? app.getAppPath() : process.cwd(), "auto-wall-bin", "Auto-Wall.exe");
+  if (existsSync(devPath)) return devPath;
+
+  return undefined;
+}
+
 export interface DmToolConfig {
   /** Absolute path to the map-tagger library folder (maps + thumbs + sidecars). */
   libraryPath: string;
@@ -181,14 +192,18 @@ export function loadConfig(): DmToolConfig {
     booksPath = resolve(cfg.booksPath);
   }
 
-  // autoWallBinPath is optional — if set, resolve and validate.
+  // autoWallBinPath: use config value if provided, otherwise fall back
+  // to the bundled exe (extraResources in production, auto-wall-bin/ in dev).
   let autoWallBinPath: string | undefined;
   if (cfg.autoWallBinPath && typeof cfg.autoWallBinPath === "string" && cfg.autoWallBinPath.trim().length > 0) {
     autoWallBinPath = resolve(cfg.autoWallBinPath);
     if (!existsSync(autoWallBinPath)) {
-      console.warn(`dm-tool: configured autoWallBinPath does not exist: ${autoWallBinPath}. Auto-Wall integration disabled.`);
+      console.warn(`dm-tool: configured autoWallBinPath does not exist: ${autoWallBinPath}. Trying bundled binary.`);
       autoWallBinPath = undefined;
     }
+  }
+  if (!autoWallBinPath) {
+    autoWallBinPath = resolveBundledAutoWall();
   }
 
   let pf2eDbPath: string | undefined;

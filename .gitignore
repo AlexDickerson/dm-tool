@@ -19,3 +19,6 @@ tagger/config.toml
 tagger/build/
 tagger/dist/
 tagger/*.spec
+
+# Auto-Wall binary (downloaded during CI or locally)
+auto-wall-bin/
