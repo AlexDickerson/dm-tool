@@ -18,6 +18,7 @@ const EMPTY_PATHS: ConfigPaths = {
   booksPath: '',
   autoWallBinPath: '',
   pf2eDbPath: '',
+  foundryMcpUrl: '',
 };
 
 export function SetupScreen() {
