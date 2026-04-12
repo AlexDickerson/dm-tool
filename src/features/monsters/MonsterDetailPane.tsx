@@ -124,22 +124,6 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
                 </>
               )}
 
-              {/* Source + AoN link */}
-              <Separator />
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground">{detail.source}</span>
-                {detail.aonUrl && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenExternal(detail.aonUrl)}
-                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Archives of Nethys
-                  </button>
-                )}
-              </div>
-
               {/* Full art */}
               {detail.imageUrl && (
                 <>
@@ -149,6 +133,23 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
               )}
             </div>
           </ScrollArea>
+        </div>
+      )}
+
+      {/* Source + AoN link — pinned to bottom */}
+      {!loading && (
+        <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-1.5">
+          <span className="text-[11px] text-muted-foreground">{detail.source}</span>
+          {detail.aonUrl && (
+            <button
+              type="button"
+              onClick={() => onOpenExternal(detail.aonUrl)}
+              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Archives of Nethys
+            </button>
+          )}
         </div>
       )}
     </>
