@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Check, ClipboardCopy, FolderOpen, Info, Layers, Merge, Plus, Rows, X } from "lucide-react";
+import { Check, Info, Layers, Merge, Plus, Rows, X } from "lucide-react";
 import { FilterPanel } from "./FilterPanel";
 import { ThumbnailGrid, type ThumbnailItem } from "./ThumbnailGrid";
 import { DetailPane } from "./DetailPane";
@@ -20,11 +20,14 @@ interface MapBrowserProps {
    *  the encounter-hook regenerate button can use it. Empty string means
    *  not configured — the button will surface a friendly error. */
   anthropicApiKey?: string;
+  /** Bumped by App when pack mapping is imported via Settings, so we
+   *  know to re-fetch the cached mapping. */
+  packMappingVersion?: number;
 }
 
 // Top-level state for the browser. All mutable state lives here so the
 // FilterPanel, ThumbnailGrid and DetailPane stay presentational.
-export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserProps) {
+export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVersion = 0 }: MapBrowserProps) {
   const [keywords, setKeywords] = useState("");
   const [filters, setFilters] = useState<SearchParams>({});
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -58,12 +61,7 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
     refreshMaps();
   }, [refreshMaps]);
 
-  const packMapping = usePackMapping();
-
-  const handleExportPrompt = useCallback(async () => {
-    const prompt = await packMapping.exportPrompt();
-    await navigator.clipboard.writeText(prompt);
-  }, [packMapping.exportPrompt]);
+  const packMapping = usePackMapping(packMappingVersion);
 
   // Group maps using the AI mapping when available, falling back to
   // the filename-stemming heuristic when it's not.
@@ -262,33 +260,7 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
             {grouped ? <Layers className="h-3.5 w-3.5" /> : <Rows className="h-3.5 w-3.5" />}
             {grouped ? "Grouped" : "Flat"}
           </Button>
-          {!packMapping.mapping && grouped && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleExportPrompt}
-                className="gap-1.5 whitespace-nowrap"
-                title="Copy a prompt to your clipboard that you can send to Claude to generate pack groupings"
-              >
-                <ClipboardCopy className="h-3.5 w-3.5" />
-                Export prompt
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={packMapping.importFromFile}
-                className="gap-1.5 whitespace-nowrap"
-                title="Import a pack grouping JSON file downloaded from Claude"
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
-                Import grouping
-              </Button>
-            </>
-          )}
-          {packMapping.mapping && grouped && (
+          {grouped && (
             <Button
               type="button"
               variant="outline"

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Grid3x3, Loader2, RefreshCw, X } from "lucide-react";
+import { Box, ExternalLink, Grid3x3, Loader2, RefreshCw, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -40,6 +40,30 @@ export function DetailPane({
   const [additionalHooks, setAdditionalHooks] = useState<string[]>([]);
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenError, setRegenError] = useState<string | null>(null);
+
+  // Auto-Wall state
+  const [autoWallAvailable, setAutoWallAvailable] = useState(false);
+  const [hasUvtt, setHasUvtt] = useState(false);
+  const [showWalls, setShowWalls] = useState(false);
+  const [wallData, setWallData] = useState<{
+    walls: number[][];
+    width: number;
+    height: number;
+  } | null>(null);
+
+  useEffect(() => {
+    api.autoWallAvailable().then(setAutoWallAvailable);
+  }, []);
+
+  useEffect(() => {
+    setShowWalls(false);
+    setWallData(null);
+    if (fileName) {
+      api.autoWallHasUvtt(fileName).then(setHasUvtt);
+    } else {
+      setHasUvtt(false);
+    }
+  }, [fileName]);
 
   useEffect(() => {
     setAdditionalHooks(detail?.additionalEncounterHooks ?? []);
@@ -174,6 +198,62 @@ export function DetailPane({
                     {detail.gridVisible === "gridded" ? "Grid" : "No grid"}
                   </button>
                 )}
+                {/* Walls overlay toggle — shown when a .uvtt exists */}
+                {hasUvtt && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const next = !showWalls;
+                      setShowWalls(next);
+                      if (next && !wallData && fileName) {
+                        const data = await api.autoWallGetWalls(fileName);
+                        setWallData(data);
+                      }
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-white shadow-sm transition-colors",
+                      showWalls
+                        ? "bg-primary/85 hover:bg-primary"
+                        : "bg-black/70 hover:bg-black/85",
+                    )}
+                    style={{
+                      position: "absolute",
+                      left: 8,
+                      top: gridCounterpart && onSelectVariant ? 36 : 8,
+                    }}
+                    title={showWalls ? "Hide wall overlay" : "Show wall overlay"}
+                  >
+                    <Box className="h-3 w-3" />
+                    Walls
+                  </button>
+                )}
+                {/* SVG wall overlay — scales to match the object-contain image */}
+                {showWalls && wallData && (
+                  <svg
+                    className="pointer-events-none"
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                    }}
+                    viewBox={`0 0 ${wallData.width} ${wallData.height}`}
+                    preserveAspectRatio="xMidYMid meet"
+                  >
+                    {wallData.walls.map((seg, i) => (
+                      <line
+                        key={i}
+                        x1={seg[0]}
+                        y1={seg[1]}
+                        x2={seg[2]}
+                        y2={seg[3]}
+                        stroke="#00ffff"
+                        strokeWidth={3}
+                        strokeLinecap="round"
+                      />
+                    ))}
+                  </svg>
+                )}
                 <div
                   className="rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm"
                   style={{ position: "absolute", left: 8, bottom: 8 }}
@@ -191,6 +271,53 @@ export function DetailPane({
                   Show in folder
                 </button>
               </div>
+
+              {/* Auto-Wall actions */}
+              {autoWallAvailable && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Walls
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!fileName) return;
+                          api.autoWallLaunch(fileName);
+                        }}
+                      >
+                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                        Open in Auto-Wall
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (!fileName) return;
+                          const imported = await api.autoWallImportUvtt(fileName);
+                          if (imported) {
+                            setHasUvtt(true);
+                            const data = await api.autoWallGetWalls(fileName);
+                            setWallData(data);
+                            setShowWalls(true);
+                          }
+                        }}
+                      >
+                        <Upload className="mr-1.5 h-3.5 w-3.5" />
+                        Import .uvtt
+                      </Button>
+                      {hasUvtt && (
+                        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+                          .uvtt
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <EncounterHooksSection
                 baseHooks={detail.encounterHooks}
@@ -217,6 +344,7 @@ export function DetailPane({
           />
         )}
       </div>
+
     </div>
   );
 }
@@ -508,6 +636,7 @@ function HookListItem({ text, accent }: { text: string; accent?: boolean }) {
     </li>
   );
 }
+
 
 function VariantThumb({
   variant,

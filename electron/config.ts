@@ -34,6 +34,9 @@ export interface DmToolConfig {
   /** Absolute path to the map-tagger CLI executable, typically the
    *  `map-tagger.exe` inside the tagger's venv Scripts/ folder. */
   taggerBinPath: string;
+  /** Absolute path to the Auto-Wall executable. Optional — if missing,
+   *  the "Launch Auto-Wall" button is hidden in the detail pane. */
+  autoWallBinPath?: string;
 }
 
 /** The config file is looked up in this order:
@@ -132,5 +135,15 @@ export function loadConfig(): DmToolConfig {
     booksPath = resolve(cfg.booksPath);
   }
 
-  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath };
+  // autoWallBinPath is optional — if set, resolve and validate.
+  let autoWallBinPath: string | undefined;
+  if (cfg.autoWallBinPath && typeof cfg.autoWallBinPath === "string" && cfg.autoWallBinPath.trim().length > 0) {
+    autoWallBinPath = resolve(cfg.autoWallBinPath);
+    if (!existsSync(autoWallBinPath)) {
+      console.warn(`dm-tool: configured autoWallBinPath does not exist: ${autoWallBinPath}. Auto-Wall integration disabled.`);
+      autoWallBinPath = undefined;
+    }
+  }
+
+  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath, autoWallBinPath };
 }

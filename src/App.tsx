@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ClipboardCopy, FolderOpen, Settings } from "lucide-react";
 import { MapBrowser } from "./features/map-browser/MapBrowser";
 import { BookBrowser } from "./features/book-browser/BookBrowser";
 import { cn } from "./lib/utils";
@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./components/ui/dialog";
+import { Button } from "./components/ui/button";
 import { Slider } from "./components/ui/slider";
 import { Label } from "./components/ui/label";
 import { Input } from "./components/ui/input";
@@ -65,6 +66,9 @@ type ActiveTab = "maps" | "books" | "combat" | "monsters" | "items";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("maps");
+  // Bumped when pack mapping is imported via Settings so MapBrowser
+  // knows to re-fetch. Passed as a prop — MapBrowser watches it.
+  const [packMappingVersion, setPackMappingVersion] = useState(0);
   const [uiScale, setUiScale] = useState<number>(() =>
     loadNumber(UI_SCALE_KEY, UI_DEFAULT, UI_MIN, UI_MAX),
   );
@@ -168,6 +172,7 @@ export default function App() {
             onThumbScaleChange={setThumbScale}
             anthropicApiKey={anthropicApiKey}
             onAnthropicApiKeyChange={setAnthropicApiKey}
+            onPackMappingImported={() => setPackMappingVersion((v) => v + 1)}
           />
         </div>
       </header>
@@ -186,7 +191,7 @@ export default function App() {
       <div className="mt-1 h-px shrink-0 bg-border" />
       <main className="flex-1 overflow-hidden">
         {activeTab === "maps" && (
-          <MapBrowser thumbScale={thumbScale} anthropicApiKey={anthropicApiKey} />
+          <MapBrowser thumbScale={thumbScale} anthropicApiKey={anthropicApiKey} packMappingVersion={packMappingVersion} />
         )}
         {activeTab === "books" && <BookBrowser />}
       </main>
@@ -253,10 +258,8 @@ function NavTab({
   );
 }
 
-// Settings dialog. Wraps the shadcn Dialog primitive so we get focus
-// trapping, scroll lock, ESC handling, and the standard close button
-// for free. Both sliders update parent state live so the user sees the
-// effect under the dialog as they drag.
+type SettingsTab = "maps" | "books" | "combat" | "monsters" | "items";
+
 function SettingsDialog({
   uiScale,
   onUiScaleChange,
@@ -264,6 +267,7 @@ function SettingsDialog({
   onThumbScaleChange,
   anthropicApiKey,
   onAnthropicApiKeyChange,
+  onPackMappingImported,
 }: {
   uiScale: number;
   onUiScaleChange: (n: number) => void;
@@ -271,7 +275,33 @@ function SettingsDialog({
   onThumbScaleChange: (n: number) => void;
   anthropicApiKey: string;
   onAnthropicApiKeyChange: (s: string) => void;
+  onPackMappingImported: () => void;
 }) {
+  const [tab, setTab] = useState<SettingsTab>("maps");
+  const [exportCopied, setExportCopied] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  const handleExportPrompt = useCallback(async () => {
+    const prompt = await window.electronAPI.exportPackGroupingPrompt();
+    await navigator.clipboard.writeText(prompt);
+    setExportCopied(true);
+    setTimeout(() => setExportCopied(false), 2000);
+  }, []);
+
+  const handleImportGrouping = useCallback(async () => {
+    try {
+      setImportStatus(null);
+      const mapping = await window.electronAPI.importPackMappingFromFile();
+      if (mapping) {
+        setImportStatus("Imported successfully");
+        onPackMappingImported();
+        setTimeout(() => setImportStatus(null), 3000);
+      }
+    } catch (e) {
+      setImportStatus(`Error: ${(e as Error).message}`);
+    }
+  }, [onPackMappingImported]);
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -287,10 +317,31 @@ function SettingsDialog({
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            Tune the look and feel of the app.
+            Configure the app and its tools.
           </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-5 pt-2">
+          {/* Global: API key + UI scale */}
+          <div className="space-y-2">
+            <Label htmlFor="anthropic-key" className="text-xs font-medium">
+              Anthropic API Key
+            </Label>
+            <Input
+              id="anthropic-key"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="sk-ant-…"
+              value={anthropicApiKey}
+              onChange={(e) => onAnthropicApiKeyChange(e.target.value)}
+            />
+            <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
+              Powers AI features (encounter hooks, map tagging). Stored
+              locally on this machine.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="ui-scale" className="text-xs font-medium">
@@ -308,55 +359,117 @@ function SettingsDialog({
               value={[uiScale]}
               onValueChange={(v) => onUiScaleChange(v[0] ?? uiScale)}
             />
-            <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
-              Scales chrome (title bar, filters, detail pane).
-            </p>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="thumb-scale" className="text-xs font-medium">
-                Map Thumbnail Size
-              </Label>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {Math.round(thumbScale * 100)}%
-              </span>
+          {/* Per-page tabs */}
+          <div className="border-t border-border pt-4">
+            <nav className="flex gap-1">
+              {(["maps", "books", "combat", "monsters", "items"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTab(t)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
+                    tab === t
+                      ? "bg-accent text-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )}
+                >
+                  {t}
+                </button>
+              ))}
+            </nav>
+
+            <div className="mt-4 space-y-4">
+              {tab === "maps" && (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="thumb-scale" className="text-xs font-medium">
+                        Thumbnail Size
+                      </Label>
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {Math.round(thumbScale * 100)}%
+                      </span>
+                    </div>
+                    <Slider
+                      id="thumb-scale"
+                      min={THUMB_MIN}
+                      max={THUMB_MAX}
+                      step={0.05}
+                      value={[thumbScale]}
+                      onValueChange={(v) => onThumbScaleChange(v[0] ?? thumbScale)}
+                    />
+                    <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
+                      Resizes each card in the map browser grid.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">
+                      Pack Grouping
+                    </Label>
+                    <p className="text-[11px] leading-snug text-muted-foreground">
+                      Export a prompt, send it to Claude, then import the
+                      JSON to improve how map variants are grouped.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportPrompt}
+                        className="gap-1.5"
+                      >
+                        <ClipboardCopy className="h-3.5 w-3.5" />
+                        {exportCopied ? "Copied!" : "Export prompt"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleImportGrouping}
+                        className="gap-1.5"
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        Import grouping
+                      </Button>
+                    </div>
+                    {importStatus && (
+                      <p className={cn(
+                        "text-[11px]",
+                        importStatus.startsWith("Error") ? "text-destructive" : "text-green-400",
+                      )}>
+                        {importStatus}
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {tab === "books" && (
+                <p className="text-xs text-muted-foreground">
+                  No book-specific settings yet.
+                </p>
+              )}
+
+              {tab === "combat" && (
+                <p className="text-xs text-muted-foreground">
+                  No combat settings yet.
+                </p>
+              )}
+
+              {tab === "monsters" && (
+                <p className="text-xs text-muted-foreground">
+                  No monster settings yet.
+                </p>
+              )}
+
+              {tab === "items" && (
+                <p className="text-xs text-muted-foreground">
+                  No item settings yet.
+                </p>
+              )}
             </div>
-            <Slider
-              id="thumb-scale"
-              min={THUMB_MIN}
-              max={THUMB_MAX}
-              step={0.05}
-              value={[thumbScale]}
-              onValueChange={(v) => onThumbScaleChange(v[0] ?? thumbScale)}
-            />
-            <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
-              Resizes each card in the map browser grid. Larger cards mean
-              fewer columns.
-            </p>
-          </div>
-
-          {/* Anthropic API key — used by the encounter-hook regenerate
-              button in the detail pane. Stored in localStorage; the main
-              process never persists it. type=password masks it visually
-              but it's not actually encrypted at rest. */}
-          <div className="space-y-2">
-            <Label htmlFor="anthropic-key" className="text-xs font-medium">
-              Anthropic API Key
-            </Label>
-            <Input
-              id="anthropic-key"
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="sk-ant-…"
-              value={anthropicApiKey}
-              onChange={(e) => onAnthropicApiKeyChange(e.target.value)}
-            />
-            <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
-              Enables AI features like regenerating encounter hooks on a
-              map. Stored locally on this machine.
-            </p>
           </div>
         </div>
       </DialogContent>
