@@ -42,6 +42,12 @@ const THUMB_DEFAULT = 1;
 const THUMB_MIN = 0.7;
 const THUMB_MAX = 2;
 
+// Body font preference — sans-serif (default) or serif.
+const FONT_KEY = 'dmtool.fontFamily';
+type FontFamily = 'sans-serif' | 'serif';
+const FONT_SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif";
+const FONT_SERIF = "'Crimson Pro', 'Palatino Linotype', Georgia, serif";
+
 // Anthropic API key — used by the encounter-hook regenerator in the
 const MODEL_KEY = 'dmtool.chatModel';
 const MODEL_DEFAULT = 'claude-sonnet-4-6';
@@ -92,6 +98,7 @@ function MainApp() {
   );
   const [anthropicApiKey, setAnthropicApiKey] = useState<string>('');
   const [chatModel, setChatModel] = useState<string>(() => loadString(MODEL_KEY) || MODEL_DEFAULT);
+  const [fontFamily, setFontFamily] = useState<FontFamily>(() => (loadString(FONT_KEY) as FontFamily) || 'sans-serif');
   const [chatOpen, setChatOpen] = useState(false);
 
   // Load API key from secure storage on mount
@@ -154,6 +161,15 @@ function MainApp() {
     }
   }, [chatModel]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--font-body', fontFamily === 'serif' ? FONT_SERIF : FONT_SANS);
+    try {
+      localStorage.setItem(FONT_KEY, fontFamily);
+    } catch {
+      // non-fatal
+    }
+  }, [fontFamily]);
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       {/* Custom title bar. The native OS chrome is hidden via
@@ -208,6 +224,8 @@ function MainApp() {
           <SettingsDialog
             uiScale={uiScale}
             onUiScaleChange={setUiScale}
+            fontFamily={fontFamily}
+            onFontFamilyChange={setFontFamily}
             thumbScale={thumbScale}
             onThumbScaleChange={setThumbScale}
             anthropicApiKey={anthropicApiKey}
@@ -335,6 +353,8 @@ type SettingsTab = 'paths' | 'maps' | 'books' | 'combat' | 'monsters' | 'items';
 function SettingsDialog({
   uiScale,
   onUiScaleChange,
+  fontFamily,
+  onFontFamilyChange,
   thumbScale,
   onThumbScaleChange,
   anthropicApiKey,
@@ -345,6 +365,8 @@ function SettingsDialog({
 }: {
   uiScale: number;
   onUiScaleChange: (n: number) => void;
+  fontFamily: FontFamily;
+  onFontFamilyChange: (f: FontFamily) => void;
   thumbScale: number;
   onThumbScaleChange: (n: number) => void;
   anthropicApiKey: string;
@@ -469,6 +491,28 @@ function SettingsDialog({
               value={[uiScale]}
               onValueChange={(v) => onUiScaleChange(v[0] ?? uiScale)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Font</Label>
+            <div className="flex gap-1">
+              {(['sans-serif', 'serif'] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => onFontFamilyChange(f)}
+                  className={cn(
+                    'rounded-md border px-3 py-1 text-xs capitalize transition-colors',
+                    fontFamily === f
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-background hover:bg-accent',
+                  )}
+                  style={{ fontFamily: f === 'serif' ? FONT_SERIF : FONT_SANS }}
+                >
+                  {f === 'sans-serif' ? 'Sans-Serif' : 'Serif'}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Per-page tabs */}
