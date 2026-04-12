@@ -364,17 +364,11 @@ function NavTab({
       aria-label={label}
       title={label}
       className={cn(
-        'relative flex items-center gap-1.5 px-3 py-2 transition-colors',
+        'relative px-3 py-2 transition-colors',
         active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
       )}
     >
       <Icon className="h-4 w-4" />
-      <span
-        className="text-[0.65rem] font-semibold uppercase tracking-widest"
-        style={{ fontFamily: 'var(--font-display)' }}
-      >
-        {label}
-      </span>
       {active && (
         <span
           className="absolute bottom-0 left-1/2 h-[2px] rounded-full bg-primary"
