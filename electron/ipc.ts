@@ -16,6 +16,8 @@ import type { DmToolConfig } from "./config.js";
 import type {
   Book,
   BookScanResult,
+  ChatMessage,
+  ChatModel,
   FinalizeIngestArgs,
   MapDetail,
   SearchParams,
@@ -27,6 +29,9 @@ import {
   getAdditionalHooks,
 } from "./hooks-store.js";
 import { generateEncounterHooks } from "./anthropic.js";
+import { streamChat } from "./chat.js";
+import { fetchAonPreview } from "./aon-preview.js";
+import { getMonsterPreview } from "./pf2e-db.js";
 import { scanBookRoot } from "./book-scanner.js";
 import {
   buildGroupingPrompt,
@@ -96,6 +101,54 @@ export function registerIpcHandlers(
     shell.showItemInFolder(fullPath);
   });
 
+  ipcMain.handle("aonPreview", async (_e, urlPath: string) => {
+    if (typeof urlPath !== "string") return null;
+
+    // Try local DB first for creature URLs.
+    if (urlPath.includes("Monsters.aspx")) {
+      try {
+        const fullUrl = `https://2e.aonprd.com${urlPath}`;
+        const local = getMonsterPreview(fullUrl);
+        if (local) {
+          return {
+            type: "creature" as const,
+            name: local.name,
+            level: local.level,
+            hp: local.hp,
+            ac: local.ac,
+            fortitude: local.fort,
+            reflex: local.ref,
+            will: local.will,
+            perception: local.perception,
+            speed: local.speed,
+            size: local.size,
+            traits: local.traits,
+            abilities: [],
+            immunities: local.immunities ? local.immunities.split(", ") : [],
+            weaknesses: local.weaknesses,
+            rarity: local.rarity.toLowerCase(),
+            summary: local.description.slice(0, 200),
+            strength: local.str,
+            dexterity: local.dex,
+            constitution: local.con,
+            intelligence: local.int,
+            wisdom: local.wis,
+            charisma: local.cha,
+            statBlock: local.abilities + "\n---\n" + (local.melee ? `Melee ${local.melee}` : "") + (local.ranged ? `\nRanged ${local.ranged}` : ""),
+          };
+        }
+      } catch { /* fall through to AoN */ }
+    }
+
+    return fetchAonPreview(urlPath);
+  });
+
+  ipcMain.handle("openExternal", async (_e, url: string) => {
+    if (typeof url === "string" && /^https?:\/\//.test(url)) {
+      await shell.openExternal(url);
+    }
+  });
+
   // Regenerate encounter hooks via the Anthropic API and persist them to
   // the override store. Returns the FULL list of additional hooks (newest
   // first) so the renderer can swap its local state in one assignment.
@@ -134,6 +187,38 @@ export function registerIpcHandlers(
         detail,
       });
       return appendAdditionalHooks(args.fileName, newHooks);
+    },
+  );
+
+  // --- Chat ---------------------------------------------------------------
+
+  ipcMain.handle(
+    "chatSend",
+    async (
+      _e,
+      args: { messages: ChatMessage[]; apiKey: string; model?: ChatModel },
+    ): Promise<void> => {
+      if (!args?.apiKey) {
+        throw new Error("chatSend: apiKey is required");
+      }
+      const win = getMainWindow();
+      const sendChunk = (chunk: { type: string; text?: string; error?: string }) => {
+        if (win && !win.isDestroyed()) {
+          win.webContents.send("chat-chunk", chunk);
+        }
+      };
+
+      try {
+        await streamChat({
+          apiKey: args.apiKey,
+          messages: args.messages ?? [],
+          model: args.model,
+          onChunk: sendChunk,
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        sendChunk({ type: "error", error: message });
+      }
     },
   );
 

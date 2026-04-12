@@ -8,8 +8,12 @@
 
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AonPreviewData,
   Book,
   BookScanResult,
+  ChatChunk,
+  ChatMessage,
+  ChatModel,
   ElectronAPI,
   Facets,
   FinalizeIngestArgs,
@@ -38,6 +42,22 @@ const api: ElectronAPI = {
   }): Promise<string[]> =>
     ipcRenderer.invoke("regenerateEncounterHooks", args),
 
+  // Chat
+  chatSend: (args: {
+    messages: ChatMessage[];
+    apiKey: string;
+    model?: ChatModel;
+  }): Promise<void> => ipcRenderer.invoke("chatSend", args),
+  onChatChunk: (callback: (chunk: ChatChunk) => void): (() => void) => {
+    const handler = (_event: unknown, chunk: ChatChunk) => callback(chunk);
+    ipcRenderer.on("chat-chunk", handler);
+    return () => ipcRenderer.removeListener("chat-chunk", handler);
+  },
+
+  openExternal: (url: string): Promise<void> =>
+    ipcRenderer.invoke("openExternal", url),
+  aonPreview: (urlPath: string): Promise<AonPreviewData | null> =>
+    ipcRenderer.invoke("aonPreview", urlPath),
 
   // Book catalog + reader
   booksScan: (): Promise<BookScanResult> => ipcRenderer.invoke("booksScan"),

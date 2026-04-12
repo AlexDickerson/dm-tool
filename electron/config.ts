@@ -37,6 +37,9 @@ export interface DmToolConfig {
   /** Absolute path to the Auto-Wall executable. Optional — if missing,
    *  the "Launch Auto-Wall" button is hidden in the detail pane. */
   autoWallBinPath?: string;
+  /** Absolute path to the PF2e rules/monsters/items SQLite database.
+   *  Optional — if missing, the chat tools fall back to AoN web queries. */
+  pf2eDbPath?: string;
 }
 
 /** The config file is looked up in this order:
@@ -145,5 +148,10 @@ export function loadConfig(): DmToolConfig {
     }
   }
 
-  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath, autoWallBinPath };
+  let pf2eDbPath: string | undefined;
+  if (cfg.pf2eDbPath && typeof cfg.pf2eDbPath === "string" && cfg.pf2eDbPath.trim().length > 0) {
+    pf2eDbPath = resolve(cfg.pf2eDbPath);
+  }
+
+  return { libraryPath, indexDbPath, booksPath, inboxPath, quarantinePath, taggerBinPath, autoWallBinPath, pf2eDbPath };
 }

@@ -114,6 +114,63 @@ export interface FinalizeIngestArgs {
 }
 
 // ---------------------------------------------------------------------------
+// Chat
+// ---------------------------------------------------------------------------
+
+export type ChatModel =
+  | "claude-sonnet-4-6"
+  | "claude-haiku-4-5-20251001"
+  | "claude-opus-4-6";
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatChunk {
+  type: "delta" | "done" | "error" | "tool-status";
+  text?: string;
+  error?: string;
+}
+
+export interface AonCreaturePreview {
+  type: "creature";
+  name: string;
+  level: number;
+  hp: number;
+  ac: number;
+  fortitude: number;
+  reflex: number;
+  will: number;
+  perception: number;
+  speed: string;
+  size: string;
+  traits: string[];
+  abilities: string[];
+  immunities: string[];
+  weaknesses: string;
+  rarity: string;
+  summary: string;
+  strength: number;
+  dexterity: number;
+  constitution: number;
+  intelligence: number;
+  wisdom: number;
+  charisma: number;
+  /** Raw stat block text — everything after the first `---` separator. */
+  statBlock: string;
+}
+
+export interface AonGenericPreview {
+  type: "generic";
+  name: string;
+  category: string;
+  text: string;
+}
+
+export type AonPreviewData = AonCreaturePreview | AonGenericPreview;
+
+// ---------------------------------------------------------------------------
 // Map tagger
 // ---------------------------------------------------------------------------
 
@@ -158,6 +215,27 @@ export interface ElectronAPI {
     fileName: string;
     apiKey: string;
   }): Promise<string[]>;
+
+  /** Open a URL in the user's default browser. Only accepts http/https. */
+  openExternal(url: string): Promise<void>;
+  /** Fetch AoN preview data for a hover card. */
+  aonPreview(urlPath: string): Promise<AonPreviewData | null>;
+
+  // -----------------------------------------------------------------------
+  // Chat
+  // -----------------------------------------------------------------------
+
+  /** Send a chat message and begin streaming the assistant response.
+   *  Resolves when the stream completes. Text chunks arrive via
+   *  onChatChunk before the promise settles. */
+  chatSend(args: {
+    messages: ChatMessage[];
+    apiKey: string;
+    model?: ChatModel;
+  }): Promise<void>;
+  /** Subscribe to chat stream chunks. Returns an unsubscribe function.
+   *  Same push-event pattern as onTaggerProgress. */
+  onChatChunk(callback: (chunk: ChatChunk) => void): () => void;
 
   // -----------------------------------------------------------------------
   // Book catalog + reader

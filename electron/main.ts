@@ -28,6 +28,7 @@ import { MapDb } from "./db.js";
 import { BookDb } from "./book-db.js";
 import { registerIpcHandlers } from "./ipc.js";
 import { scanBookRoot } from "./book-scanner.js";
+import { openPf2eDb, closePf2eDb } from "./pf2e-db.js";
 
 // `map-file://` and `book-file://` must be registered as privileged
 // schemes BEFORE app.ready fires, otherwise the CSP rules in index.html
@@ -328,6 +329,16 @@ async function startup(): Promise<void> {
     }
   }
 
+  // Open the PF2e rules/monsters/items database if configured.
+  if (cfg.pf2eDbPath && existsSync(cfg.pf2eDbPath)) {
+    try {
+      openPf2eDb(cfg.pf2eDbPath);
+      console.log("PF2e DB loaded:", cfg.pf2eDbPath);
+    } catch (e) {
+      console.error("Failed to open PF2e DB:", (e as Error).message);
+    }
+  }
+
   const coverCacheRoot = resolvePath(join(app.getPath("userData"), "book-covers"));
 
   // Kill the default Electron application menu (File/Edit/View/...).
@@ -385,4 +396,5 @@ app.on("will-quit", () => {
     bookDb.close();
     bookDb = null;
   }
+  closePf2eDb();
 });
