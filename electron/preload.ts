@@ -88,9 +88,7 @@ const api: ElectronAPI = {
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),
   autoWallLaunch: (fileName: string): Promise<void> => ipcRenderer.invoke('autoWallLaunch', fileName),
   autoWallHasUvtt: (fileName: string): Promise<boolean> => ipcRenderer.invoke('autoWallHasUvtt', fileName),
-  autoWallGetWalls: (
-    fileName: string,
-  ): Promise<{ walls: number[][]; width: number; height: number } | null> =>
+  autoWallGetWalls: (fileName: string): Promise<{ walls: number[][]; width: number; height: number } | null> =>
     ipcRenderer.invoke('autoWallGetWalls', fileName),
   autoWallImportUvtt: (fileName: string): Promise<boolean> => ipcRenderer.invoke('autoWallImportUvtt', fileName),
 };
