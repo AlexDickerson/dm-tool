@@ -131,4 +131,31 @@
       opacity: 0;
     }
   }
+
+  /* pdfjs TextLayer styles. These make the invisible text overlay render
+   * in exactly the right position so browser-native Ctrl+F and text
+   * selection work. The text itself is transparent — it sits atop the
+   * canvas so clicks "through" the text still feel like clicking the
+   * page image. The selection highlight color comes through via
+   * ::selection so highlighted text is visually obvious. */
+  .textLayer {
+    position: absolute;
+    text-align: initial;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0.25;
+    line-height: 1;
+    text-size-adjust: none;
+    forced-color-adjust: none;
+  }
+  .textLayer :is(span, br) {
+    color: transparent;
+    position: absolute;
+    white-space: pre;
+    cursor: text;
+    transform-origin: 0% 0%;
+  }
+  .textLayer span::selection {
+    background: hsl(var(--primary) / 0.3);
+  }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Settings } from "lucide-react";
 import { MapBrowser } from "./features/map-browser/MapBrowser";
+import { BookBrowser } from "./features/book-browser/BookBrowser";
 import { cn } from "./lib/utils";
 import {
   Dialog,
@@ -60,10 +61,10 @@ function loadNumber(key: string, fallback: number, min: number, max: number): nu
   }
 }
 
-// For now the entire app is just the map browser. As more features come
-// online (combat tracker, NPC browser, etc.) this will grow into a real
-// shell with sidebar navigation. Keeping the shell trivial until then.
+type ActiveTab = "maps" | "books" | "combat" | "monsters" | "items";
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>("maps");
   const [uiScale, setUiScale] = useState<number>(() =>
     loadNumber(UI_SCALE_KEY, UI_DEFAULT, UI_MIN, UI_MAX),
   );
@@ -145,10 +146,11 @@ export default function App() {
           className="flex items-center gap-1"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
-          <NavTab active>Map Browser</NavTab>
-          <NavTab>Combat</NavTab>
-          <NavTab>Monsters</NavTab>
-          <NavTab>Items</NavTab>
+          <NavTab active={activeTab === "maps"} onClick={() => setActiveTab("maps")}>Maps</NavTab>
+          <NavTab active={activeTab === "books"} onClick={() => setActiveTab("books")}>Books</NavTab>
+          <NavTab active={activeTab === "combat"} onClick={() => setActiveTab("combat")}>Combat</NavTab>
+          <NavTab active={activeTab === "monsters"} onClick={() => setActiveTab("monsters")}>Monsters</NavTab>
+          <NavTab active={activeTab === "items"} onClick={() => setActiveTab("items")}>Items</NavTab>
         </nav>
         {/* Settings gear pushed to the right edge of the draggable
             region (just before the reserved native button strip). The
@@ -183,7 +185,10 @@ export default function App() {
           header) so it reads as a single uninterrupted title strip. */}
       <div className="mt-1 h-px shrink-0 bg-border" />
       <main className="flex-1 overflow-hidden">
-        <MapBrowser thumbScale={thumbScale} anthropicApiKey={anthropicApiKey} />
+        {activeTab === "maps" && (
+          <MapBrowser thumbScale={thumbScale} anthropicApiKey={anthropicApiKey} />
+        )}
+        {activeTab === "books" && <BookBrowser />}
       </main>
     </div>
   );
@@ -223,21 +228,19 @@ function D20Icon({ className }: { className?: string }) {
   );
 }
 
-// Single nav tab button for the top bar. Active tab gets a filled
-// accent background; inactive tabs are muted and highlight on hover.
-// Not wired to any routing yet — Combat/Monsters/Items are placeholders
-// for future features and clicking them is intentionally a no-op until
-// those views exist.
 function NavTab({
   active,
+  onClick,
   children,
 }: {
   active?: boolean;
+  onClick?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={cn(
         "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
         active
