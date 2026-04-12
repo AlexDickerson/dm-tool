@@ -21,6 +21,7 @@ import type {
   ConfigPaths,
   FinalizeIngestArgs,
   MapDetail,
+  MonsterSearchParams,
   PickPathArgs,
   SearchParams,
   TaggerRunArgs,
@@ -30,7 +31,7 @@ import { appendAdditionalHooks, getAdditionalHooks } from './hooks-store.js';
 import { generateEncounterHooks } from './anthropic.js';
 import { streamChat } from './chat.js';
 import { fetchAonPreview } from './aon-preview.js';
-import { getMonsterPreview } from './pf2e-db.js';
+import { getMonsterPreview, listMonsters, getMonsterFacets, getMonsterByName } from './pf2e-db.js';
 import { scanBookRoot } from './book-scanner.js';
 import { buildGroupingPrompt, getCachedPackMapping, mergePacks, parseAndCacheMapping } from './pack-grouper.js';
 import { runTagger, cancelTagger, isTaggerRunning } from './tagger.js';
@@ -434,6 +435,22 @@ export function registerIpcHandlers(
   ipcMain.handle('mergePacks', (_e, args: { sourcePacks: string[]; targetName: string }): Record<string, string> => {
     const fileNames = db.allFileNames();
     return mergePacks(args.sourcePacks, args.targetName, fileNames);
+  });
+
+  // -----------------------------------------------------------------------
+  // Monster browser
+  // -----------------------------------------------------------------------
+
+  ipcMain.handle('monstersSearch', (_e, params: MonsterSearchParams) => {
+    return listMonsters(params ?? {});
+  });
+
+  ipcMain.handle('monstersFacets', () => {
+    return getMonsterFacets();
+  });
+
+  ipcMain.handle('monstersGetDetail', (_e, name: string) => {
+    return getMonsterByName(name);
   });
 
   // -----------------------------------------------------------------------

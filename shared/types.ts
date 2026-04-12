@@ -168,6 +168,90 @@ export interface AonGenericPreview {
 export type AonPreviewData = AonCreaturePreview | AonGenericPreview;
 
 // ---------------------------------------------------------------------------
+// Monster browser
+// ---------------------------------------------------------------------------
+
+export interface MonsterSearchParams {
+  keywords?: string;
+  levels?: [number, number];
+  rarities?: string[];
+  sizes?: string[];
+  creatureTypes?: string[];
+  traits?: string[];
+  sources?: string[];
+  hpMin?: number;
+  hpMax?: number;
+  acMin?: number;
+  acMax?: number;
+  fortMin?: number;
+  refMin?: number;
+  willMin?: number;
+  sortBy?: 'name' | 'level' | 'hp' | 'ac';
+  sortDir?: 'asc' | 'desc';
+  limit?: number;
+}
+
+export interface MonsterSummary {
+  name: string;
+  level: number;
+  hp: number;
+  ac: number;
+  fort: number;
+  ref: number;
+  will: number;
+  rarity: string;
+  size: string;
+  creatureType: string;
+  traits: string[];
+  source: string;
+  aonUrl: string;
+}
+
+export interface MonsterDetail {
+  name: string;
+  level: number;
+  source: string;
+  rarity: string;
+  size: string;
+  traits: string[];
+  hp: number;
+  ac: number;
+  fort: number;
+  ref: number;
+  will: number;
+  perception: number;
+  skills: string;
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wis: number;
+  cha: number;
+  speed: string;
+  immunities: string;
+  weaknesses: string;
+  resistances: string;
+  melee: string;
+  ranged: string;
+  abilities: string;
+  description: string;
+  aonUrl: string;
+  /** Relative path to portrait art image, or null if unavailable. */
+  imageUrl: string | null;
+  /** Relative path to token image, or null if unavailable. */
+  tokenUrl: string | null;
+}
+
+export interface MonsterFacets {
+  rarities: string[];
+  sizes: string[];
+  creatureTypes: string[];
+  traits: string[];
+  sources: string[];
+  levelRange: [number, number];
+}
+
+// ---------------------------------------------------------------------------
 // Config (exposed to renderer for Settings UI / first-run setup)
 // ---------------------------------------------------------------------------
 
@@ -369,4 +453,15 @@ export interface ElectronAPI {
     wallsCreated: number;
     doorsCreated: number;
   }>;
+
+  // -----------------------------------------------------------------------
+  // Monster browser
+  // -----------------------------------------------------------------------
+
+  /** Search/filter monsters from the PF2e database. */
+  monstersSearch(params: MonsterSearchParams): Promise<MonsterSummary[]>;
+  /** Distinct facet values for the filter panel. */
+  monstersFacets(): Promise<MonsterFacets>;
+  /** Full stat block for a single monster by name. */
+  monstersGetDetail(name: string): Promise<MonsterDetail | null>;
 }

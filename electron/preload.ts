@@ -20,6 +20,10 @@ import type {
   FinalizeIngestArgs,
   MapDetail,
   MapSummary,
+  MonsterDetail,
+  MonsterFacets,
+  MonsterSearchParams,
+  MonsterSummary,
   PickPathArgs,
   SearchParams,
   TaggerProgress,
@@ -88,6 +92,12 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('importPackMappingFromFile'),
   mergePacks: (args: { sourcePacks: string[]; targetName: string }): Promise<Record<string, string>> =>
     ipcRenderer.invoke('mergePacks', args),
+
+  // Monster browser
+  monstersSearch: (params: MonsterSearchParams): Promise<MonsterSummary[]> =>
+    ipcRenderer.invoke('monstersSearch', params),
+  monstersFacets: (): Promise<MonsterFacets> => ipcRenderer.invoke('monstersFacets'),
+  monstersGetDetail: (name: string): Promise<MonsterDetail | null> => ipcRenderer.invoke('monstersGetDetail', name),
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),
