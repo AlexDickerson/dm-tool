@@ -2,9 +2,9 @@
 // no react-query, just useState + useEffect. The data is local and small
 // enough that we don't need caching or deduplication.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
-import type { Book, BookScanResult } from "@shared/types";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '@/lib/api';
+import type { Book, BookScanResult } from '@shared/types';
 
 interface AsyncState<T> {
   data: T | null;
@@ -80,10 +80,10 @@ const COVER_WIDTH = 300;
 /** Lazy pdfjs reference. Loaded on first extractCover call so the 1.3 MB
  *  bundle + worker don't parse at app startup and compete with React's
  *  initial render for heap space. */
-let _pdfjs: typeof import("pdfjs-dist") | null = null;
+let _pdfjs: typeof import('pdfjs-dist') | null = null;
 async function getPdfjs() {
   if (!_pdfjs) {
-    const { pdfjsLib } = await import("@/lib/pdfjs");
+    const { pdfjsLib } = await import('@/lib/pdfjs');
     _pdfjs = pdfjsLib;
   }
   return _pdfjs;
@@ -94,7 +94,7 @@ async function getPdfjs() {
  *  (~10 MB) and OOMs when parsing large PDFs (68 MB Abomination Vaults).
  *  The renderer's main thread has GB of heap, so the parsing fits easily.
  *  Brief UI blocking during page-1 extraction is imperceptible. */
-let _fakeWorker: InstanceType<typeof import("pdfjs-dist").PDFWorker> | null = null;
+let _fakeWorker: InstanceType<typeof import('pdfjs-dist').PDFWorker> | null = null;
 async function getFakeWorker() {
   if (!_fakeWorker) {
     const pdfjsLib = await getPdfjs();
@@ -114,8 +114,8 @@ export async function extractCover(bookId: number): Promise<void> {
     disableAutoFetch: true,
     disableStream: true,
   });
-  let doc: import("pdfjs-dist/types/src/display/api").PDFDocumentProxy | null = null;
-  const canvas = document.createElement("canvas");
+  let doc: import('pdfjs-dist/types/src/display/api').PDFDocumentProxy;
+  const canvas = document.createElement('canvas');
   try {
     doc = await task.promise;
   } catch {
@@ -132,12 +132,10 @@ export async function extractCover(bookId: number): Promise<void> {
 
     canvas.width = scaledVp.width;
     canvas.height = scaledVp.height;
-    const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext('2d')!;
     await page.render({ canvasContext: ctx, viewport: scaledVp }).promise;
 
-    const blob = await new Promise<Blob | null>((r) =>
-      canvas.toBlob(r, "image/png"),
-    );
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
     canvas.width = 0;
     canvas.height = 0;
     if (!blob) return;

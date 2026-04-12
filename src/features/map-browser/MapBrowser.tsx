@@ -1,15 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Check, Info, Layers, Merge, Plus, Rows, X } from "lucide-react";
-import { FilterPanel } from "./FilterPanel";
-import { ThumbnailGrid, type ThumbnailItem } from "./ThumbnailGrid";
-import { DetailPane } from "./DetailPane";
-import { TaggerDialog } from "./TaggerDialog";
-import { useFacets, useMapSearch, usePackMapping } from "./useMaps";
-import { cn } from "@/lib/utils";
-import type { MapSummary, SearchParams } from "@shared/types";
-import { groupByStem } from "@shared/map-stem";
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Check, Info, Layers, Merge, Plus, Rows, X } from 'lucide-react';
+import { FilterPanel } from './FilterPanel';
+import { ThumbnailGrid, type ThumbnailItem } from './ThumbnailGrid';
+import { DetailPane } from './DetailPane';
+import { TaggerDialog } from './TaggerDialog';
+import { useFacets, useMapSearch, usePackMapping } from './useMaps';
+import { cn } from '@/lib/utils';
+import type { MapSummary, SearchParams } from '@shared/types';
+import { groupByStem } from '@shared/map-stem';
 
 interface MapBrowserProps {
   /** Multiplier for the thumbnail card width/height. Owned by App.tsx
@@ -27,8 +27,8 @@ interface MapBrowserProps {
 
 // Top-level state for the browser. All mutable state lives here so the
 // FilterPanel, ThumbnailGrid and DetailPane stay presentational.
-export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVersion = 0 }: MapBrowserProps) {
-  const [keywords, setKeywords] = useState("");
+export function MapBrowser({ thumbScale = 1, anthropicApiKey = '', packMappingVersion = 0 }: MapBrowserProps) {
+  const [keywords, setKeywords] = useState('');
   const [filters, setFilters] = useState<SearchParams>({});
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   // Default to grouped view — the whole reason we added stemming is that
@@ -103,9 +103,7 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
       return;
     }
     const groups = groupMaps(maps);
-    const g = groups.find((g) =>
-      g.variants.some((v) => v.fileName === item.map.fileName),
-    );
+    const g = groups.find((g) => g.variants.some((v) => v.fileName === item.map.fileName));
     setActiveVariants(g?.variants ?? null);
   };
 
@@ -119,11 +117,11 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
 
   // Detail pane exit animation: instead of unmounting immediately, we
   // flip to the "closing" animation and unmount on animationend.
-  const [detailAnim, setDetailAnim] = useState<"open" | "closing">("open");
+  const [detailAnim, setDetailAnim] = useState<'open' | 'closing'>('open');
   const detailRef = useRef<HTMLDivElement>(null);
 
   const closeDetail = useCallback(() => {
-    setDetailAnim("closing");
+    setDetailAnim('closing');
     const el = detailRef.current;
     if (!el) {
       setSelectedFileName(null);
@@ -131,12 +129,12 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
       return;
     }
     const onEnd = () => {
-      el.removeEventListener("animationend", onEnd);
+      el.removeEventListener('animationend', onEnd);
       setSelectedFileName(null);
       setActiveVariants(null);
-      setDetailAnim("open");
+      setDetailAnim('open');
     };
-    el.addEventListener("animationend", onEnd);
+    el.addEventListener('animationend', onEnd);
   }, []);
 
   // Merge mode: multi-select packs to merge them into one.
@@ -156,9 +154,7 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
       if (!maps) return;
       // Find the pack stem for this item.
       const groups = groupMaps(maps);
-      const g = groups.find((g) =>
-        g.variants.some((v) => v.fileName === item.map.fileName),
-      );
+      const g = groups.find((g) => g.variants.some((v) => v.fileName === item.map.fileName));
       if (!g) return;
       setMergeSelected((prev) => {
         const next = new Map(prev);
@@ -173,13 +169,13 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
     [maps, groupMaps],
   );
 
-  const [mergeNameInput, setMergeNameInput] = useState("");
+  const [mergeNameInput, setMergeNameInput] = useState('');
   const [showMergeConfirm, setShowMergeConfirm] = useState(false);
 
   const startMerge = useCallback(() => {
     // Default the name to the first selected pack's stem.
     const first = mergeSelected.values().next().value;
-    setMergeNameInput(first ?? "");
+    setMergeNameInput(first ?? '');
     setShowMergeConfirm(true);
   }, [mergeSelected]);
 
@@ -194,10 +190,7 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
   }, [mergeNameInput, mergeSelected, packMapping]);
 
   // Set of representative fileNames for the ThumbnailGrid highlight.
-  const mergeSelectedFileNames = useMemo(
-    () => new Set(mergeSelected.keys()),
-    [mergeSelected],
-  );
+  const mergeSelectedFileNames = useMemo(() => new Set(mergeSelected.keys()), [mergeSelected]);
 
   // When a map is selected, both the grid and the detail pane share
   // the remaining horizontal space, but weighted so the detail area
@@ -212,174 +205,154 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
           <FilterPanel facets={facets} params={filters} onChange={setFilters} />
         </div>
 
-      {/* Center: search bar + thumbnail grid. Always flex-1 — the
+        {/* Center: search bar + thumbnail grid. Always flex-1 — the
           detail pane's proportionally larger flex weight gives it more
           room without squeezing the grid down to a single column.
           When the detail pane is open we add right padding so the
           grid's vertical scrollbar isn't flush against the detail
           pane's left border. */}
-      <div
-        className={cn(
-          "flex min-w-0 flex-1 flex-col",
-          selectedFileName && "pr-2",
-        )}
-      >
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-          <div className="relative max-w-xl flex-1">
-            <Input
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              placeholder="Search — e.g. 'a gloomy castle in a dark forest'"
-              className={cn(keywords && "pr-8")}
-            />
-            {keywords && (
-              <button
-                type="button"
-                onClick={() => setKeywords("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setGrouped((g) => !g)}
-            className={cn(
-              "gap-1.5 whitespace-nowrap",
-              grouped && "border-primary/60 bg-primary/10 text-primary",
-            )}
-            title={
-              grouped
-                ? "Showing one card per pack. Click to flatten."
-                : "Showing every map individually. Click to group variants by pack."
-            }
-          >
-            {grouped ? <Layers className="h-3.5 w-3.5" /> : <Rows className="h-3.5 w-3.5" />}
-            {grouped ? "Grouped" : "Flat"}
-          </Button>
-          {grouped && (
+        <div className={cn('flex min-w-0 flex-1 flex-col', selectedFileName && 'pr-2')}>
+          <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+            <div className="relative max-w-xl flex-1">
+              <Input
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder="Search — e.g. 'a gloomy castle in a dark forest'"
+                className={cn(keywords && 'pr-8')}
+              />
+              {keywords && (
+                <button
+                  type="button"
+                  onClick={() => setKeywords('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={toggleMergeMode}
-              className={cn(
-                "gap-1.5 whitespace-nowrap",
-                mergeMode && "border-blue-500/60 bg-blue-500/10 text-blue-400",
-              )}
-              title="Select multiple packs to merge them into one"
+              onClick={() => setGrouped((g) => !g)}
+              className={cn('gap-1.5 whitespace-nowrap', grouped && 'border-primary/60 bg-primary/10 text-primary')}
+              title={
+                grouped
+                  ? 'Showing one card per pack. Click to flatten.'
+                  : 'Showing every map individually. Click to group variants by pack.'
+              }
             >
-              <Merge className="h-3.5 w-3.5" />
-              {mergeMode ? "Cancel merge" : "Merge packs"}
+              {grouped ? <Layers className="h-3.5 w-3.5" /> : <Rows className="h-3.5 w-3.5" />}
+              {grouped ? 'Grouped' : 'Flat'}
             </Button>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setTaggerOpen(true)}
-            className="gap-1.5 whitespace-nowrap"
-            title="Tag and import new battlemaps into the library"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Maps
-          </Button>
-          {loading && (
-            <span className="text-xs text-muted-foreground">Searching…</span>
-          )}
-          {!loading && maps && (
-            <span
-              className="group relative cursor-default text-muted-foreground"
-              title={`${groupCount} ${grouped ? "packs" : "results"}${grouped && maps.length !== groupCount ? ` (${maps.length} files)` : ""}`}
-            >
-              <Info className="h-3.5 w-3.5" />
-            </span>
-          )}
-          {error && (
-            <span className="text-xs text-destructive">Error: {error}</span>
-          )}
-          {packMapping.error && (
-            <span className="text-xs text-destructive">Import failed: {packMapping.error}</span>
-          )}
-        </div>
-        <div className="relative flex-1 overflow-hidden">
-          <ThumbnailGrid
-            items={items}
-            selected={selectedFileName}
-            onSelect={mergeMode ? handleMergeSelect : handleSelect}
-            scale={thumbScale}
-            mergeSelection={mergeMode ? mergeSelectedFileNames : null}
-          />
-          {/* Merge confirmation bar */}
-          {mergeMode && mergeSelected.size >= 2 && !showMergeConfirm && (
-            <div
-              className="absolute bottom-4 left-1/2 flex items-center gap-3 rounded-lg border border-blue-500/40 bg-card/95 px-4 py-2 shadow-lg"
-              style={{ transform: "translateX(-50%)" }}
-            >
-              <span className="text-sm font-medium">
-                {mergeSelected.size} packs selected
-              </span>
-              <Button size="sm" onClick={startMerge} className="gap-1.5">
-                <Merge className="h-3.5 w-3.5" />
-                Merge
-              </Button>
-            </div>
-          )}
-          {/* Merge name input */}
-          {showMergeConfirm && (
-            <div
-              className="absolute bottom-4 left-1/2 flex items-center gap-2 rounded-lg border border-blue-500/40 bg-card/95 px-4 py-2 shadow-lg"
-              style={{ transform: "translateX(-50%)" }}
-            >
-              <span className="text-sm text-muted-foreground">Pack name:</span>
-              <Input
-                value={mergeNameInput}
-                onChange={(e) => setMergeNameInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && confirmMerge()}
-                className="h-7 w-56"
-                autoFocus
-              />
-              <Button size="sm" onClick={confirmMerge} className="h-7 w-7 p-0">
-                <Check className="h-3.5 w-3.5" />
-              </Button>
+            {grouped && (
               <Button
+                type="button"
+                variant="outline"
                 size="sm"
-                variant="ghost"
-                onClick={() => setShowMergeConfirm(false)}
-                className="h-7 w-7 p-0"
+                onClick={toggleMergeMode}
+                className={cn(
+                  'gap-1.5 whitespace-nowrap',
+                  mergeMode && 'border-blue-500/60 bg-blue-500/10 text-blue-400',
+                )}
+                title="Select multiple packs to merge them into one"
               >
-                <X className="h-3.5 w-3.5" />
+                <Merge className="h-3.5 w-3.5" />
+                {mergeMode ? 'Cancel merge' : 'Merge packs'}
               </Button>
-            </div>
-          )}
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setTaggerOpen(true)}
+              className="gap-1.5 whitespace-nowrap"
+              title="Tag and import new battlemaps into the library"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Maps
+            </Button>
+            {loading && <span className="text-xs text-muted-foreground">Searching…</span>}
+            {!loading && maps && (
+              <span
+                className="group relative cursor-default text-muted-foreground"
+                title={`${groupCount} ${grouped ? 'packs' : 'results'}${grouped && maps.length !== groupCount ? ` (${maps.length} files)` : ''}`}
+              >
+                <Info className="h-3.5 w-3.5" />
+              </span>
+            )}
+            {error && <span className="text-xs text-destructive">Error: {error}</span>}
+            {packMapping.error && <span className="text-xs text-destructive">Import failed: {packMapping.error}</span>}
+          </div>
+          <div className="relative flex-1 overflow-hidden">
+            <ThumbnailGrid
+              items={items}
+              selected={selectedFileName}
+              onSelect={mergeMode ? handleMergeSelect : handleSelect}
+              scale={thumbScale}
+              mergeSelection={mergeMode ? mergeSelectedFileNames : null}
+            />
+            {/* Merge confirmation bar */}
+            {mergeMode && mergeSelected.size >= 2 && !showMergeConfirm && (
+              <div
+                className="absolute bottom-4 left-1/2 flex items-center gap-3 rounded-lg border border-blue-500/40 bg-card/95 px-4 py-2 shadow-lg"
+                style={{ transform: 'translateX(-50%)' }}
+              >
+                <span className="text-sm font-medium">{mergeSelected.size} packs selected</span>
+                <Button size="sm" onClick={startMerge} className="gap-1.5">
+                  <Merge className="h-3.5 w-3.5" />
+                  Merge
+                </Button>
+              </div>
+            )}
+            {/* Merge name input */}
+            {showMergeConfirm && (
+              <div
+                className="absolute bottom-4 left-1/2 flex items-center gap-2 rounded-lg border border-blue-500/40 bg-card/95 px-4 py-2 shadow-lg"
+                style={{ transform: 'translateX(-50%)' }}
+              >
+                <span className="text-sm text-muted-foreground">Pack name:</span>
+                <Input
+                  value={mergeNameInput}
+                  onChange={(e) => setMergeNameInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && confirmMerge()}
+                  className="h-7 w-56"
+                  autoFocus
+                />
+                <Button size="sm" onClick={confirmMerge} className="h-7 w-7 p-0">
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowMergeConfirm(false)} className="h-7 w-7 p-0">
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Right: detail pane gets ~1.8× the grid's flex weight so the
+        {/* Right: detail pane gets ~1.8× the grid's flex weight so the
           main image is large and the variant panel has room, while
           the grid still has enough room for 2 columns of thumbs. */}
-      {selectedFileName && (
-        <div
-          ref={detailRef}
-          className="flex min-w-0 flex-[1.8]"
-          style={{
-            animation: detailAnim === "open"
-              ? "dmtool-slide-in-right 200ms ease-out"
-              : "dmtool-slide-out-right 150ms ease-out forwards",
-          }}
-        >
-          <DetailPane
-            fileName={selectedFileName}
-            variants={activeVariants}
-            onSelectVariant={handleSelectVariant}
-            onClose={closeDetail}
-            anthropicApiKey={anthropicApiKey}
-          />
-        </div>
-      )}
+        {selectedFileName && (
+          <div
+            ref={detailRef}
+            className="flex min-w-0 flex-[1.8]"
+            style={{
+              animation:
+                detailAnim === 'open'
+                  ? 'dmtool-slide-in-right 200ms ease-out'
+                  : 'dmtool-slide-out-right 150ms ease-out forwards',
+            }}
+          >
+            <DetailPane
+              fileName={selectedFileName}
+              variants={activeVariants}
+              onSelectVariant={handleSelectVariant}
+              onClose={closeDetail}
+              anthropicApiKey={anthropicApiKey}
+            />
+          </div>
+        )}
       </div>
 
       <TaggerDialog
@@ -397,7 +370,7 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "", packMappingVe
 // the AI-generated pack mapping instead of filename heuristics.
 // ---------------------------------------------------------------------------
 
-import type { MapGroup } from "@shared/map-stem";
+import type { MapGroup } from '@shared/map-stem';
 
 function groupByMapping<T extends { fileName: string }>(
   maps: readonly T[],
@@ -416,9 +389,7 @@ function groupByMapping<T extends { fileName: string }>(
 
   const result: MapGroup<T>[] = [];
   for (const [stem, list] of buckets) {
-    const sorted = [...list].sort((a, b) =>
-      a.fileName.localeCompare(b.fileName),
-    );
+    const sorted = [...list].sort((a, b) => a.fileName.localeCompare(b.fileName));
     result.push({
       stem,
       representative: list[0],

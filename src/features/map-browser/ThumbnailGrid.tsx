@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { cn, thumbnailUrl } from "@/lib/utils";
-import type { MapSummary } from "@shared/types";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { cn, thumbnailUrl } from '@/lib/utils';
+import type { MapSummary } from '@shared/types';
 
 /** One entry in the grid. When grouping is off, `variantCount` is 1 and
  *  the map stands alone. When grouping is on, `map` is the representative
@@ -47,8 +47,7 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1, mergeSelec
   const freezeRef = useRef(false);
   const prevSelectedRef = useRef(selected);
   useEffect(() => {
-    const changed =
-      (prevSelectedRef.current == null) !== (selected == null);
+    const changed = (prevSelectedRef.current == null) !== (selected == null);
     prevSelectedRef.current = selected;
     if (!changed) return;
     freezeRef.current = true;
@@ -103,7 +102,7 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1, mergeSelec
     const idx = items.findIndex((it) => it.map.fileName === selected);
     if (idx < 0) return;
     const rowIndex = Math.floor(idx / columnCount);
-    rowVirtualizer.scrollToIndex(rowIndex, { align: "auto" });
+    rowVirtualizer.scrollToIndex(rowIndex, { align: 'auto' });
   }, [selected, columnCount, items, rowVirtualizer]);
 
   // Memoize so the virtualizer doesn't re-render rows on every parent tick.
@@ -120,10 +119,7 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1, mergeSelec
 
   if (items.length === 0) {
     return (
-      <div
-        ref={parentRef}
-        className="flex h-full items-center justify-center text-sm text-muted-foreground"
-      >
+      <div ref={parentRef} className="flex h-full items-center justify-center text-sm text-muted-foreground">
         No maps match the current filters.
       </div>
     );
@@ -131,7 +127,7 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1, mergeSelec
 
   return (
     <div ref={parentRef} className="h-full overflow-auto p-3">
-      <div style={{ height: totalSize, position: "relative" }}>
+      <div style={{ height: totalSize, position: 'relative' }}>
         {virtualItems.map((virtualRow) => {
           const startIndex = virtualRow.index * columnCount;
           const rowItems = items.slice(startIndex, startIndex + columnCount);
@@ -180,9 +176,9 @@ function ThumbnailCard({ item, isSelected, mergeChecked, mergeMode, onClick, hei
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative overflow-hidden rounded-md border border-border bg-muted text-left transition-all hover:border-primary/60",
-        isSelected && !mergeMode && "border-primary ring-2 ring-primary/40",
-        mergeChecked && "ring-2 ring-blue-500 border-blue-500",
+        'group relative overflow-hidden rounded-md border border-border bg-muted text-left transition-all hover:border-primary/60',
+        isSelected && !mergeMode && 'border-primary ring-2 ring-primary/40',
+        mergeChecked && 'ring-2 ring-blue-500 border-blue-500',
       )}
       style={{ height }}
       title={variantCount > 1 ? `${map.title} (+${variantCount - 1} variants)` : map.title}
@@ -201,10 +197,10 @@ function ThumbnailCard({ item, isSelected, mergeChecked, mergeMode, onClick, hei
           loading="lazy"
           onError={() => setErrored(true)}
           style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
           }}
           className="transition-transform group-hover:scale-[1.03]"
         />
@@ -221,13 +217,11 @@ function ThumbnailCard({ item, isSelected, mergeChecked, mergeMode, onClick, hei
       {mergeMode && (
         <div
           className={cn(
-            "pointer-events-none absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[11px] font-bold",
-            mergeChecked
-              ? "border-blue-500 bg-blue-500 text-white"
-              : "border-white/70 bg-black/50",
+            'pointer-events-none absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[11px] font-bold',
+            mergeChecked ? 'border-blue-500 bg-blue-500 text-white' : 'border-white/70 bg-black/50',
           )}
         >
-          {mergeChecked && "\u2713"}
+          {mergeChecked && '\u2713'}
         </div>
       )}
     </button>

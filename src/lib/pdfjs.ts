@@ -7,11 +7,8 @@
 // output and rewrite the URL at compile time. This means the worker loads
 // from the bundled asset — not from a CDN or network URL.
 
-import * as pdfjsLib from "pdfjs-dist";
+import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
 export { pdfjsLib };

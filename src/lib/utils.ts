@@ -1,5 +1,5 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 /** shadcn's standard className helper — concats classes and resolves
  *  Tailwind conflicts (`p-2 p-4` → `p-4`). */
@@ -38,9 +38,9 @@ export function thumbnailUrl(fileName: string): string {
  *  rendered text is rewritten. */
 export function formatTag(raw: string): string {
   return raw
-    .replace(/[_-]+/g, " ")
+    .replace(/[_-]+/g, ' ')
     .split(/\s+/)
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+    .join(' ');
 }

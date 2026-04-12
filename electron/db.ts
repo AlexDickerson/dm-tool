@@ -9,13 +9,8 @@
 // plain Node process if we ever want to write unit tests against a fixture
 // DB.
 
-import Database, { type Database as BetterSqliteDB } from "better-sqlite3";
-import type {
-  Facets,
-  MapDetail,
-  MapSummary,
-  SearchParams,
-} from "../shared/types.js";
+import Database, { type Database as BetterSqliteDB } from 'better-sqlite3';
+import type { Facets, MapDetail, MapSummary, SearchParams } from '../shared/types.js';
 
 /** The raw columns we select from the `maps` table for list rows. */
 interface MapListRow {
@@ -58,7 +53,7 @@ export class MapDb {
     this.db = new Database(dbPath, { readonly: true, fileMustExist: true });
     // WAL is only relevant for writers, but setting busy timeout makes
     // us resilient to the Python side holding a transaction briefly.
-    this.db.pragma("busy_timeout = 2000");
+    this.db.pragma('busy_timeout = 2000');
   }
 
   close(): void {
@@ -74,47 +69,43 @@ export class MapDb {
     const requireTag = (kind: string, tagValues: string[] | undefined) => {
       if (!tagValues) return;
       for (const v of tagValues) {
-        clauses.push(
-          "file_name IN (SELECT file_name FROM map_tags WHERE tag_kind = ? AND tag_value = ?)",
-        );
+        clauses.push('file_name IN (SELECT file_name FROM map_tags WHERE tag_kind = ? AND tag_value = ?)');
         values.push(kind, v);
       }
     };
 
-    requireTag("biome", params.biomes);
-    requireTag("location", params.locationTypes);
-    requireTag("mood", params.mood);
-    requireTag("feature", params.features);
+    requireTag('biome', params.biomes);
+    requireTag('location', params.locationTypes);
+    requireTag('mood', params.mood);
+    requireTag('feature', params.features);
 
     if (params.interiorExterior) {
-      clauses.push("interior_exterior = ?");
+      clauses.push('interior_exterior = ?');
       values.push(params.interiorExterior);
     }
     if (params.timeOfDay) {
-      clauses.push("time_of_day = ?");
+      clauses.push('time_of_day = ?');
       values.push(params.timeOfDay);
     }
     if (params.gridVisible) {
-      clauses.push("grid_visible = ?");
+      clauses.push('grid_visible = ?');
       values.push(params.gridVisible);
     }
 
     if (params.keywords && params.keywords.trim()) {
-      clauses.push(
-        "file_name IN (SELECT file_name FROM maps_fts WHERE maps_fts MATCH ?)",
-      );
+      clauses.push('file_name IN (SELECT file_name FROM maps_fts WHERE maps_fts MATCH ?)');
       values.push(escapeFtsQuery(params.keywords.trim()));
     }
 
-    const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
+    const where = clauses.length > 0 ? ` WHERE ${clauses.join(' AND ')}` : '';
     const limit = Math.max(1, Math.min(params.limit ?? 200, 10000));
 
     const sql =
-      "SELECT file_name, title, description, interior_exterior, time_of_day, " +
-      "       grid_visible, grid_cells, approx_party_scale " +
-      "FROM maps" +
+      'SELECT file_name, title, description, interior_exterior, time_of_day, ' +
+      '       grid_visible, grid_cells, approx_party_scale ' +
+      'FROM maps' +
       where +
-      " ORDER BY tagged_at DESC LIMIT ?";
+      ' ORDER BY tagged_at DESC LIMIT ?';
 
     values.push(limit);
 
@@ -125,10 +116,10 @@ export class MapDb {
   /** Fetches one map with full sidecar detail. */
   getDetail(fileName: string): MapDetail | null {
     const sql =
-      "SELECT file_name, title, description, interior_exterior, time_of_day, " +
-      "       grid_visible, grid_cells, approx_party_scale, " +
-      "       file_hash_sha256, phash, width_px, height_px, sidecar_json " +
-      "FROM maps WHERE file_name = ?";
+      'SELECT file_name, title, description, interior_exterior, time_of_day, ' +
+      '       grid_visible, grid_cells, approx_party_scale, ' +
+      '       file_hash_sha256, phash, width_px, height_px, sidecar_json ' +
+      'FROM maps WHERE file_name = ?';
     const row = this.db.prepare(sql).get(fileName) as MapDetailRow | undefined;
     if (!row) return null;
 
@@ -155,26 +146,22 @@ export class MapDb {
       // layers those in from hooks-store.ts before returning to the
       // renderer. Default to empty here so the type checks.
       additionalEncounterHooks: [],
-      taggedAt: sidecar.tagged_at ?? "",
-      model: sidecar.model ?? "",
+      taggedAt: sidecar.tagged_at ?? '',
+      model: sidecar.model ?? '',
     };
   }
 
   /** All filenames in the library, sorted alphabetically. Used by the
    *  pack-grouper to build the full mapping in one shot. */
   allFileNames(): string[] {
-    const rows = this.db
-      .prepare("SELECT file_name FROM maps ORDER BY file_name")
-      .all() as Array<{ file_name: string }>;
+    const rows = this.db.prepare('SELECT file_name FROM maps ORDER BY file_name').all() as Array<{ file_name: string }>;
     return rows.map((r) => r.file_name);
   }
 
   /** Returns distinct tag values across the library, grouped by kind.
    *  Used to populate the filter panel without hardcoding the enum lists. */
   getFacets(): Facets {
-    const stmt = this.db.prepare(
-      "SELECT tag_kind, tag_value FROM map_tags ORDER BY tag_kind, tag_value",
-    );
+    const stmt = this.db.prepare('SELECT tag_kind, tag_value FROM map_tags ORDER BY tag_kind, tag_value');
     const biomes: string[] = [];
     const locationTypes: string[] = [];
     const moods: string[] = [];
@@ -184,16 +171,16 @@ export class MapDb {
       tag_value: string;
     }>) {
       switch (row.tag_kind) {
-        case "biome":
+        case 'biome':
           biomes.push(row.tag_value);
           break;
-        case "location":
+        case 'location':
           locationTypes.push(row.tag_value);
           break;
-        case "mood":
+        case 'mood':
           moods.push(row.tag_value);
           break;
-        case "feature":
+        case 'feature':
           features.push(row.tag_value);
           break;
       }
@@ -213,9 +200,9 @@ function rowToSummary(row: MapListRow): MapSummary {
     fileName: row.file_name,
     title: row.title,
     description: row.description,
-    interiorExterior: row.interior_exterior as MapSummary["interiorExterior"],
-    timeOfDay: row.time_of_day as MapSummary["timeOfDay"],
-    gridVisible: row.grid_visible as MapSummary["gridVisible"],
+    interiorExterior: row.interior_exterior as MapSummary['interiorExterior'],
+    timeOfDay: row.time_of_day as MapSummary['timeOfDay'],
+    gridVisible: row.grid_visible as MapSummary['gridVisible'],
     gridCells: row.grid_cells,
     approxPartyScale: row.approx_party_scale,
   };
@@ -243,13 +230,13 @@ function dedup(xs: string[]): string[] {
  * users without needing a full parser.
  */
 function escapeFtsQuery(input: string): string {
-  if (input.startsWith("raw:")) {
+  if (input.startsWith('raw:')) {
     return input.slice(4);
   }
   const tokens = input
     .split(/\s+/)
-    .map((t) => t.replace(/[^\p{L}\p{N}_-]/gu, ""))
+    .map((t) => t.replace(/[^\p{L}\p{N}_-]/gu, ''))
     .filter((t) => t.length > 0);
   if (tokens.length === 0) return '""';
-  return tokens.map((t) => `"${t}"`).join(" AND ");
+  return tokens.map((t) => `"${t}"`).join(' AND ');
 }

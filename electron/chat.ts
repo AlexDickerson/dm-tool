@@ -1,10 +1,16 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { streamText, generateText, tool, stepCountIs } from "ai";
-import { z } from "zod";
-import type { ChatChunk, ChatMessage, ChatModel } from "../shared/types.js";
-import { searchAoN, searchMonster as searchMonsterAoN, searchItem as searchItemAoN, searchFeat, searchSpell } from "./aon.js";
-import { searchCommunity } from "./community.js";
-import { searchMonsters as searchMonstersDb, searchItems as searchItemsDb } from "./pf2e-db.js";
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { streamText, generateText, tool, stepCountIs } from 'ai';
+import { z } from 'zod';
+import type { ChatChunk, ChatMessage, ChatModel } from '../shared/types.js';
+import {
+  searchAoN,
+  searchMonster as searchMonsterAoN,
+  searchItem as searchItemAoN,
+  searchFeat,
+  searchSpell,
+} from './aon.js';
+import { searchCommunity } from './community.js';
+import { searchMonsters as searchMonstersDb, searchItems as searchItemsDb } from './pf2e-db.js';
 
 const SYSTEM_PROMPT = `You are a TTRPG assistant embedded in a dungeon master's prep tool. You help a GM running Pathfinder 2e (remastered) campaigns.
 
@@ -76,16 +82,16 @@ NEVER offer GM advice, suggest house rules, or remind the user they can rule how
 
 const lookupRule = tool({
   description:
-    "Search Archives of Nethys (the official PF2e SRD) for rules content. " +
-    "Use SHORT keyword queries (1-3 words) matching the official rule/condition/feat/spell name. " +
-    "Make multiple focused calls rather than one long query. " +
+    'Search Archives of Nethys (the official PF2e SRD) for rules content. ' +
+    'Use SHORT keyword queries (1-3 words) matching the official rule/condition/feat/spell name. ' +
+    'Make multiple focused calls rather than one long query. ' +
     "Examples: 'Prone', 'flanking', 'Magic Missile', 'Moving Through a Creature\\'s Space'.",
   inputSchema: z.object({
     query: z
       .string()
       .describe(
-        "The search query — a rule name, condition, spell, feat, or topic " +
-        "(e.g. 'flanking', 'frightened condition', 'magic missile')",
+        'The search query — a rule name, condition, spell, feat, or topic ' +
+          "(e.g. 'flanking', 'frightened condition', 'magic missile')",
       ),
   }),
   execute: async ({ query }) => searchAoN(query),
@@ -93,56 +99,57 @@ const lookupRule = tool({
 
 const searchDiscussions = tool({
   description:
-    "Search PF2e community discussions on Reddit (r/Pathfinder2e, r/Pathfinder_RPG) and RPG Stack Exchange. " +
-    "Use this for edge cases, ambiguous rules interpretations, GM advice, homebrew opinions, or when " +
+    'Search PF2e community discussions on Reddit (r/Pathfinder2e, r/Pathfinder_RPG) and RPG Stack Exchange. ' +
+    'Use this for edge cases, ambiguous rules interpretations, GM advice, homebrew opinions, or when ' +
     "the official rules don't fully answer the question. NOT for official rules text — use lookupRule for that.",
   inputSchema: z.object({
     query: z
       .string()
       .describe(
-        "The search query — a rules question or topic " +
-        "(e.g. 'prone sharing space RAW', 'balancing boss encounters')",
+        'The search query — a rules question or topic ' +
+          "(e.g. 'prone sharing space RAW', 'balancing boss encounters')",
       ),
   }),
   execute: async ({ query }) => searchCommunity(query),
 });
 
 const lookupMonster = tool({
-  description:
-    "Look up a PF2e creature/monster by name. " +
-    "Returns stats, abilities, and description.",
+  description: 'Look up a PF2e creature/monster by name. ' + 'Returns stats, abilities, and description.',
   inputSchema: z.object({
     query: z.string().describe("Creature name (e.g. 'Goblin Warrior', 'Adult Red Dragon', 'Lich')"),
   }),
   execute: async ({ query }) => {
     try {
       const local = searchMonstersDb(query);
-      if (!local.startsWith("[No")) return local;
-    } catch { /* DB not loaded, fall through */ }
+      if (!local.startsWith('[No')) return local;
+    } catch {
+      /* DB not loaded, fall through */
+    }
     return searchMonsterAoN(query);
   },
 });
 
 const lookupItem = tool({
   description:
-    "Look up a PF2e item (equipment, weapon, armor, shield) by name. " +
-    "Returns stats, price, traits, and description.",
+    'Look up a PF2e item (equipment, weapon, armor, shield) by name. ' +
+    'Returns stats, price, traits, and description.',
   inputSchema: z.object({
     query: z.string().describe("Item name (e.g. 'Longsword', 'Healing Potion', 'Striking Rune')"),
   }),
   execute: async ({ query }) => {
     try {
       const local = searchItemsDb(query);
-      if (!local.startsWith("[No")) return local;
-    } catch { /* DB not loaded, fall through */ }
+      if (!local.startsWith('[No')) return local;
+    } catch {
+      /* DB not loaded, fall through */
+    }
     return searchItemAoN(query);
   },
 });
 
 const lookupFeat = tool({
   description:
-    "Look up a PF2e feat by name on Archives of Nethys. " +
-    "Returns prerequisites, actions, traits, and description.",
+    'Look up a PF2e feat by name on Archives of Nethys. ' + 'Returns prerequisites, actions, traits, and description.',
   inputSchema: z.object({
     query: z.string().describe("Feat name (e.g. 'Power Attack', 'Fleet', 'Incredible Initiative')"),
   }),
@@ -151,8 +158,8 @@ const lookupFeat = tool({
 
 const lookupSpell = tool({
   description:
-    "Look up a PF2e spell by name on Archives of Nethys. " +
-    "Returns rank, traditions, components, range, and description.",
+    'Look up a PF2e spell by name on Archives of Nethys. ' +
+    'Returns rank, traditions, components, range, and description.',
   inputSchema: z.object({
     query: z.string().describe("Spell name (e.g. 'Fireball', 'Heal', 'Magic Missile')"),
   }),
@@ -162,7 +169,7 @@ const lookupSpell = tool({
 export async function streamChat({
   apiKey,
   messages,
-  model = "claude-sonnet-4-6",
+  model = 'claude-sonnet-4-6',
   onChunk,
 }: {
   apiKey: string;
@@ -171,14 +178,14 @@ export async function streamChat({
   onChunk: (chunk: ChatChunk) => void;
 }): Promise<void> {
   const anthropic = createAnthropic({ apiKey });
-  const mapped = messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+  const mapped = messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
   // --- Pass 1: Draft (with tools, not streamed to user) ---
   // Always two-pass: the model decides whether to use tools based on the
   // system prompt. Keyword detection was too brittle.
-  console.log("[chat] two-pass mode");
-  console.log("[chat] pass 1: generating draft with tools…");
-  onChunk({ type: "tool-status", text: "Researching…" });
+  console.log('[chat] two-pass mode');
+  console.log('[chat] pass 1: generating draft with tools…');
+  onChunk({ type: 'tool-status', text: 'Researching…' });
 
   const draft = await generateText({
     model: anthropic(model),
@@ -193,15 +200,15 @@ export async function streamChat({
     for (const tc of step.toolCalls) {
       const p = tc as unknown as { toolName: string; input: { query: string } };
       const labels: Record<string, string> = {
-        searchDiscussions: "Searching community",
-        lookupMonster: "Looking up creature",
-        lookupItem: "Looking up item",
-        lookupFeat: "Looking up feat",
-        lookupSpell: "Looking up spell",
+        searchDiscussions: 'Searching community',
+        lookupMonster: 'Looking up creature',
+        lookupItem: 'Looking up item',
+        lookupFeat: 'Looking up feat',
+        lookupSpell: 'Looking up spell',
       };
-      const label = labels[p.toolName] ?? "Looking up";
-      console.log(`[chat] tool call: ${p.toolName}("${p.input?.query ?? "?"}")`);
-      onChunk({ type: "tool-status", text: `${label}: ${p.input?.query ?? "…"}` });
+      const label = labels[p.toolName] ?? 'Looking up';
+      console.log(`[chat] tool call: ${p.toolName}("${p.input?.query ?? '?'}")`);
+      onChunk({ type: 'tool-status', text: `${label}: ${p.input?.query ?? '…'}` });
     }
   }
 
@@ -213,27 +220,27 @@ export async function streamChat({
       console.log(`[chat] tool result: ${r.toolName} (${String(r.output).length} chars)`);
       return `[Tool: ${r.toolName}]\n${r.output}`;
     })
-    .join("\n\n");
+    .join('\n\n');
 
-  console.log("[chat] pass 1 draft:\n---\n%s\n---", draft.text);
+  console.log('[chat] pass 1 draft:\n---\n%s\n---', draft.text);
 
   // --- Pass 2: Review + stream final answer ---
-  console.log("[chat] pass 2: reviewing draft…");
-  onChunk({ type: "tool-status", text: "Reviewing answer…" });
+  console.log('[chat] pass 2: reviewing draft…');
+  onChunk({ type: 'tool-status', text: 'Reviewing answer…' });
 
-  const reviewMessages: Array<{ role: "user"; content: string }> = [
+  const reviewMessages: Array<{ role: 'user'; content: string }> = [
     {
-      role: "user",
+      role: 'user',
       content: [
-        "## Original question",
+        '## Original question',
         messages[messages.length - 1].content,
-        "",
-        "## Tool results",
-        toolContext || "(no tools were called)",
-        "",
-        "## Draft answer",
+        '',
+        '## Tool results',
+        toolContext || '(no tools were called)',
+        '',
+        '## Draft answer',
         draft.text,
-      ].join("\n"),
+      ].join('\n'),
     },
   ];
 
@@ -244,10 +251,10 @@ export async function streamChat({
   });
 
   for await (const part of reviewed.fullStream) {
-    if (part.type === "text-delta") {
-      onChunk({ type: "delta", text: (part as unknown as { text: string }).text });
+    if (part.type === 'text-delta') {
+      onChunk({ type: 'delta', text: (part as unknown as { text: string }).text });
     }
   }
 
-  onChunk({ type: "done" });
+  onChunk({ type: 'done' });
 }

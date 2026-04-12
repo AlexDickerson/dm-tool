@@ -1,16 +1,11 @@
-import { useMemo } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { cn, formatTag } from "@/lib/utils";
-import type {
-  Facets,
-  InteriorExterior,
-  SearchParams,
-  TimeOfDay,
-} from "@shared/types";
+import { useMemo } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { cn, formatTag } from '@/lib/utils';
+import type { Facets, InteriorExterior, SearchParams, TimeOfDay } from '@shared/types';
 
 interface FilterPanelProps {
   facets: Facets | null;
@@ -19,16 +14,16 @@ interface FilterPanelProps {
 }
 
 const INTERIOR_OPTS: Array<{ value: InteriorExterior; label: string }> = [
-  { value: "interior", label: "Interior" },
-  { value: "exterior", label: "Exterior" },
-  { value: "mixed", label: "Mixed" },
+  { value: 'interior', label: 'Interior' },
+  { value: 'exterior', label: 'Exterior' },
+  { value: 'mixed', label: 'Mixed' },
 ];
 
 const TIME_OPTS: Array<{ value: TimeOfDay; label: string }> = [
-  { value: "day", label: "Day" },
-  { value: "dusk", label: "Dusk" },
-  { value: "night", label: "Night" },
-  { value: "dawn", label: "Dawn" },
+  { value: 'day', label: 'Day' },
+  { value: 'dusk', label: 'Dusk' },
+  { value: 'night', label: 'Night' },
+  { value: 'dawn', label: 'Dawn' },
 ];
 
 // Note: there is no GRID_OPTS / Gridded vs Gridless filter row anymore.
@@ -40,18 +35,13 @@ const TIME_OPTS: Array<{ value: TimeOfDay; label: string }> = [
 export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
   // Stable update helpers — each produces a new params object with one
   // field flipped. Callers use these in event handlers.
-  const toggleTag = (field: "biomes" | "locationTypes", value: string) => {
+  const toggleTag = (field: 'biomes' | 'locationTypes', value: string) => {
     const current = params[field] ?? [];
-    const next = current.includes(value)
-      ? current.filter((v) => v !== value)
-      : [...current, value];
+    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
     onChange({ ...params, [field]: next.length > 0 ? next : undefined });
   };
 
-  const setAxis = <K extends "interiorExterior" | "timeOfDay">(
-    field: K,
-    value: SearchParams[K] | undefined,
-  ) => {
+  const setAxis = <K extends 'interiorExterior' | 'timeOfDay'>(field: K, value: SearchParams[K] | undefined) => {
     onChange({ ...params, [field]: params[field] === value ? undefined : value });
   };
 
@@ -74,9 +64,7 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
           indicator instead of a parenthetical. */}
       <div className="flex h-12 items-center justify-between px-3">
         <div className="flex items-center gap-2">
-          <Label className="text-sm font-semibold tracking-wide text-foreground">
-            Filters
-          </Label>
+          <Label className="text-sm font-semibold tracking-wide text-foreground">Filters</Label>
           {activeCount > 0 && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
               {activeCount}
@@ -88,9 +76,7 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
             variant="ghost"
             size="sm"
             className="h-6 px-2 text-xs"
-            onClick={() =>
-              onChange({ keywords: params.keywords, limit: params.limit })
-            }
+            onClick={() => onChange({ keywords: params.keywords, limit: params.limit })}
           >
             Clear
           </Button>
@@ -109,7 +95,7 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
                 key={opt.value}
                 label={opt.label}
                 active={params.interiorExterior === opt.value}
-                onClick={() => setAxis("interiorExterior", opt.value)}
+                onClick={() => setAxis('interiorExterior', opt.value)}
               />
             ))}
             {TIME_OPTS.map((opt) => (
@@ -117,7 +103,7 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
                 key={opt.value}
                 label={opt.label}
                 active={params.timeOfDay === opt.value}
-                onClick={() => setAxis("timeOfDay", opt.value)}
+                onClick={() => setAxis('timeOfDay', opt.value)}
               />
             ))}
           </div>
@@ -133,13 +119,13 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
               label="Locations"
               values={facets?.locationTypes ?? []}
               selected={params.locationTypes ?? []}
-              onToggle={(v) => toggleTag("locationTypes", v)}
+              onToggle={(v) => toggleTag('locationTypes', v)}
             />
             <TagGroup
               label="Biomes"
               values={facets?.biomes ?? []}
               selected={params.biomes ?? []}
-              onToggle={(v) => toggleTag("biomes", v)}
+              onToggle={(v) => toggleTag('biomes', v)}
             />
           </div>
         </div>
@@ -148,24 +134,14 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
   );
 }
 
-function PillButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
+function PillButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-md border border-border px-2 py-1 text-xs transition-colors",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "bg-background hover:bg-accent",
+        'rounded-md border border-border px-2 py-1 text-xs transition-colors',
+        active ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:bg-accent',
       )}
     >
       {label}
@@ -190,9 +166,7 @@ function TagGroup({ label, values, selected, onToggle }: TagGroupProps) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between border-t border-border pt-2">
-        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {label}
-        </Label>
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
         {selectedCount > 0 && (
           <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
             {selectedCount}
@@ -205,15 +179,8 @@ function TagGroup({ label, values, selected, onToggle }: TagGroupProps) {
           const id = `tag-${label}-${v}`;
           return (
             <div key={v} className="flex items-center gap-2">
-              <Checkbox
-                id={id}
-                checked={checked}
-                onCheckedChange={() => onToggle(v)}
-              />
-              <label
-                htmlFor={id}
-                className="cursor-pointer text-xs text-foreground/90"
-              >
+              <Checkbox id={id} checked={checked} onCheckedChange={() => onToggle(v)} />
+              <label htmlFor={id} className="cursor-pointer text-xs text-foreground/90">
                 {formatTag(v)}
               </label>
             </div>

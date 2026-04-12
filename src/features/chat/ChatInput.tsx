@@ -1,14 +1,8 @@
-import { useCallback, useRef } from "react";
-import { Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useRef } from 'react';
+import { Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-export function ChatInput({
-  onSend,
-  disabled,
-}: {
-  onSend: (text: string) => void;
-  disabled?: boolean;
-}) {
+export function ChatInput({ onSend, disabled }: { onSend: (text: string) => void; disabled?: boolean }) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   const submit = useCallback(() => {
@@ -17,14 +11,14 @@ export function ChatInput({
     const text = el.value.trim();
     if (!text) return;
     onSend(text);
-    el.value = "";
+    el.value = '';
     // Reset height back to single row after send.
-    el.style.height = "";
+    el.style.height = '';
   }, [onSend]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submit();
       }
@@ -36,7 +30,7 @@ export function ChatInput({
   const handleInput = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = "auto";
+    el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, []);
 

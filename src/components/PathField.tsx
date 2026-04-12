@@ -2,10 +2,10 @@
 // and the first-run SetupScreen. Shows a read-only input with the current
 // value and a browse button that opens the native OS folder/file picker.
 
-import { FolderOpen } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+import { FolderOpen } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 
 export function PathField({
   label,
@@ -20,7 +20,7 @@ export function PathField({
   description: string;
   value: string;
   onChange: (path: string) => void;
-  mode: "directory" | "file";
+  mode: 'directory' | 'file';
   required?: boolean;
   filters?: { name: string; extensions: string[] }[];
 }) {
@@ -44,7 +44,7 @@ export function PathField({
         <Input
           readOnly
           value={value}
-          placeholder={required ? "Required" : "Not set"}
+          placeholder={required ? 'Required' : 'Not set'}
           className="flex-1 truncate text-xs"
           title={value || undefined}
         />
@@ -52,9 +52,7 @@ export function PathField({
           <FolderOpen className="h-3.5 w-3.5" />
         </Button>
       </div>
-      <p className="text-[11px] leading-snug text-muted-foreground">
-        {description}
-      </p>
+      <p className="text-[11px] leading-snug text-muted-foreground">{description}</p>
     </div>
   );
 }

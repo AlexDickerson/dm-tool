@@ -1,7 +1,7 @@
 // Archives of Nethys lookup via their public Elasticsearch endpoint.
 // Used by the chat assistant's tools to fetch authoritative PF2e content.
 
-const AON_URL = "https://elasticsearch.aonprd.com/aon/_search";
+const AON_URL = 'https://elasticsearch.aonprd.com/aon/_search';
 
 interface AonHit {
   name: string;
@@ -14,38 +14,38 @@ interface AonHit {
 /** Strip HTML tags so the model sees clean text. */
 function stripHtml(html: string): string {
   return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 /** Truncate text to a reasonable length for context. */
 function truncate(text: string, max = 1500): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + "…";
+  return text.slice(0, max) + '…';
 }
 
 function formatHits(hits: AonHit[], label: string): string {
   if (hits.length === 0) return `[No ${label} results found]`;
   return hits
     .map((h, i) => {
-      const sources = Array.isArray(h.source) ? h.source.join(", ") : h.source;
+      const sources = Array.isArray(h.source) ? h.source.join(', ') : h.source;
       const body = truncate(stripHtml(h.text));
       return [
         `--- ${label} Result ${i + 1}: ${h.name} (${h.category}) ---`,
         `Source: ${sources}`,
         `URL: https://2e.aonprd.com${h.url}`,
-        "",
+        '',
         body,
-      ].join("\n");
+      ].join('\n');
     })
-    .join("\n\n");
+    .join('\n\n');
 }
 
 /**
@@ -56,36 +56,34 @@ async function queryAoN(
   query: string,
   opts: { categories?: string[]; size?: number; label?: string } = {},
 ): Promise<string> {
-  const { categories, size = 3, label = "AoN" } = opts;
+  const { categories, size = 3, label = 'AoN' } = opts;
 
   try {
     // Build the ES query — add a category filter if specified.
     const esQuery: Record<string, unknown> = categories
       ? {
           bool: {
-            must: { multi_match: { query, fields: ["name^3", "text"] } },
+            must: { multi_match: { query, fields: ['name^3', 'text'] } },
             filter: { terms: { category: categories } },
           },
         }
-      : { multi_match: { query, fields: ["name^3", "text"] } };
+      : { multi_match: { query, fields: ['name^3', 'text'] } };
 
     const res = await fetch(AON_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         query: esQuery,
         size,
-        _source: ["name", "category", "text", "source", "url"],
+        _source: ['name', 'category', 'text', 'source', 'url'],
       }),
     });
 
     if (!res.ok) return `[AoN lookup failed: HTTP ${res.status}]`;
 
     const data = await res.json();
-    const hits: AonHit[] = (data.hits?.hits ?? []).map(
-      (h: { _source: AonHit }) => h._source,
-    );
+    const hits: AonHit[] = (data.hits?.hits ?? []).map((h: { _source: AonHit }) => h._source);
 
     return formatHits(hits, label);
   } catch (err: unknown) {
@@ -98,28 +96,28 @@ async function queryAoN(
 
 /** General rules search (no category filter). */
 export function searchAoN(query: string): Promise<string> {
-  return queryAoN(query, { label: "Rules" });
+  return queryAoN(query, { label: 'Rules' });
 }
 
 /** Creature/monster search. */
 export function searchMonster(query: string): Promise<string> {
-  return queryAoN(query, { categories: ["creature"], label: "Creature" });
+  return queryAoN(query, { categories: ['creature'], label: 'Creature' });
 }
 
 /** Item search (equipment, weapons, armor, shields). */
 export function searchItem(query: string): Promise<string> {
   return queryAoN(query, {
-    categories: ["equipment", "weapon", "armor", "shield"],
-    label: "Item",
+    categories: ['equipment', 'weapon', 'armor', 'shield'],
+    label: 'Item',
   });
 }
 
 /** Feat search. */
 export function searchFeat(query: string): Promise<string> {
-  return queryAoN(query, { categories: ["feat"], label: "Feat" });
+  return queryAoN(query, { categories: ['feat'], label: 'Feat' });
 }
 
 /** Spell search. */
 export function searchSpell(query: string): Promise<string> {
-  return queryAoN(query, { categories: ["spell"], label: "Spell" });
+  return queryAoN(query, { categories: ['spell'], label: 'Spell' });
 }
