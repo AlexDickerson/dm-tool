@@ -160,6 +160,15 @@ export class MapDb {
     };
   }
 
+  /** All filenames in the library, sorted alphabetically. Used by the
+   *  pack-grouper to build the full mapping in one shot. */
+  allFileNames(): string[] {
+    const rows = this.db
+      .prepare("SELECT file_name FROM maps ORDER BY file_name")
+      .all() as Array<{ file_name: string }>;
+    return rows.map((r) => r.file_name);
+  }
+
   /** Returns distinct tag values across the library, grouped by kind.
    *  Used to populate the filter panel without hardcoding the enum lists. */
   getFacets(): Facets {

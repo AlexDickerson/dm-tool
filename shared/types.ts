@@ -166,4 +166,24 @@ export interface ElectronAPI {
    *  <img> tag's onError handler will fall back to a placeholder, and
    *  once ingest completes the URL starts resolving. */
   booksGetCoverUrl(id: number): Promise<string>;
+
+  // -----------------------------------------------------------------------
+  // Pack grouping (AI-driven variant clustering)
+  // -----------------------------------------------------------------------
+
+  /** Return the cached pack mapping if it's up-to-date with the current
+   *  library. Returns null when an import is needed. */
+  getPackMapping(): Promise<Record<string, string> | null>;
+  /** Build the prompt text the user should send to Claude to generate
+   *  the pack grouping. The user copies this, pastes it into Claude,
+   *  and imports the JSON response back. */
+  exportPackGroupingPrompt(): Promise<string>;
+  /** Open a file picker for a .json file, parse and cache the pack
+   *  mapping from it. Returns the mapping, or null if the user cancelled. */
+  importPackMappingFromFile(): Promise<Record<string, string> | null>;
+  /** Merge multiple pack names into one and persist the change. */
+  mergePacks(args: {
+    sourcePacks: string[];
+    targetName: string;
+  }): Promise<Record<string, string> | null>;
 }

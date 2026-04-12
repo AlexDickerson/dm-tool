@@ -35,6 +35,7 @@ const api: ElectronAPI = {
   }): Promise<string[]> =>
     ipcRenderer.invoke("regenerateEncounterHooks", args),
 
+
   // Book catalog + reader
   booksScan: (): Promise<BookScanResult> => ipcRenderer.invoke("booksScan"),
   booksList: (): Promise<Book[]> => ipcRenderer.invoke("booksList"),
@@ -46,6 +47,19 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("booksGetFileUrl", id),
   booksGetCoverUrl: (id: number): Promise<string> =>
     ipcRenderer.invoke("booksGetCoverUrl", id),
+
+  // Pack grouping
+  getPackMapping: (): Promise<Record<string, string> | null> =>
+    ipcRenderer.invoke("getPackMapping"),
+  exportPackGroupingPrompt: (): Promise<string> =>
+    ipcRenderer.invoke("exportPackGroupingPrompt"),
+  importPackMappingFromFile: (): Promise<Record<string, string> | null> =>
+    ipcRenderer.invoke("importPackMappingFromFile"),
+  mergePacks: (args: {
+    sourcePacks: string[];
+    targetName: string;
+  }): Promise<Record<string, string> | null> =>
+    ipcRenderer.invoke("mergePacks", args),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

@@ -116,3 +116,74 @@ export function useOpenInExplorer() {
     }
   }, []);
 }
+
+// ---------------------------------------------------------------------------
+// Pack mapping (AI-driven variant clustering)
+// ---------------------------------------------------------------------------
+
+interface PackMappingState {
+  /** The mapping from fileName → packName, or null if not yet loaded. */
+  mapping: Record<string, string> | null;
+  /** Error from the last import attempt, if any. */
+  error: string | null;
+}
+
+/** Fetch the cached pack mapping on mount. Exposes `exportPrompt` to
+ *  copy the grouping prompt to clipboard, and `importFromFile` to open
+ *  a file picker and import the JSON mapping. */
+export function usePackMapping(): PackMappingState & {
+  exportPrompt: () => Promise<string>;
+  importFromFile: () => Promise<void>;
+  merge: (sourcePacks: string[], targetName: string) => Promise<void>;
+} {
+  const [state, setState] = useState<PackMappingState>({
+    mapping: null,
+    error: null,
+  });
+
+  // Fetch cached mapping on mount.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getPackMapping()
+      .then((mapping) => {
+        if (!cancelled && mapping) {
+          setState({ mapping, error: null });
+        }
+      })
+      .catch((e: Error) => {
+        if (!cancelled) console.error("Failed to load pack mapping cache:", e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const exportPrompt = useCallback(async () => {
+    return api.exportPackGroupingPrompt();
+  }, []);
+
+  const importFromFile = useCallback(async () => {
+    try {
+      const mapping = await api.importPackMappingFromFile();
+      if (mapping) {
+        setState({ mapping, error: null });
+      }
+    } catch (e) {
+      setState((s) => ({ ...s, error: (e as Error).message }));
+    }
+  }, []);
+
+  const merge = useCallback(async (sourcePacks: string[], targetName: string) => {
+    try {
+      const mapping = await api.mergePacks({ sourcePacks, targetName });
+      if (mapping) {
+        setState({ mapping, error: null });
+      }
+    } catch (e) {
+      setState((s) => ({ ...s, error: (e as Error).message }));
+    }
+  }, []);
+
+  return { ...state, exportPrompt, importFromFile, merge };
+}

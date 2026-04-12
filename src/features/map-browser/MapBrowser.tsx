@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Layers, Rows } from "lucide-react";
+import { Check, ClipboardCopy, FolderOpen, Info, Layers, Merge, Rows, X } from "lucide-react";
 import { FilterPanel } from "./FilterPanel";
 import { ThumbnailGrid, type ThumbnailItem } from "./ThumbnailGrid";
 import { DetailPane } from "./DetailPane";
-import { useFacets, useMapSearch } from "./useMaps";
+import { useFacets, useMapSearch, usePackMapping } from "./useMaps";
 import { cn } from "@/lib/utils";
 import type { MapSummary, SearchParams } from "@shared/types";
 import { groupByStem } from "@shared/map-stem";
@@ -51,8 +51,25 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
   const { data: maps, loading, error } = useMapSearch(searchParams);
   const { data: facets } = useFacets();
 
+  const packMapping = usePackMapping();
+
+  const handleExportPrompt = useCallback(async () => {
+    const prompt = await packMapping.exportPrompt();
+    await navigator.clipboard.writeText(prompt);
+  }, [packMapping.exportPrompt]);
+
+  // Group maps using the AI mapping when available, falling back to
+  // the filename-stemming heuristic when it's not.
+  const groupMaps = useMemo(() => {
+    const mapping = packMapping.mapping;
+    if (!mapping) return groupByStem;
+    return <T extends { fileName: string }>(rows: readonly T[]) => {
+      return groupByMapping(rows, mapping);
+    };
+  }, [packMapping.mapping]);
+
   // Build the flat list of thumbnail items. When grouping is on, we
-  // collapse into one item per pack stem; when off, each map is its own
+  // collapse into one item per pack; when off, each map is its own
   // item (variantCount = 1 so no badge renders).
   const { items, groupCount } = useMemo(() => {
     const rows = maps ?? [];
@@ -62,32 +79,25 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
         groupCount: rows.length,
       };
     }
-    const groups = groupByStem(rows);
+    const groups = groupMaps(rows);
     const items: ThumbnailItem[] = groups.map((g) => ({
       map: g.representative,
       variantCount: g.variants.length,
     }));
     return { items, groupCount: groups.length };
-  }, [maps, grouped]);
+  }, [maps, grouped, groupMaps]);
 
   // Look up the variant set for a given fileName, regardless of whether
   // we're in grouped or flat view. We always want variants in the detail
   // pane so the grid-toggle (and any other per-pack UI) can work even
-  // when the user is browsing flat. The variant column visibility is a
-  // separate concern handled inside DetailPane. This is O(n) per click
-  // which is fine for result sets up to the search limit (currently 10k
-  // — microseconds per click); if it ever gets hot we can memoize an
-  // index from stem → variants.
+  // when the user is browsing flat.
   const handleSelect = (item: ThumbnailItem) => {
     setSelectedFileName(item.map.fileName);
     if (!maps) {
       setActiveVariants(null);
       return;
     }
-    const groups = groupByStem(maps);
-    // In grouped view the clicked card is a representative, so it's a
-    // direct lookup. In flat view the clicked map can be ANY member of
-    // its pack — find the group it belongs to.
+    const groups = groupMaps(maps);
     const g = groups.find((g) =>
       g.variants.some((v) => v.fileName === item.map.fileName),
     );
@@ -124,6 +134,66 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
     el.addEventListener("animationend", onEnd);
   }, []);
 
+  // Merge mode: multi-select packs to merge them into one.
+  const [mergeMode, setMergeMode] = useState(false);
+  // Map from representative fileName → pack stem name (for display and IPC).
+  const [mergeSelected, setMergeSelected] = useState<Map<string, string>>(new Map());
+
+  const toggleMergeMode = useCallback(() => {
+    setMergeMode((m) => {
+      if (m) setMergeSelected(new Map());
+      return !m;
+    });
+  }, []);
+
+  const handleMergeSelect = useCallback(
+    (item: ThumbnailItem) => {
+      if (!maps) return;
+      // Find the pack stem for this item.
+      const groups = groupMaps(maps);
+      const g = groups.find((g) =>
+        g.variants.some((v) => v.fileName === item.map.fileName),
+      );
+      if (!g) return;
+      setMergeSelected((prev) => {
+        const next = new Map(prev);
+        if (next.has(item.map.fileName)) {
+          next.delete(item.map.fileName);
+        } else {
+          next.set(item.map.fileName, g.stem);
+        }
+        return next;
+      });
+    },
+    [maps, groupMaps],
+  );
+
+  const [mergeNameInput, setMergeNameInput] = useState("");
+  const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+
+  const startMerge = useCallback(() => {
+    // Default the name to the first selected pack's stem.
+    const first = mergeSelected.values().next().value;
+    setMergeNameInput(first ?? "");
+    setShowMergeConfirm(true);
+  }, [mergeSelected]);
+
+  const confirmMerge = useCallback(async () => {
+    const name = mergeNameInput.trim();
+    if (!name) return;
+    const sourcePacks = Array.from(mergeSelected.values());
+    await packMapping.merge(sourcePacks, name);
+    setShowMergeConfirm(false);
+    setMergeSelected(new Map());
+    setMergeMode(false);
+  }, [mergeNameInput, mergeSelected, packMapping]);
+
+  // Set of representative fileNames for the ThumbnailGrid highlight.
+  const mergeSelectedFileNames = useMemo(
+    () => new Set(mergeSelected.keys()),
+    [mergeSelected],
+  );
+
   // When a map is selected, both the grid and the detail pane share
   // the remaining horizontal space, but weighted so the detail area
   // gets ~2× the grid. The grid keeps enough width to show 2+ columns
@@ -150,12 +220,23 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
         )}
       >
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-          <Input
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            placeholder="Search — e.g. 'a gloomy castle in a dark forest'"
-            className="max-w-xl"
-          />
+          <div className="relative max-w-xl flex-1">
+            <Input
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+              placeholder="Search — e.g. 'a gloomy castle in a dark forest'"
+              className={cn(keywords && "pr-8")}
+            />
+            {keywords && (
+              <button
+                type="button"
+                onClick={() => setKeywords("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -174,28 +255,116 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
             {grouped ? <Layers className="h-3.5 w-3.5" /> : <Rows className="h-3.5 w-3.5" />}
             {grouped ? "Grouped" : "Flat"}
           </Button>
-          <div className="text-xs text-muted-foreground">
-            {loading && "Searching…"}
-            {!loading && maps && (
-              <>
-                {groupCount} {grouped ? "packs" : "results"}
-                {grouped && maps.length !== groupCount && (
-                  <span className="ml-1 text-muted-foreground/70">
-                    ({maps.length} files)
-                  </span>
-                )}
-              </>
-            )}
-            {error && <span className="text-destructive">Error: {error}</span>}
-          </div>
+          {!packMapping.mapping && grouped && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportPrompt}
+                className="gap-1.5 whitespace-nowrap"
+                title="Copy a prompt to your clipboard that you can send to Claude to generate pack groupings"
+              >
+                <ClipboardCopy className="h-3.5 w-3.5" />
+                Export prompt
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={packMapping.importFromFile}
+                className="gap-1.5 whitespace-nowrap"
+                title="Import a pack grouping JSON file downloaded from Claude"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                Import grouping
+              </Button>
+            </>
+          )}
+          {packMapping.mapping && grouped && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={toggleMergeMode}
+              className={cn(
+                "gap-1.5 whitespace-nowrap",
+                mergeMode && "border-blue-500/60 bg-blue-500/10 text-blue-400",
+              )}
+              title="Select multiple packs to merge them into one"
+            >
+              <Merge className="h-3.5 w-3.5" />
+              {mergeMode ? "Cancel merge" : "Merge packs"}
+            </Button>
+          )}
+          {loading && (
+            <span className="text-xs text-muted-foreground">Searching…</span>
+          )}
+          {!loading && maps && (
+            <span
+              className="group relative cursor-default text-muted-foreground"
+              title={`${groupCount} ${grouped ? "packs" : "results"}${grouped && maps.length !== groupCount ? ` (${maps.length} files)` : ""}`}
+            >
+              <Info className="h-3.5 w-3.5" />
+            </span>
+          )}
+          {error && (
+            <span className="text-xs text-destructive">Error: {error}</span>
+          )}
+          {packMapping.error && (
+            <span className="text-xs text-destructive">Import failed: {packMapping.error}</span>
+          )}
         </div>
-        <div className="flex-1 overflow-hidden">
+        <div className="relative flex-1 overflow-hidden">
           <ThumbnailGrid
             items={items}
             selected={selectedFileName}
-            onSelect={handleSelect}
+            onSelect={mergeMode ? handleMergeSelect : handleSelect}
             scale={thumbScale}
+            mergeSelection={mergeMode ? mergeSelectedFileNames : null}
           />
+          {/* Merge confirmation bar */}
+          {mergeMode && mergeSelected.size >= 2 && !showMergeConfirm && (
+            <div
+              className="absolute bottom-4 left-1/2 flex items-center gap-3 rounded-lg border border-blue-500/40 bg-card/95 px-4 py-2 shadow-lg"
+              style={{ transform: "translateX(-50%)" }}
+            >
+              <span className="text-sm font-medium">
+                {mergeSelected.size} packs selected
+              </span>
+              <Button size="sm" onClick={startMerge} className="gap-1.5">
+                <Merge className="h-3.5 w-3.5" />
+                Merge
+              </Button>
+            </div>
+          )}
+          {/* Merge name input */}
+          {showMergeConfirm && (
+            <div
+              className="absolute bottom-4 left-1/2 flex items-center gap-2 rounded-lg border border-blue-500/40 bg-card/95 px-4 py-2 shadow-lg"
+              style={{ transform: "translateX(-50%)" }}
+            >
+              <span className="text-sm text-muted-foreground">Pack name:</span>
+              <Input
+                value={mergeNameInput}
+                onChange={(e) => setMergeNameInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && confirmMerge()}
+                className="h-7 w-56"
+                autoFocus
+              />
+              <Button size="sm" onClick={confirmMerge} className="h-7 w-7 p-0">
+                <Check className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowMergeConfirm(false)}
+                className="h-7 w-7 p-0"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -224,4 +393,40 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Mapping-based grouping — same interface as groupByStem but driven by
+// the AI-generated pack mapping instead of filename heuristics.
+// ---------------------------------------------------------------------------
+
+import type { MapGroup } from "@shared/map-stem";
+
+function groupByMapping<T extends { fileName: string }>(
+  maps: readonly T[],
+  mapping: Record<string, string>,
+): MapGroup<T>[] {
+  const buckets = new Map<string, T[]>();
+  for (const m of maps) {
+    const pack = mapping[m.fileName] ?? m.fileName;
+    let list = buckets.get(pack);
+    if (!list) {
+      list = [];
+      buckets.set(pack, list);
+    }
+    list.push(m);
+  }
+
+  const result: MapGroup<T>[] = [];
+  for (const [stem, list] of buckets) {
+    const sorted = [...list].sort((a, b) =>
+      a.fileName.localeCompare(b.fileName),
+    );
+    result.push({
+      stem,
+      representative: list[0],
+      variants: sorted,
+    });
+  }
+  return result;
 }

@@ -5,7 +5,7 @@
 // `shared/types.ts::ElectronAPI` and the corresponding contextBridge
 // exposure in preload.ts — the three files form one contract.
 
-import { app, ipcMain, shell } from "electron";
+import { app, dialog, ipcMain, shell } from "electron";
 import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import type { MapDb } from "./db.js";
@@ -24,6 +24,12 @@ import {
 } from "./hooks-store.js";
 import { generateEncounterHooks } from "./anthropic.js";
 import { scanBookRoot } from "./book-scanner.js";
+import {
+  buildGroupingPrompt,
+  getCachedPackMapping,
+  mergePacks,
+  parseAndCacheMapping,
+} from "./pack-grouper.js";
 
 /** Resolved paths for the book cover cache. Computed once at startup so
  *  every handler doesn't have to recompute them. `relative` is the
@@ -122,12 +128,6 @@ export function registerIpcHandlers(
   );
 
   // --- Book catalog + reader --------------------------------------------
-  //
-  // All book handlers are registered even when bookDb is null (no
-  // booksPath configured), so the renderer gets a clean error string
-  // instead of an opaque "handler not registered" IPC failure. The
-  // catalog UI checks for the "not configured" error and shows a friendly
-  // configure-me panel.
 
   const requireBookDb = (): BookDb => {
     if (!bookDb) {
@@ -141,8 +141,6 @@ export function registerIpcHandlers(
   ipcMain.handle("booksScan", async (): Promise<BookScanResult> => {
     const b = requireBookDb();
     if (!cfg.booksPath) {
-      // requireBookDb would have thrown already — this narrows cfg.booksPath
-      // for TypeScript. Defensive.
       throw new Error("booksScan: booksPath is not set");
     }
     const scanned = scanBookRoot(cfg.booksPath);
@@ -165,22 +163,14 @@ export function registerIpcHandlers(
         throw new Error("booksFinalizeIngest: id and pageCount are required");
       }
       if (!(args.coverPngBytes instanceof Uint8Array)) {
-        // structured-clone delivers Uint8Array on the main side. If the
-        // renderer accidentally sent an ArrayBuffer (Electron used to
-        // transfer as ArrayBuffer pre-v25) we wrap it defensively.
         throw new Error("booksFinalizeIngest: coverPngBytes must be a Uint8Array");
       }
-      // Make sure the row still exists — a rescan may have deleted it
-      // between the open and the finalize.
       const existing = b.getById(args.id);
       if (!existing) {
         throw new Error(`booksFinalizeIngest: unknown book id ${args.id}`);
       }
 
       await mkdir(coverPaths.absRoot, { recursive: true });
-      // Cover filename is deterministic: `<id>.png`. The cover_path we
-      // store in the DB is just that filename (not the full path) so the
-      // DB stays portable across userData moves.
       const relName = `${args.id}.png`;
       const absPath = join(coverPaths.absRoot, relName);
       await writeFile(absPath, args.coverPngBytes);
@@ -193,9 +183,6 @@ export function registerIpcHandlers(
     },
   );
 
-  // The renderer never sees absolute paths — it gets a `book-file://`
-  // URL and hands it to pdfjs. Main resolves the id to a path at fetch
-  // time inside the protocol handler.
   ipcMain.handle("booksGetFileUrl", async (_e, id: number): Promise<string> => {
     const b = requireBookDb();
     const path = b.getPath(id);
@@ -204,10 +191,47 @@ export function registerIpcHandlers(
   });
 
   ipcMain.handle("booksGetCoverUrl", async (_e, id: number): Promise<string> => {
-    // Don't check for existence here — we return the URL unconditionally
-    // so the <img> tag can use onError for the placeholder fallback. The
-    // protocol handler returns 404 if the cover file is missing.
     requireBookDb();
     return `book-file://covers/${id}`;
   });
+
+  // -----------------------------------------------------------------------
+  // Pack grouping
+  // -----------------------------------------------------------------------
+
+  ipcMain.handle("getPackMapping", () => {
+    const fileNames = db.allFileNames();
+    return getCachedPackMapping(fileNames);
+  });
+
+  ipcMain.handle("exportPackGroupingPrompt", () => {
+    const fileNames = db.allFileNames();
+    return buildGroupingPrompt(fileNames);
+  });
+
+  ipcMain.handle(
+    "importPackMappingFromFile",
+    async (): Promise<Record<string, string> | null> => {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        title: "Import pack grouping JSON",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+        properties: ["openFile"],
+      });
+      if (canceled || filePaths.length === 0) return null;
+      const { readFileSync } = await import("node:fs");
+      const jsonText = readFileSync(filePaths[0], "utf-8");
+      const fileNames = db.allFileNames();
+      return parseAndCacheMapping(jsonText, fileNames);
+    },
+  );
+
+  ipcMain.handle(
+    "mergePacks",
+    (
+      _e,
+      args: { sourcePacks: string[]; targetName: string },
+    ): Record<string, string> | null => {
+      return mergePacks(args.sourcePacks, args.targetName);
+    },
+  );
 }

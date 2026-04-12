@@ -18,6 +18,9 @@ interface ThumbnailGridProps {
   onSelect: (item: ThumbnailItem) => void;
   /** Multiplier applied to the base THUMB_WIDTH/HEIGHT. 1 = original. */
   scale?: number;
+  /** When non-null, the grid is in merge-select mode. The set contains
+   *  fileNames of currently selected cards. */
+  mergeSelection?: Set<string> | null;
 }
 
 // Base thumbnail dimensions. Tuned so the grid shows 2 columns at ~400px
@@ -28,7 +31,7 @@ const BASE_THUMB_WIDTH = 180;
 const BASE_THUMB_HEIGHT = 140; // image + label row
 const GAP = 12;
 
-export function ThumbnailGrid({ items, selected, onSelect, scale = 1 }: ThumbnailGridProps) {
+export function ThumbnailGrid({ items, selected, onSelect, scale = 1, mergeSelection }: ThumbnailGridProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
 
@@ -146,6 +149,8 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1 }: Thumbnai
                   key={it.map.fileName}
                   item={it}
                   isSelected={it.map.fileName === selected}
+                  mergeChecked={mergeSelection?.has(it.map.fileName) ?? false}
+                  mergeMode={mergeSelection != null}
                   onClick={() => onSelect(it)}
                   height={thumbHeight}
                 />
@@ -161,11 +166,13 @@ export function ThumbnailGrid({ items, selected, onSelect, scale = 1 }: Thumbnai
 interface ThumbnailCardProps {
   item: ThumbnailItem;
   isSelected: boolean;
+  mergeChecked: boolean;
+  mergeMode: boolean;
   onClick: () => void;
   height: number;
 }
 
-function ThumbnailCard({ item, isSelected, onClick, height }: ThumbnailCardProps) {
+function ThumbnailCard({ item, isSelected, mergeChecked, mergeMode, onClick, height }: ThumbnailCardProps) {
   const [errored, setErrored] = useState(false);
   const { map, variantCount } = item;
   return (
@@ -174,7 +181,8 @@ function ThumbnailCard({ item, isSelected, onClick, height }: ThumbnailCardProps
       onClick={onClick}
       className={cn(
         "group relative overflow-hidden rounded-md border border-border bg-muted text-left transition-all hover:border-primary/60",
-        isSelected && "border-primary ring-2 ring-primary/40",
+        isSelected && !mergeMode && "border-primary ring-2 ring-primary/40",
+        mergeChecked && "ring-2 ring-blue-500 border-blue-500",
       )}
       style={{ height }}
       title={variantCount > 1 ? `${map.title} (+${variantCount - 1} variants)` : map.title}
@@ -208,6 +216,18 @@ function ThumbnailCard({ item, isSelected, onClick, height }: ThumbnailCardProps
       {variantCount > 1 && (
         <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-md bg-black/70 px-2 py-0.5 text-sm font-semibold text-white shadow-sm">
           {variantCount}
+        </div>
+      )}
+      {mergeMode && (
+        <div
+          className={cn(
+            "pointer-events-none absolute left-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[11px] font-bold",
+            mergeChecked
+              ? "border-blue-500 bg-blue-500 text-white"
+              : "border-white/70 bg-black/50",
+          )}
+        >
+          {mergeChecked && "\u2713"}
         </div>
       )}
     </button>
