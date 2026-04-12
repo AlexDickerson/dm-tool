@@ -77,7 +77,7 @@ export function ItemCardGrid({ groups, selectedId, onSelect, loading }: Props) {
   const totalItems = groups.reduce((sum, g) => sum + g.siblings.length, 0);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto" style={{ paddingTop: GAP }}>
         {loading && groups.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">Loading items...</div>

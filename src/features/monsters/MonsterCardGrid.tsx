@@ -60,7 +60,7 @@ export function MonsterCardGrid({ monsters, error, selected, onSelect }: Props) 
   const mod = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
 
       <div ref={parentRef} className="min-h-0 flex-1 overflow-auto" style={{ paddingTop: GAP }}>
