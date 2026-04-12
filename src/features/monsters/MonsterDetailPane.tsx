@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { ExternalLink, Image, User, X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -46,16 +45,9 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-4 p-4">
-            {/* Art + Token hover previews */}
-            {(detail.imageUrl || detail.tokenUrl) && (
-              <div className="flex items-center gap-2">
-                {detail.imageUrl && (
-                  <ImageThumb src={detail.imageUrl} label="Art" icon={<Image className="h-3.5 w-3.5" />} />
-                )}
-                {detail.tokenUrl && (
-                  <ImageThumb src={detail.tokenUrl} label="Token" icon={<User className="h-3.5 w-3.5" />} />
-                )}
-              </div>
+            {/* Description — directly under the name */}
+            {detail.description && (
+              <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
             )}
 
             {/* Rarity + Size + Traits */}
@@ -159,17 +151,6 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
               </>
             )}
 
-            {/* Description */}
-            {detail.description && (
-              <>
-                <Separator />
-                <section>
-                  <SectionLabel>Description</SectionLabel>
-                  <p className="text-xs leading-relaxed text-muted-foreground">{detail.description}</p>
-                </section>
-              </>
-            )}
-
             {/* Source + AoN link */}
             <Separator />
             <div className="flex items-center justify-between">
@@ -185,6 +166,14 @@ export function MonsterDetailPane({ detail, loading, onOpenExternal, onClose }: 
                 </button>
               )}
             </div>
+
+            {/* Full art */}
+            {detail.imageUrl && (
+              <>
+                <Separator />
+                <img src={detail.imageUrl} alt={detail.name} className="w-full rounded-md object-contain" />
+              </>
+            )}
           </div>
         </ScrollArea>
       )}
@@ -203,36 +192,6 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div>
       <span className="font-semibold text-foreground">{label} </span>
       <span className="text-foreground/80">{value}</span>
-    </div>
-  );
-}
-
-function ImageThumb({ src, label, icon }: { src: string; label: string; icon: React.ReactNode }) {
-  const [show, setShow] = useState(false);
-  const [imgError, setImgError] = useState(false);
-
-  if (imgError) return null;
-
-  return (
-    <div className="relative" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      <div className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-md border border-border bg-muted text-muted-foreground transition-colors hover:border-primary hover:text-foreground">
-        {icon}
-      </div>
-      <span className="mt-0.5 block text-center text-[9px] text-muted-foreground">{label}</span>
-      {show && (
-        <div
-          className="absolute left-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-border bg-card shadow-xl"
-          style={{ width: 280 }}
-        >
-          <img
-            src={src}
-            alt={label}
-            className="h-auto w-full object-contain"
-            style={{ maxHeight: 400 }}
-            onError={() => setImgError(true)}
-          />
-        </div>
-      )}
     </div>
   );
 }
