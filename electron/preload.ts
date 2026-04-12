@@ -78,8 +78,20 @@ const api: ElectronAPI = {
   mergePacks: (args: {
     sourcePacks: string[];
     targetName: string;
-  }): Promise<Record<string, string> | null> =>
+  }): Promise<Record<string, string>> =>
     ipcRenderer.invoke("mergePacks", args),
+
+  // Auto-Wall
+  autoWallAvailable: (): Promise<boolean> =>
+    ipcRenderer.invoke("autoWallAvailable"),
+  autoWallLaunch: (fileName: string): Promise<void> =>
+    ipcRenderer.invoke("autoWallLaunch", fileName),
+  autoWallHasUvtt: (fileName: string): Promise<boolean> =>
+    ipcRenderer.invoke("autoWallHasUvtt", fileName),
+  autoWallGetWalls: (fileName: string): Promise<number[][] | null> =>
+    ipcRenderer.invoke("autoWallGetWalls", fileName),
+  autoWallImportUvtt: (fileName: string): Promise<boolean> =>
+    ipcRenderer.invoke("autoWallImportUvtt", fileName),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

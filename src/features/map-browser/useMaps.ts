@@ -133,12 +133,10 @@ interface PackMappingState {
   error: string | null;
 }
 
-/** Fetch the cached pack mapping on mount. Exposes `exportPrompt` to
- *  copy the grouping prompt to clipboard, and `importFromFile` to open
- *  a file picker and import the JSON mapping. */
-export function usePackMapping(): PackMappingState & {
-  exportPrompt: () => Promise<string>;
-  importFromFile: () => Promise<void>;
+/** Fetch the cached pack mapping on mount (and whenever `version`
+ *  changes, e.g. after an import via Settings). Exposes `merge` for
+ *  in-browser pack merging. */
+export function usePackMapping(version = 0): PackMappingState & {
   merge: (sourcePacks: string[], targetName: string) => Promise<void>;
 } {
   const [state, setState] = useState<PackMappingState>({
@@ -146,7 +144,7 @@ export function usePackMapping(): PackMappingState & {
     error: null,
   });
 
-  // Fetch cached mapping on mount.
+  // Fetch cached mapping on mount and when version bumps.
   useEffect(() => {
     let cancelled = false;
     api
@@ -162,33 +160,16 @@ export function usePackMapping(): PackMappingState & {
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const exportPrompt = useCallback(async () => {
-    return api.exportPackGroupingPrompt();
-  }, []);
-
-  const importFromFile = useCallback(async () => {
-    try {
-      const mapping = await api.importPackMappingFromFile();
-      if (mapping) {
-        setState({ mapping, error: null });
-      }
-    } catch (e) {
-      setState((s) => ({ ...s, error: (e as Error).message }));
-    }
-  }, []);
+  }, [version]);
 
   const merge = useCallback(async (sourcePacks: string[], targetName: string) => {
     try {
       const mapping = await api.mergePacks({ sourcePacks, targetName });
-      if (mapping) {
-        setState({ mapping, error: null });
-      }
+      setState({ mapping, error: null });
     } catch (e) {
       setState((s) => ({ ...s, error: (e as Error).message }));
     }
   }, []);
 
-  return { ...state, exportPrompt, importFromFile, merge };
+  return { ...state, merge };
 }

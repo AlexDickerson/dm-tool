@@ -227,5 +227,25 @@ export interface ElectronAPI {
   mergePacks(args: {
     sourcePacks: string[];
     targetName: string;
-  }): Promise<Record<string, string> | null>;
+  }): Promise<Record<string, string>>;
+
+  // -----------------------------------------------------------------------
+  // Auto-Wall (wall detection for VTT import)
+  // -----------------------------------------------------------------------
+
+  /** Whether the Auto-Wall binary is configured and available. */
+  autoWallAvailable(): Promise<boolean>;
+  /** Launch Auto-Wall GUI with the given map image pre-loaded. */
+  autoWallLaunch(fileName: string): Promise<void>;
+  /** Check whether a .uvtt file exists for the given map. */
+  autoWallHasUvtt(fileName: string): Promise<boolean>;
+  /** Read wall segments from the .uvtt file as pixel coordinates.
+   *  Returns null if no .uvtt exists. */
+  autoWallGetWalls(fileName: string): Promise<{
+    walls: number[][];
+    width: number;
+    height: number;
+  } | null>;
+  /** Open a file picker to import a .uvtt file for the given map. */
+  autoWallImportUvtt(fileName: string): Promise<boolean>;
 }

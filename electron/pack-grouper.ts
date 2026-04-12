@@ -13,6 +13,7 @@ import { app } from "electron";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { mapStem } from "../shared/map-stem.js";
 
 // ---------------------------------------------------------------------------
 // Cache
@@ -146,27 +147,55 @@ export function parseAndCacheMapping(
 // Public API
 // ---------------------------------------------------------------------------
 
-/** Return the cached pack mapping if it exists and is up-to-date with
- *  the given file list. Returns null if an import is needed. */
+/** Return the cached pack mapping if it exists. When the library has
+ *  changed since the last save, new files are filled in via the stem
+ *  heuristic and removed files are pruned — the AI mapping and manual
+ *  merges are preserved rather than thrown away. Returns null only when
+ *  no cache has ever been written. */
 export function getCachedPackMapping(
   fileNames: string[],
 ): Record<string, string> | null {
   const cache = readCache();
   if (!cache) return null;
   const currentHash = hashFileList(fileNames);
-  if (cache.fileListHash !== currentHash) return null;
-  return cache.mapping;
+  if (cache.fileListHash === currentHash) return cache.mapping;
+
+  // Library changed — augment rather than discard.
+  const updated: Record<string, string> = {};
+  for (const fn of fileNames) {
+    if (fn in cache.mapping) {
+      updated[fn] = cache.mapping[fn];
+    } else {
+      // New file: use the stem heuristic so it lands in a reasonable
+      // group rather than becoming a singleton.
+      updated[fn] = mapStem(fn) || fn.replace(/\.[a-zA-Z0-9]+$/, "");
+    }
+  }
+  // Removed files are simply not copied into `updated`.
+  writeCache({ fileListHash: currentHash, mapping: updated });
+  return updated;
 }
 
 /** Merge multiple pack names into one. Every file currently assigned to
  *  any of `sourcePacks` gets reassigned to `targetName`. Persists the
- *  change to the cache file and returns the updated mapping. */
+ *  change to the cache file and returns the updated mapping.
+ *
+ *  When no cache exists, a baseline mapping is built from the stem
+ *  heuristic so manual merges work even without a prior AI import. */
 export function mergePacks(
   sourcePacks: string[],
   targetName: string,
-): Record<string, string> | null {
-  const cache = readCache();
-  if (!cache) return null;
+  fileNames: string[],
+): Record<string, string> {
+  let cache = readCache();
+  if (!cache) {
+    // Bootstrap from the stem heuristic.
+    const mapping: Record<string, string> = {};
+    for (const fn of fileNames) {
+      mapping[fn] = mapStem(fn) || fn.replace(/\.[a-zA-Z0-9]+$/, "");
+    }
+    cache = { fileListHash: hashFileList(fileNames), mapping };
+  }
   const sourceSet = new Set(sourcePacks);
   for (const [fileName, pack] of Object.entries(cache.mapping)) {
     if (sourceSet.has(pack)) {
