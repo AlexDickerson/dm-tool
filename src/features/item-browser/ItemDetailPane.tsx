@@ -3,6 +3,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { cleanFoundryMarkup } from '@/lib/foundry-markup';
 import { useItemDetail } from './useItems';
 import type { ItemBrowserRow } from '@shared/types';
 
@@ -168,8 +169,14 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
             {detail.description && (
               <>
                 <Separator />
-                <div className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
-                  {detail.description}
+                <div className="space-y-2 text-xs leading-relaxed text-foreground/90">
+                  {cleanFoundryMarkup(detail.description)
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter(Boolean)
+                    .map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
                 </div>
               </>
             )}

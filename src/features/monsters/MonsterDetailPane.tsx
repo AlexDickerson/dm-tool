@@ -1,5 +1,6 @@
 import { ExternalLink, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { cleanFoundryMarkup } from '@/lib/foundry-markup';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import type { MonsterDetail } from '@shared/types';
@@ -188,41 +189,6 @@ function StatCell({ label, value }: { label: string; value: string }) {
       <span className="font-semibold uppercase text-muted-foreground">{label}</span>
       <span className="mt-0.5 text-sm font-medium tabular-nums text-foreground">{value}</span>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Foundry VTT enriched-text cleanup
-// ---------------------------------------------------------------------------
-
-function cleanFoundryMarkup(text: string): string {
-  return (
-    text
-      // @Localize[KEY] → strip
-      .replace(/@Localize\[[^\]]*\]/g, '')
-      // @Template[type|distance:N] → "N-foot type"
-      .replace(/@Template\[(\w+)\|distance:(\d+)\]/g, '$2-foot $1')
-      // @Damage[(formula)[type]|...] → "formula type"
-      .replace(/@Damage\[\(([^)]+)\)\[(\w+)\][^\]]*\]/g, '$1 $2')
-      // @Damage[formula[type]|...] → "formula type"
-      .replace(/@Damage\[([^[\]]+)\[(\w+)\][^\]]*\]/g, '$1 $2')
-      // @Check[type|dc:N|basic|...] → "DC N basic type"
-      .replace(/@Check\[(\w+)\|dc:(\d+)\|basic[^\]]*\]/g, (_, type: string, dc: string) => `DC ${dc} basic ${type}`)
-      // @Check[type|dc:N|...] → "DC N type"
-      .replace(/@Check\[(\w+)\|dc:(\d+)[^\]]*\]/g, (_, type: string, dc: string) => `DC ${dc} ${type}`)
-      // [[/gmr ...]]{display} or [[/r ...]]{display} → display
-      .replace(/\[\[\/[^\]]*\]\]\{([^}]+)\}/g, '$1')
-      // @UUID[...]{display} → display
-      .replace(/@UUID\[[^\]]*\]\{([^}]+)\}/g, '$1')
-      // @UUID[...] without display → strip
-      .replace(/@UUID\[[^\]]*\]/g, '')
-      // Any remaining @Foo[...]{display} → display
-      .replace(/@\w+\[[^\]]*\]\{([^}]+)\}/g, '$1')
-      // Any remaining @Foo[...] → strip
-      .replace(/@\w+\[[^\]]*\]/g, '')
-      // Collapse multiple spaces
-      .replace(/ {2,}/g, ' ')
-      .trim()
   );
 }
 
