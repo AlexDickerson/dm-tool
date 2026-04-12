@@ -68,6 +68,11 @@ async function mcpPost(
 
   const text = await res.text();
 
+  // Notifications return 202 with no body
+  if (!text.trim()) {
+    return { headers: res.headers, data: {} };
+  }
+
   // Parse SSE response: find `data: {...}` line
   for (const line of text.split('\n')) {
     if (line.startsWith('data: ')) {
