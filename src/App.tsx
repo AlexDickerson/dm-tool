@@ -48,6 +48,18 @@ type FontFamily = 'sans-serif' | 'serif';
 const FONT_SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif";
 const FONT_SERIF = "'Crimson Pro', 'Palatino Linotype', Georgia, serif";
 
+// Color theme — maps to [data-theme] attribute on <html>.
+const THEME_KEY = 'dmtool.theme';
+type ThemeId = 'ember' | 'arcane' | 'verdant' | 'frost' | 'parchment';
+const THEME_DEFAULT: ThemeId = 'ember';
+const THEMES: Array<{ id: ThemeId; label: string; swatch: string }> = [
+  { id: 'ember', label: 'Ember', swatch: 'hsl(32 95% 52%)' },
+  { id: 'arcane', label: 'Arcane', swatch: 'hsl(265 85% 60%)' },
+  { id: 'verdant', label: 'Verdant', swatch: 'hsl(145 70% 45%)' },
+  { id: 'frost', label: 'Frost', swatch: 'hsl(210 80% 55%)' },
+  { id: 'parchment', label: 'Parchment', swatch: 'hsl(25 85% 40%)' },
+];
+
 // Anthropic API key — used by the encounter-hook regenerator in the
 const MODEL_KEY = 'dmtool.chatModel';
 const MODEL_DEFAULT = 'claude-sonnet-4-6';
@@ -99,6 +111,7 @@ function MainApp() {
   const [anthropicApiKey, setAnthropicApiKey] = useState<string>('');
   const [chatModel, setChatModel] = useState<string>(() => loadString(MODEL_KEY) || MODEL_DEFAULT);
   const [fontFamily, setFontFamily] = useState<FontFamily>(() => (loadString(FONT_KEY) as FontFamily) || 'sans-serif');
+  const [theme, setTheme] = useState<ThemeId>(() => (loadString(THEME_KEY) as ThemeId) || THEME_DEFAULT);
   const [chatOpen, setChatOpen] = useState(false);
 
   // Load API key from secure storage on mount
@@ -170,6 +183,19 @@ function MainApp() {
     }
   }, [fontFamily]);
 
+  useEffect(() => {
+    if (theme === THEME_DEFAULT) {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // non-fatal
+    }
+  }, [theme]);
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       {/* Custom title bar. The native OS chrome is hidden via
@@ -226,6 +252,8 @@ function MainApp() {
             onUiScaleChange={setUiScale}
             fontFamily={fontFamily}
             onFontFamilyChange={setFontFamily}
+            theme={theme}
+            onThemeChange={setTheme}
             thumbScale={thumbScale}
             onThumbScaleChange={setThumbScale}
             anthropicApiKey={anthropicApiKey}
@@ -355,6 +383,8 @@ function SettingsDialog({
   onUiScaleChange,
   fontFamily,
   onFontFamilyChange,
+  theme,
+  onThemeChange,
   thumbScale,
   onThumbScaleChange,
   anthropicApiKey,
@@ -367,6 +397,8 @@ function SettingsDialog({
   onUiScaleChange: (n: number) => void;
   fontFamily: FontFamily;
   onFontFamilyChange: (f: FontFamily) => void;
+  theme: ThemeId;
+  onThemeChange: (t: ThemeId) => void;
   thumbScale: number;
   onThumbScaleChange: (n: number) => void;
   anthropicApiKey: string;
@@ -510,6 +542,28 @@ function SettingsDialog({
                   style={{ fontFamily: f === 'serif' ? FONT_SERIF : FONT_SANS }}
                 >
                   {f === 'sans-serif' ? 'Sans-Serif' : 'Serif'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Theme</Label>
+            <div className="flex gap-1">
+              {THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onThemeChange(t.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors',
+                    theme === t.id
+                      ? 'border-primary bg-primary/15 text-foreground'
+                      : 'border-border bg-background hover:bg-accent',
+                  )}
+                >
+                  <span className="inline-block h-3 w-3 rounded-full" style={{ background: t.swatch }} />
+                  {t.label}
                 </button>
               ))}
             </div>
