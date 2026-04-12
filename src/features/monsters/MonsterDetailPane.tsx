@@ -30,9 +30,7 @@ export function MonsterDetailPane({ detail, loading, onClose, onOpenExternal, an
       style={{
         flex: '1.8',
         animation:
-          anim === 'open'
-            ? 'dmtool-slide-in-right 200ms ease-out'
-            : 'dmtool-slide-out-right 150ms ease-out forwards',
+          anim === 'open' ? 'dmtool-slide-in-right 200ms ease-out' : 'dmtool-slide-out-right 150ms ease-out forwards',
       }}
     >
       {/* Header */}
@@ -60,8 +58,12 @@ export function MonsterDetailPane({ detail, loading, onClose, onOpenExternal, an
             {/* Art + Token hover previews */}
             {(detail.imageUrl || detail.tokenUrl) && (
               <div className="flex items-center gap-2">
-                {detail.imageUrl && <ImageThumb src={detail.imageUrl} label="Art" icon={<Image className="h-3.5 w-3.5" />} />}
-                {detail.tokenUrl && <ImageThumb src={detail.tokenUrl} label="Token" icon={<User className="h-3.5 w-3.5" />} />}
+                {detail.imageUrl && (
+                  <ImageThumb src={detail.imageUrl} label="Art" icon={<Image className="h-3.5 w-3.5" />} />
+                )}
+                {detail.tokenUrl && (
+                  <ImageThumb src={detail.tokenUrl} label="Token" icon={<User className="h-3.5 w-3.5" />} />
+                )}
               </div>
             )}
 

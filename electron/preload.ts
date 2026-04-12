@@ -18,6 +18,10 @@ import type {
   ElectronAPI,
   Facets,
   FinalizeIngestArgs,
+  ItemBrowserDetail,
+  ItemBrowserRow,
+  ItemFacets,
+  ItemSearchParams,
   MapDetail,
   MapSummary,
   MonsterDetail,
@@ -92,6 +96,13 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('importPackMappingFromFile'),
   mergePacks: (args: { sourcePacks: string[]; targetName: string }): Promise<Record<string, string>> =>
     ipcRenderer.invoke('mergePacks', args),
+
+  // Item browser
+  searchItemsBrowser: (params: ItemSearchParams): Promise<ItemBrowserRow[]> =>
+    ipcRenderer.invoke('searchItemsBrowser', params),
+  getItemBrowserDetail: (id: string): Promise<ItemBrowserDetail | null> =>
+    ipcRenderer.invoke('getItemBrowserDetail', id),
+  getItemFacets: (): Promise<ItemFacets> => ipcRenderer.invoke('getItemFacets'),
 
   // Monster browser
   monstersSearch: (params: MonsterSearchParams): Promise<MonsterSummary[]> =>

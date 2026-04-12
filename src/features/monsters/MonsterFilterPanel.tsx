@@ -44,8 +44,7 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
     return n;
   }, [params]);
 
-  const clearAll = () =>
-    onChange({ keywords: params.keywords, sortBy: params.sortBy, sortDir: params.sortDir });
+  const clearAll = () => onChange({ keywords: params.keywords, sortBy: params.sortBy, sortDir: params.sortDir });
 
   const toggleArray = (field: keyof MonsterSearchParams, value: string) => {
     const current = (params[field] as string[] | undefined) ?? [];
@@ -60,9 +59,7 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
 
   const sortedSizes = useMemo(() => {
     if (!facets) return [];
-    return [...facets.sizes].sort(
-      (a, b) => SIZE_ORDER.indexOf(a.toLowerCase()) - SIZE_ORDER.indexOf(b.toLowerCase()),
-    );
+    return [...facets.sizes].sort((a, b) => SIZE_ORDER.indexOf(a.toLowerCase()) - SIZE_ORDER.indexOf(b.toLowerCase()));
   }, [facets]);
 
   const filteredTraits = useMemo(() => {
@@ -141,7 +138,7 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
                       className={cn(
                         'rounded-md border px-2 py-0.5 text-xs capitalize transition-colors',
                         active
-                          ? RARITY_COLORS[r.toLowerCase()] ?? 'border-primary bg-primary/10'
+                          ? (RARITY_COLORS[r.toLowerCase()] ?? 'border-primary bg-primary/10')
                           : 'border-border bg-background hover:bg-accent',
                       )}
                     >
@@ -265,14 +262,20 @@ function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
     <h3 className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
       {label}
-      {count != null && count > 0 && (
-        <span className="text-[10px] font-normal text-primary">{count}</span>
-      )}
+      {count != null && count > 0 && <span className="text-[10px] font-normal text-primary">{count}</span>}
     </h3>
   );
 }
 
-function CheckItem({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: () => void }) {
+function CheckItem({
+  label,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: () => void;
+}) {
   const id = `filter-${label}`;
   return (
     <div className="flex items-center gap-1.5">

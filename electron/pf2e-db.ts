@@ -306,13 +306,34 @@ export function listMonsters(params: MonsterSearchParams): MonsterSummary[] {
     clauses.push(`source IN (${params.sources.map(() => '?').join(',')})`);
     binds.push(...params.sources);
   }
-  if (params.hpMin != null) { clauses.push('hp >= ?'); binds.push(params.hpMin); }
-  if (params.hpMax != null) { clauses.push('hp <= ?'); binds.push(params.hpMax); }
-  if (params.acMin != null) { clauses.push('ac >= ?'); binds.push(params.acMin); }
-  if (params.acMax != null) { clauses.push('ac <= ?'); binds.push(params.acMax); }
-  if (params.fortMin != null) { clauses.push('fort >= ?'); binds.push(params.fortMin); }
-  if (params.refMin != null) { clauses.push('ref >= ?'); binds.push(params.refMin); }
-  if (params.willMin != null) { clauses.push('will >= ?'); binds.push(params.willMin); }
+  if (params.hpMin != null) {
+    clauses.push('hp >= ?');
+    binds.push(params.hpMin);
+  }
+  if (params.hpMax != null) {
+    clauses.push('hp <= ?');
+    binds.push(params.hpMax);
+  }
+  if (params.acMin != null) {
+    clauses.push('ac >= ?');
+    binds.push(params.acMin);
+  }
+  if (params.acMax != null) {
+    clauses.push('ac <= ?');
+    binds.push(params.acMax);
+  }
+  if (params.fortMin != null) {
+    clauses.push('fort >= ?');
+    binds.push(params.fortMin);
+  }
+  if (params.refMin != null) {
+    clauses.push('ref >= ?');
+    binds.push(params.refMin);
+  }
+  if (params.willMin != null) {
+    clauses.push('will >= ?');
+    binds.push(params.willMin);
+  }
 
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const sortCol = params.sortBy ?? 'level';
@@ -323,7 +344,22 @@ export function listMonsters(params: MonsterSearchParams): MonsterSummary[] {
   const sql = `SELECT name, level, hp, ac, fort, ref, will, rarity, size, creature_type, traits, source, aon_url
     FROM monsters ${where} ${orderBy} LIMIT ?`;
   const rows = d.prepare(sql).all(...binds, limit) as Array<
-    Pick<MonsterRow, 'name' | 'level' | 'hp' | 'ac' | 'fort' | 'ref' | 'will' | 'rarity' | 'size' | 'creature_type' | 'traits' | 'source' | 'aon_url'>
+    Pick<
+      MonsterRow,
+      | 'name'
+      | 'level'
+      | 'hp'
+      | 'ac'
+      | 'fort'
+      | 'ref'
+      | 'will'
+      | 'rarity'
+      | 'size'
+      | 'creature_type'
+      | 'traits'
+      | 'source'
+      | 'aon_url'
+    >
   >;
 
   return rows.map((r) => ({
@@ -347,11 +383,24 @@ export function getMonsterFacets(): MonsterFacets {
   if (facetsCache) return facetsCache;
   const d = requireDb();
 
-  const rarities = (d.prepare('SELECT DISTINCT rarity FROM monsters ORDER BY rarity').all() as Array<{ rarity: string }>).map((r) => r.rarity);
-  const sizes = (d.prepare('SELECT DISTINCT size FROM monsters ORDER BY size').all() as Array<{ size: string }>).map((r) => r.size);
-  const creatureTypes = (d.prepare('SELECT DISTINCT creature_type FROM monsters ORDER BY creature_type').all() as Array<{ creature_type: string }>).map((r) => r.creature_type);
-  const sources = (d.prepare('SELECT DISTINCT source FROM monsters ORDER BY source').all() as Array<{ source: string }>).map((r) => r.source);
-  const levelRow = d.prepare('SELECT MIN(level) as min, MAX(level) as max FROM monsters').get() as { min: number; max: number };
+  const rarities = (
+    d.prepare('SELECT DISTINCT rarity FROM monsters ORDER BY rarity').all() as Array<{ rarity: string }>
+  ).map((r) => r.rarity);
+  const sizes = (d.prepare('SELECT DISTINCT size FROM monsters ORDER BY size').all() as Array<{ size: string }>).map(
+    (r) => r.size,
+  );
+  const creatureTypes = (
+    d.prepare('SELECT DISTINCT creature_type FROM monsters ORDER BY creature_type').all() as Array<{
+      creature_type: string;
+    }>
+  ).map((r) => r.creature_type);
+  const sources = (
+    d.prepare('SELECT DISTINCT source FROM monsters ORDER BY source').all() as Array<{ source: string }>
+  ).map((r) => r.source);
+  const levelRow = d.prepare('SELECT MIN(level) as min, MAX(level) as max FROM monsters').get() as {
+    min: number;
+    max: number;
+  };
 
   // Traits are stored as JSON arrays — collect all unique values.
   const traitRows = d.prepare('SELECT DISTINCT traits FROM monsters').all() as Array<{ traits: string }>;
@@ -454,6 +503,265 @@ export function searchItems(query: string): string {
       ].join('\n');
     })
     .join('\n\n');
+}
+
+// --- Item browser queries (used by the Items tab UI) -----------------------
+
+import type { ItemBrowserRow, ItemBrowserDetail, ItemFacets, ItemSearchParams, ItemVariant } from '../shared/types.js';
+
+const RARITY_TRAITS = new Set(['COMMON', 'UNCOMMON', 'RARE', 'UNIQUE']);
+
+/** Map a raw usage string to a coarse bucket for the filter panel. */
+function usageBucket(usage: string | null): string {
+  if (!usage) return 'Other';
+  const u = usage.toLowerCase();
+  if (u.startsWith('held')) return 'Held';
+  if (u.startsWith('worn')) return 'Worn';
+  if (u.startsWith('etched')) return 'Etched';
+  if (u.startsWith('affixed')) return 'Affixed';
+  if (u.startsWith('tattooed')) return 'Tattooed';
+  if (u === 'carried') return 'Carried';
+  return 'Other';
+}
+
+/** Extract rarity from a comma-separated traits string. */
+function extractRarity(traits: string | null): string {
+  if (!traits) return 'COMMON';
+  for (const t of traits.split(',')) {
+    const trimmed = t.trim().toUpperCase();
+    if (RARITY_TRAITS.has(trimmed) && trimmed !== 'COMMON') return trimmed;
+  }
+  return 'COMMON';
+}
+
+/** Parse traits string into an array, excluding rarity traits. */
+function parseTraits(traits: string | null): string[] {
+  if (!traits) return [];
+  return traits
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t && !RARITY_TRAITS.has(t.toUpperCase()));
+}
+
+/** Parse the price string to a numeric gp value for sorting. Items with
+ *  no price sort to the end. Handles "1,600 gp", "5 sp", "1 cp", etc. */
+function priceToCopper(price: string | null): number {
+  if (!price) return Number.MAX_SAFE_INTEGER;
+  // Normalize line breaks and whitespace
+  const p = price.replace(/\n/g, ' ').trim().toLowerCase();
+  let total = 0;
+  const gpMatch = p.match(/([\d,]+)\s*gp/);
+  const spMatch = p.match(/([\d,]+)\s*sp/);
+  const cpMatch = p.match(/([\d,]+)\s*cp/);
+  if (gpMatch) total += Number(gpMatch[1].replace(/,/g, '')) * 100;
+  if (spMatch) total += Number(spMatch[1].replace(/,/g, '')) * 10;
+  if (cpMatch) total += Number(cpMatch[1].replace(/,/g, ''));
+  return total || Number.MAX_SAFE_INTEGER;
+}
+
+interface RawItemRow {
+  id: string;
+  name: string;
+  level: number | null;
+  traits: string | null;
+  is_magical: number;
+  price: string | null;
+  bulk: string | null;
+  usage: string | null;
+  has_variants: number;
+  has_activation: number;
+  variants: string | null;
+  description: string | null;
+  source: string | null;
+  aon_url: string | null;
+  publication_remaster: number | null;
+}
+
+function rowToBrowserRow(r: RawItemRow): ItemBrowserRow {
+  return {
+    id: r.id,
+    name: r.name,
+    level: r.level,
+    traits: parseTraits(r.traits),
+    rarity: extractRarity(r.traits),
+    price: r.price?.replace(/\n/g, ' ').trim() ?? null,
+    bulk: r.bulk,
+    usage: r.usage,
+    isMagical: r.is_magical === 1,
+    hasVariants: r.has_variants === 1,
+    isRemastered: r.publication_remaster === 1 ? true : r.publication_remaster === 0 ? false : null,
+  };
+}
+
+export function searchItemsBrowser(params: ItemSearchParams): ItemBrowserRow[] {
+  const d = requireDb();
+
+  const conditions: string[] = [];
+  const bindings: unknown[] = [];
+
+  // Keyword search
+  if (params.keywords?.trim()) {
+    conditions.push('name LIKE ?');
+    bindings.push(`%${params.keywords.trim()}%`);
+  }
+
+  // Level range
+  if (params.levelMin != null) {
+    conditions.push('level >= ?');
+    bindings.push(params.levelMin);
+  }
+  if (params.levelMax != null) {
+    conditions.push('level <= ?');
+    bindings.push(params.levelMax);
+  }
+
+  // Rarity filter — match against the traits column
+  if (params.rarities?.length) {
+    const rarityClauses = params.rarities.map((r) => {
+      if (r.toUpperCase() === 'COMMON') {
+        // Common = no rarity trait present
+        return "(traits IS NULL OR (traits NOT LIKE '%UNCOMMON%' AND traits NOT LIKE '%RARE%' AND traits NOT LIKE '%UNIQUE%'))";
+      }
+      bindings.push(`%${r.toUpperCase()}%`);
+      return 'traits LIKE ?';
+    });
+    conditions.push(`(${rarityClauses.join(' OR ')})`);
+  }
+
+  // Magical filter
+  if (params.isMagical === true) {
+    conditions.push('is_magical = 1');
+  } else if (params.isMagical === false) {
+    conditions.push('is_magical = 0');
+  }
+
+  // Trait filter (AND — all selected traits must be present)
+  if (params.traits?.length) {
+    for (const trait of params.traits) {
+      conditions.push('traits LIKE ?');
+      bindings.push(`%${trait}%`);
+    }
+  }
+
+  // Source filter
+  if (params.sources?.length) {
+    const placeholders = params.sources.map(() => '?').join(', ');
+    conditions.push(`source IN (${placeholders})`);
+    bindings.push(...params.sources);
+  }
+
+  // Usage category filter — usage LIKE prefix
+  if (params.usageCategories?.length) {
+    const usageClauses: string[] = [];
+    for (const cat of params.usageCategories) {
+      const prefix = cat.toLowerCase();
+      if (prefix === 'other') {
+        usageClauses.push(
+          "(usage IS NULL OR (usage NOT LIKE 'held%' AND usage NOT LIKE 'worn%' AND usage NOT LIKE 'etched%' AND usage NOT LIKE 'affixed%' AND usage NOT LIKE 'tattooed%' AND usage != 'carried'))",
+        );
+      } else if (prefix === 'carried') {
+        usageClauses.push("usage = 'carried'");
+      } else {
+        bindings.push(`${prefix}%`);
+        usageClauses.push('usage LIKE ?');
+      }
+    }
+    conditions.push(`(${usageClauses.join(' OR ')})`);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  // Sort
+  const sortField = params.sortBy ?? 'name';
+  const sortDir = params.sortDir ?? 'asc';
+  const dirSql = sortDir === 'desc' ? 'DESC' : 'ASC';
+  let orderBy: string;
+  if (sortField === 'price') {
+    // Price sorting is tricky because the column is text. We'll sort
+    // in JS after fetching, so just fetch by name here.
+    orderBy = 'ORDER BY name ASC';
+  } else if (sortField === 'level') {
+    orderBy = `ORDER BY level ${dirSql}, name ASC`;
+  } else {
+    orderBy = `ORDER BY name ${dirSql}`;
+  }
+
+  const limit = params.limit ?? 500;
+  const sql = `SELECT id, name, level, traits, is_magical, price, bulk, usage, has_variants, publication_remaster FROM items ${where} ${orderBy} LIMIT ?`;
+  bindings.push(limit);
+
+  const rows = d.prepare(sql).all(...bindings) as RawItemRow[];
+  const results = rows.map(rowToBrowserRow);
+
+  // Price sort in JS (since the column is text with mixed formats)
+  if (sortField === 'price') {
+    results.sort((a, b) => {
+      const diff = priceToCopper(a.price) - priceToCopper(b.price);
+      return sortDir === 'desc' ? -diff : diff;
+    });
+  }
+
+  return results;
+}
+
+export function getItemBrowserDetail(id: string): ItemBrowserDetail | null {
+  const d = requireDb();
+  const row = d.prepare('SELECT * FROM items WHERE id = ?').get(id) as RawItemRow | undefined;
+  if (!row) return null;
+
+  const base = rowToBrowserRow(row);
+  const variants = tryParseJson<Array<{ type: string; level?: number; price?: string }>>(row.variants, []);
+
+  return {
+    ...base,
+    description: cleanDescription(row.description),
+    source: row.source,
+    aonUrl: row.aon_url,
+    variants: variants.map(
+      (v): ItemVariant => ({
+        type: v.type,
+        level: v.level ?? null,
+        price: v.price?.replace(/\n/g, ' ').trim() ?? null,
+      }),
+    ),
+    hasActivation: row.has_activation === 1,
+  };
+}
+
+export function getItemFacets(): ItemFacets {
+  const d = requireDb();
+
+  // Traits — split each row's comma-separated traits, count, return top 50
+  const traitRows = d.prepare('SELECT traits FROM items WHERE traits IS NOT NULL').all() as { traits: string }[];
+  const traitCounts: Record<string, number> = {};
+  for (const r of traitRows) {
+    for (const t of r.traits.split(',')) {
+      const trimmed = t.trim().toUpperCase();
+      if (trimmed && !RARITY_TRAITS.has(trimmed)) {
+        traitCounts[trimmed] = (traitCounts[trimmed] || 0) + 1;
+      }
+    }
+  }
+  const traits = Object.entries(traitCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 50)
+    .map(([t]) => t);
+
+  // Sources
+  const sourceRows = d.prepare('SELECT DISTINCT source FROM items WHERE source IS NOT NULL ORDER BY source').all() as {
+    source: string;
+  }[];
+  const sources = sourceRows.map((r) => r.source);
+
+  // Usage categories (bucketed)
+  const usageRows = d.prepare('SELECT DISTINCT usage FROM items').all() as { usage: string | null }[];
+  const usageCats = new Set<string>();
+  for (const r of usageRows) {
+    usageCats.add(usageBucket(r.usage));
+  }
+  const usageCategories = [...usageCats].sort();
+
+  return { traits, sources, usageCategories };
 }
 
 // --- Monster preview for hover card -----------------------------------------

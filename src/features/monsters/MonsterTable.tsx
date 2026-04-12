@@ -68,10 +68,7 @@ export function MonsterTable({
     overscan: 15,
   });
 
-  const gridTemplate = useMemo(
-    () => COLUMNS.map((c) => c.width).join(' '),
-    [],
-  );
+  const gridTemplate = useMemo(() => COLUMNS.map((c) => c.width).join(' '), []);
 
   const mod = useCallback((n: number) => (n >= 0 ? `+${n}` : `${n}`), []);
 
@@ -93,9 +90,7 @@ export function MonsterTable({
         </span>
       </div>
 
-      {error && (
-        <div className="px-3 py-2 text-xs text-destructive">{error}</div>
-      )}
+      {error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
 
       {/* Column headers */}
       <div
@@ -139,9 +134,7 @@ export function MonsterTable({
                 key={vRow.index}
                 className={cn(
                   'absolute left-0 right-0 grid cursor-pointer items-center border-b border-border/50 px-3 transition-colors',
-                  isSelected
-                    ? 'bg-accent text-foreground'
-                    : 'hover:bg-accent/40',
+                  isSelected ? 'bg-accent text-foreground' : 'hover:bg-accent/40',
                 )}
                 style={{
                   gridTemplateColumns: gridTemplate,

@@ -20,6 +20,10 @@ import type {
   ChatModel,
   ConfigPaths,
   FinalizeIngestArgs,
+  ItemBrowserDetail,
+  ItemBrowserRow,
+  ItemFacets,
+  ItemSearchParams,
   MapDetail,
   MonsterSearchParams,
   PickPathArgs,
@@ -31,7 +35,15 @@ import { appendAdditionalHooks, getAdditionalHooks } from './hooks-store.js';
 import { generateEncounterHooks } from './anthropic.js';
 import { streamChat } from './chat.js';
 import { fetchAonPreview } from './aon-preview.js';
-import { getMonsterPreview, listMonsters, getMonsterFacets, getMonsterByName } from './pf2e-db.js';
+import {
+  getMonsterPreview,
+  listMonsters,
+  getMonsterFacets,
+  getMonsterByName,
+  searchItemsBrowser,
+  getItemBrowserDetail,
+  getItemFacets,
+} from './pf2e-db.js';
 import { scanBookRoot } from './book-scanner.js';
 import { buildGroupingPrompt, getCachedPackMapping, mergePacks, parseAndCacheMapping } from './pack-grouper.js';
 import { runTagger, cancelTagger, isTaggerRunning } from './tagger.js';
@@ -435,6 +447,27 @@ export function registerIpcHandlers(
   ipcMain.handle('mergePacks', (_e, args: { sourcePacks: string[]; targetName: string }): Record<string, string> => {
     const fileNames = db.allFileNames();
     return mergePacks(args.sourcePacks, args.targetName, fileNames);
+  });
+
+  // -----------------------------------------------------------------------
+  // Item browser
+  // -----------------------------------------------------------------------
+
+  const hasPf2eDb = (): boolean => !!cfg.pf2eDbPath;
+
+  ipcMain.handle('searchItemsBrowser', (_e, params: ItemSearchParams): ItemBrowserRow[] => {
+    if (!hasPf2eDb()) return [];
+    return searchItemsBrowser(params ?? {});
+  });
+
+  ipcMain.handle('getItemBrowserDetail', (_e, id: string): ItemBrowserDetail | null => {
+    if (!hasPf2eDb()) return null;
+    return getItemBrowserDetail(id);
+  });
+
+  ipcMain.handle('getItemFacets', (): ItemFacets => {
+    if (!hasPf2eDb()) return { traits: [], sources: [], usageCategories: [] };
+    return getItemFacets();
   });
 
   // -----------------------------------------------------------------------

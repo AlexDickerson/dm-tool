@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
-import type { MonsterDetail, MonsterFacets, MonsterSearchParams, MonsterSummary } from '@shared/types';
+import type { ItemBrowserDetail, ItemBrowserRow, ItemFacets, ItemSearchParams } from '@shared/types';
 
 interface AsyncState<T> {
   data: T | null;
@@ -8,13 +8,20 @@ interface AsyncState<T> {
   error: string | null;
 }
 
-export function useMonsterSearch(params: MonsterSearchParams, debounceMs = 150): AsyncState<MonsterSummary[]> {
-  const [state, setState] = useState<AsyncState<MonsterSummary[]>>({
+/** Debounced search against the PF2e item database. Callers must pass
+ *  stable param references (via useMemo) to avoid re-firing on every
+ *  render — same pattern as useMapSearch. */
+export function useItemSearch(
+  params: ItemSearchParams,
+  debounceMs = 150,
+): AsyncState<ItemBrowserRow[]> & { refresh: () => void } {
+  const [state, setState] = useState<AsyncState<ItemBrowserRow[]>>({
     data: null,
     loading: true,
     error: null,
   });
   const requestIdRef = useRef(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const id = ++requestIdRef.current;
@@ -22,7 +29,7 @@ export function useMonsterSearch(params: MonsterSearchParams, debounceMs = 150):
 
     const timer = window.setTimeout(async () => {
       try {
-        const rows = await api.monstersSearch(params);
+        const rows = await api.searchItemsBrowser(params);
         if (requestIdRef.current !== id) return;
         setState({ data: rows, loading: false, error: null });
       } catch (e) {
@@ -32,13 +39,15 @@ export function useMonsterSearch(params: MonsterSearchParams, debounceMs = 150):
     }, debounceMs);
 
     return () => window.clearTimeout(timer);
-  }, [params, debounceMs]);
+  }, [params, debounceMs, refreshKey]);
 
-  return state;
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  return { ...state, refresh };
 }
 
-export function useMonsterFacets(): AsyncState<MonsterFacets> {
-  const [state, setState] = useState<AsyncState<MonsterFacets>>({
+export function useItemFacets(): AsyncState<ItemFacets> {
+  const [state, setState] = useState<AsyncState<ItemFacets>>({
     data: null,
     loading: true,
     error: null,
@@ -47,7 +56,7 @@ export function useMonsterFacets(): AsyncState<MonsterFacets> {
   useEffect(() => {
     let cancelled = false;
     api
-      .monstersFacets()
+      .getItemFacets()
       .then((facets) => {
         if (!cancelled) setState({ data: facets, loading: false, error: null });
       })
@@ -62,22 +71,22 @@ export function useMonsterFacets(): AsyncState<MonsterFacets> {
   return state;
 }
 
-export function useMonsterDetail(name: string | null): AsyncState<MonsterDetail> {
-  const [state, setState] = useState<AsyncState<MonsterDetail>>({
+export function useItemDetail(id: string | null): AsyncState<ItemBrowserDetail> {
+  const [state, setState] = useState<AsyncState<ItemBrowserDetail>>({
     data: null,
     loading: false,
     error: null,
   });
 
   useEffect(() => {
-    if (!name) {
+    if (!id) {
       setState({ data: null, loading: false, error: null });
       return;
     }
     let cancelled = false;
     setState({ data: null, loading: true, error: null });
     api
-      .monstersGetDetail(name)
+      .getItemBrowserDetail(id)
       .then((detail) => {
         if (!cancelled) setState({ data: detail, loading: false, error: null });
       })
@@ -87,17 +96,7 @@ export function useMonsterDetail(name: string | null): AsyncState<MonsterDetail>
     return () => {
       cancelled = true;
     };
-  }, [name]);
+  }, [id]);
 
   return state;
-}
-
-export function useOpenExternal() {
-  return useCallback(async (url: string) => {
-    try {
-      await api.openExternal(url);
-    } catch (e) {
-      console.error('openExternal failed:', e);
-    }
-  }, []);
 }
