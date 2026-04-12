@@ -64,7 +64,12 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
           indicator instead of a parenthetical. */}
       <div className="flex h-12 items-center justify-between px-3">
         <div className="flex items-center gap-2">
-          <Label className="text-sm font-semibold tracking-wide text-foreground">Filters</Label>
+          <Label
+            className="text-sm tracking-wide text-foreground"
+            style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}
+          >
+            Filters
+          </Label>
           {activeCount > 0 && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
               {activeCount}
@@ -166,7 +171,12 @@ function TagGroup({ label, values, selected, onToggle }: TagGroupProps) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between border-t border-border pt-2">
-        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
+        <Label
+          className="text-[10px] uppercase tracking-wider text-muted-foreground"
+          style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}
+        >
+          {label}
+        </Label>
         {selectedCount > 0 && (
           <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
             {selectedCount}

@@ -161,7 +161,9 @@ export function BookBrowser() {
         {/* Category rail */}
         <div className="flex w-56 shrink-0 flex-col border-r border-border bg-card">
           <div className="flex h-12 items-center justify-between px-3">
-            <span className="text-sm font-semibold text-foreground">Categories</span>
+            <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+              Categories
+            </span>
             <Button
               variant="ghost"
               size="sm"
@@ -456,7 +458,12 @@ function CatalogGrid({ entries, onSelect }: { entries: CatalogEntry[]; onSelect:
                 }}
               >
                 <div className="flex w-full items-center gap-3 pb-1">
-                  <span className="text-xs font-semibold text-muted-foreground">{row.label}</span>
+                  <span
+                    className="text-xs tracking-wide text-muted-foreground"
+                    style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}
+                  >
+                    {row.label}
+                  </span>
                   <div className="h-px flex-1 bg-border" />
                 </div>
               </div>

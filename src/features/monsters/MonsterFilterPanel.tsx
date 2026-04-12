@@ -73,7 +73,9 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
     <div className="flex h-full flex-col border-r border-border bg-card" style={{ width: 256 }}>
       <div className="flex h-12 shrink-0 items-center justify-between px-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold">Filters</span>
+          <span className="text-xs" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+            Filters
+          </span>
           {activeCount > 0 && (
             <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
               {activeCount}
@@ -260,7 +262,10 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
 
 function SectionHeader({ label, count }: { label: string; count?: number }) {
   return (
-    <h3 className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <h3
+      className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground"
+      style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}
+    >
       {label}
       {count != null && count > 0 && <span className="text-[10px] font-normal text-primary">{count}</span>}
     </h3>
