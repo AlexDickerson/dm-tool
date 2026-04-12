@@ -70,19 +70,28 @@ export function MapBrowser({ thumbScale = 1, anthropicApiKey = "" }: MapBrowserP
     return { items, groupCount: groups.length };
   }, [maps, grouped]);
 
-  // Look up the variant set for a given representative fileName. This is
-  // O(n) per click which is fine for result sets up to the search limit
-  // (currently 10k — microseconds per click); if it ever gets hot we can
-  // memoize an index from stem → variants.
+  // Look up the variant set for a given fileName, regardless of whether
+  // we're in grouped or flat view. We always want variants in the detail
+  // pane so the grid-toggle (and any other per-pack UI) can work even
+  // when the user is browsing flat. The variant column visibility is a
+  // separate concern handled inside DetailPane. This is O(n) per click
+  // which is fine for result sets up to the search limit (currently 10k
+  // — microseconds per click); if it ever gets hot we can memoize an
+  // index from stem → variants.
   const handleSelect = (item: ThumbnailItem) => {
     setSelectedFileName(item.map.fileName);
-    if (grouped && maps) {
-      const groups = groupByStem(maps);
-      const g = groups.find((g) => g.representative.fileName === item.map.fileName);
-      setActiveVariants(g?.variants ?? null);
-    } else {
+    if (!maps) {
       setActiveVariants(null);
+      return;
     }
+    const groups = groupByStem(maps);
+    // In grouped view the clicked card is a representative, so it's a
+    // direct lookup. In flat view the clicked map can be ANY member of
+    // its pack — find the group it belongs to.
+    const g = groups.find((g) =>
+      g.variants.some((v) => v.fileName === item.map.fileName),
+    );
+    setActiveVariants(g?.variants ?? null);
   };
 
   // Called by DetailPane when the user clicks a sibling in the variant

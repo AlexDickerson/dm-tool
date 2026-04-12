@@ -146,66 +146,49 @@ interface ThumbnailCardProps {
   height: number;
 }
 
-// Title row gets a fixed pixel height. Subtracting it from the card
-// height gives us the exact image-area height, which we set inline so
-// we never have to rely on flex-1 / 1fr resolving correctly.
-const TITLE_ROW_HEIGHT = 26;
-
 function ThumbnailCard({ item, isSelected, onClick, height }: ThumbnailCardProps) {
   const [errored, setErrored] = useState(false);
   const { map, variantCount } = item;
-  const imageHeight = Math.max(0, height - TITLE_ROW_HEIGHT);
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-md border border-border bg-card text-left transition-all hover:border-primary/60",
+        "group relative overflow-hidden rounded-md border border-border bg-muted text-left transition-all hover:border-primary/60",
         isSelected && "border-primary ring-2 ring-primary/40",
       )}
       style={{ height }}
       title={variantCount > 1 ? `${map.title} (+${variantCount - 1} variants)` : map.title}
     >
-      {/* Inline-styled fixed-height image area. Inline width/height/
-          objectFit on the img bypass any Tailwind class-resolution
-          uncertainty and guarantee `cover` behavior. */}
-      <div
-        className="relative overflow-hidden bg-muted"
-        style={{ height: imageHeight, width: "100%" }}
-      >
-        {errored ? (
-          <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-            no thumbnail
-          </div>
-        ) : (
-          <img
-            src={thumbnailUrl(map.fileName)}
-            alt={map.title}
-            loading="lazy"
-            onError={() => setErrored(true)}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-            className="transition-transform group-hover:scale-[1.03]"
-          />
-        )}
-      </div>
-      <div
-        className="truncate px-2 text-xs font-medium"
-        style={{ height: TITLE_ROW_HEIGHT, lineHeight: `${TITLE_ROW_HEIGHT}px` }}
-      >
-        {map.title}
-      </div>
+      {/* Image fills the entire card now that the title row is gone.
+          Inline width/height/objectFit on the img bypass any Tailwind
+          class-resolution uncertainty and guarantee `cover` behavior. */}
+      {errored ? (
+        <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+          no thumbnail
+        </div>
+      ) : (
+        <img
+          src={thumbnailUrl(map.fileName)}
+          alt={map.title}
+          loading="lazy"
+          onError={() => setErrored(true)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+          className="transition-transform group-hover:scale-[1.03]"
+        />
+      )}
       {/* Badge is anchored to the card (the button, which has `relative`
           and a fixed pixel height) rather than the image container, so
           its position is identical on every card regardless of how the
           inner flex layout resolves. */}
       {variantCount > 1 && (
-        <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">
-          {variantCount} variants
+        <div className="pointer-events-none absolute right-1.5 top-1.5 rounded-md bg-black/70 px-2 py-0.5 text-sm font-semibold text-white shadow-sm">
+          {variantCount}
         </div>
       )}
     </button>

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { cn, formatTag } from "@/lib/utils";
 import type {
   Facets,
-  GridVisible,
   InteriorExterior,
   SearchParams,
   TimeOfDay,
@@ -32,10 +31,11 @@ const TIME_OPTS: Array<{ value: TimeOfDay; label: string }> = [
   { value: "dawn", label: "Dawn" },
 ];
 
-const GRID_OPTS: Array<{ value: GridVisible; label: string }> = [
-  { value: "gridded", label: "Gridded" },
-  { value: "gridless", label: "Gridless" },
-];
+// Note: there is no GRID_OPTS / Gridded vs Gridless filter row anymore.
+// Grid presence is a per-map toggle in the detail pane (see DetailPane's
+// grid counterpart button) — applying it as a global filter hid half of
+// every pack, which is the opposite of what the user usually wants when
+// browsing.
 
 export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
   // Stable update helpers — each produces a new params object with one
@@ -48,7 +48,7 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
     onChange({ ...params, [field]: next.length > 0 ? next : undefined });
   };
 
-  const setAxis = <K extends "interiorExterior" | "timeOfDay" | "gridVisible">(
+  const setAxis = <K extends "interiorExterior" | "timeOfDay">(
     field: K,
     value: SearchParams[K] | undefined,
   ) => {
@@ -61,7 +61,6 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
     if (params.locationTypes?.length) n += params.locationTypes.length;
     if (params.interiorExterior) n += 1;
     if (params.timeOfDay) n += 1;
-    if (params.gridVisible) n += 1;
     return n;
   }, [params]);
 
@@ -100,10 +99,10 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
       <Separator />
       <ScrollArea className="flex-1">
         <div className="space-y-4 p-3">
-          {/* Indoor/outdoor, time of day, and grid are merged into one
-              flowing pill bar. The three axes are still independent
-              (each has its own setAxis call) but the labels are dropped
-              — the pill text is self-explanatory. */}
+          {/* Indoor/outdoor and time of day merged into one flowing pill
+              bar. The two axes are still independent (each has its own
+              setAxis call) but the labels are dropped — the pill text is
+              self-explanatory. */}
           <div className="flex flex-wrap gap-1">
             {INTERIOR_OPTS.map((opt) => (
               <PillButton
@@ -119,14 +118,6 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
                 label={opt.label}
                 active={params.timeOfDay === opt.value}
                 onClick={() => setAxis("timeOfDay", opt.value)}
-              />
-            ))}
-            {GRID_OPTS.map((opt) => (
-              <PillButton
-                key={opt.value}
-                label={opt.label}
-                active={params.gridVisible === opt.value}
-                onClick={() => setAxis("gridVisible", opt.value)}
               />
             ))}
           </div>

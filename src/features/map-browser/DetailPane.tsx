@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, RefreshCw, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ExternalLink, Grid3x3, Loader2, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -67,10 +67,29 @@ export function DetailPane({
     }
   };
 
+  // Find the grid/gridless counterpart of the currently-displayed map
+  // inside the same pack, if one exists. The toggle button on the image
+  // overlay shows when this is non-null. Recomputed any time the variant
+  // set or the loaded detail changes.
+  const gridCounterpart = useMemo(
+    () => findGridCounterpart(detail, variants ?? null),
+    [detail, variants],
+  );
+
+  // Collapse gridded/gridless pairs to a single entry in the variant
+  // column. The grid toggle on the image overlay handles flipping
+  // within a cluster, so showing both halves of every pair is just
+  // visual noise. The active map is always pinned as the representative
+  // of its own cluster so the highlight stays accurate after a flip.
+  const dedupedVariants = useMemo(
+    () => dedupGridVariants(variants ?? null, fileName, detail?.gridVisible ?? null),
+    [variants, fileName, detail?.gridVisible],
+  );
+
   if (!fileName) return null;
 
   const hasVariantPanel =
-    variants !== undefined && variants !== null && variants.length > 1 && !!onSelectVariant;
+    dedupedVariants !== null && dedupedVariants.length > 1 && !!onSelectVariant;
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col border-l border-border bg-card">
@@ -128,6 +147,33 @@ export function DetailPane({
                   alt={detail.title}
                   className="mx-auto h-auto max-h-[70vh] w-full object-contain"
                 />
+                {/* Grid / no-grid toggle. Only renders when the current
+                    map's pack contains a counterpart with the opposite
+                    gridVisible value — i.e. it's safe to flip without
+                    leaving the pack. The button reflects the CURRENT
+                    state (Grid icon = currently gridded). Anchored
+                    top-left so it stays clear of the bottom-row chips. */}
+                {gridCounterpart && onSelectVariant && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectVariant(gridCounterpart.fileName)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-white shadow-sm transition-colors",
+                      detail.gridVisible === "gridded"
+                        ? "bg-primary/85 hover:bg-primary"
+                        : "bg-black/70 hover:bg-black/85",
+                    )}
+                    style={{ position: "absolute", left: 8, top: 8 }}
+                    title={
+                      detail.gridVisible === "gridded"
+                        ? "Switch to gridless variant"
+                        : "Switch to gridded variant"
+                    }
+                  >
+                    <Grid3x3 className="h-3 w-3" />
+                    {detail.gridVisible === "gridded" ? "Grid" : "No grid"}
+                  </button>
+                )}
                 <div
                   className="rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm"
                   style={{ position: "absolute", left: 8, bottom: 8 }}
@@ -165,7 +211,7 @@ export function DetailPane({
             sidebar width. */}
         {detail && hasVariantPanel && (
           <VariantColumn
-            variants={variants!}
+            variants={dedupedVariants!}
             selected={fileName}
             onSelect={onSelectVariant!}
           />
@@ -173,6 +219,127 @@ export function DetailPane({
       </div>
     </div>
   );
+}
+
+// Find the "same map but with the opposite grid state" inside a pack.
+// Returns null when:
+//   - we have no current detail or no variant set
+//   - the current map is neither gridded nor gridless (e.g. unknown)
+//   - no pack member has the opposite gridVisible value
+//
+// When multiple counterparts exist (e.g. a pack has Day_Grid and
+// Night_Gridless siblings) we score by filename token overlap so the
+// flip lands on the closest match. Tokens are normalized to lowercase
+// and grid-related tokens are stripped before comparison so they don't
+// dominate the score.
+const GRID_TOKENS_TO_STRIP = new Set([
+  "grid",
+  "gridded",
+  "gridless",
+  "gridlines",
+  "gl",
+  "g",
+]);
+
+function tokenizeForMatch(fileName: string): Set<string> {
+  const noExt = fileName.replace(/\.[a-zA-Z0-9]+$/, "");
+  const tokens = noExt.toLowerCase().split(/[_\-\s]+/);
+  return new Set(
+    tokens.filter((t) => t.length > 0 && !GRID_TOKENS_TO_STRIP.has(t)),
+  );
+}
+
+function findGridCounterpart(
+  detail: { fileName: string; gridVisible: MapSummary["gridVisible"] } | null,
+  variants: MapSummary[] | null,
+): MapSummary | null {
+  if (!detail || !variants || variants.length < 2) return null;
+  if (detail.gridVisible !== "gridded" && detail.gridVisible !== "gridless") {
+    return null;
+  }
+  const target = detail.gridVisible === "gridded" ? "gridless" : "gridded";
+  const candidates = variants.filter((v) => v.gridVisible === target);
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const currentTokens = tokenizeForMatch(detail.fileName);
+  let best = candidates[0];
+  let bestScore = -1;
+  for (const c of candidates) {
+    const cTokens = tokenizeForMatch(c.fileName);
+    let score = 0;
+    for (const t of cTokens) if (currentTokens.has(t)) score += 1;
+    if (score > bestScore) {
+      best = c;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+// Cluster key for the variant-column dedup: token set with grid words
+// stripped, sorted and joined. Two filenames produce the same key iff
+// they describe the same underlying map and differ only in grid state.
+function clusterKey(fileName: string): string {
+  return Array.from(tokenizeForMatch(fileName)).sort().join("|");
+}
+
+// Collapse gridded/gridless pairs in a variant list down to one entry
+// per underlying map. The active file is always pinned as its own
+// cluster's representative so the highlight in VariantColumn stays
+// accurate after the user flips the grid toggle. For inactive clusters
+// we prefer a member matching `preferredGrid` (the active map's grid
+// state, so the column's thumbnails stay visually consistent), then
+// fall back to gridded, then to the first member.
+function dedupGridVariants(
+  variants: MapSummary[] | null,
+  activeFileName: string | null,
+  preferredGrid: MapSummary["gridVisible"],
+): MapSummary[] | null {
+  if (!variants) return null;
+
+  const clusters = new Map<string, MapSummary[]>();
+  for (const v of variants) {
+    const k = clusterKey(v.fileName);
+    let bucket = clusters.get(k);
+    if (!bucket) {
+      bucket = [];
+      clusters.set(k, bucket);
+    }
+    bucket.push(v);
+  }
+
+  const activeKey = activeFileName ? clusterKey(activeFileName) : null;
+  const seen = new Set<string>();
+  const out: MapSummary[] = [];
+  for (const v of variants) {
+    const k = clusterKey(v.fileName);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const bucket = clusters.get(k)!;
+    if (bucket.length === 1) {
+      out.push(bucket[0]);
+      continue;
+    }
+    // Active cluster: ALWAYS pin the active file as the representative.
+    if (k === activeKey && activeFileName) {
+      const active = bucket.find((b) => b.fileName === activeFileName);
+      if (active) {
+        out.push(active);
+        continue;
+      }
+    }
+    // Inactive cluster: prefer the member matching the active map's
+    // grid state, then gridded, then whatever's first.
+    const matchPreferred = bucket.find((b) => b.gridVisible === preferredGrid);
+    if (matchPreferred) {
+      out.push(matchPreferred);
+      continue;
+    }
+    const gridded = bucket.find((b) => b.gridVisible === "gridded");
+    out.push(gridded ?? bucket[0]);
+  }
+  return out;
 }
 
 // Right-side variant column — fixed-width sidebar of full-width thumbs
