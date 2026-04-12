@@ -114,6 +114,64 @@ export interface FinalizeIngestArgs {
 }
 
 // ---------------------------------------------------------------------------
+// Item browser
+// ---------------------------------------------------------------------------
+
+export type ItemSortField = 'name' | 'level' | 'price';
+export type SortDirection = 'asc' | 'desc';
+
+export interface ItemSearchParams {
+  keywords?: string;
+  levelMin?: number;
+  levelMax?: number;
+  rarities?: string[];
+  isMagical?: boolean | null;
+  usageCategories?: string[];
+  traits?: string[];
+  sources?: string[];
+  sortBy?: ItemSortField;
+  sortDir?: SortDirection;
+  limit?: number;
+}
+
+/** Lightweight row for the item table — no description to keep IPC payloads
+ *  small when returning hundreds of results. */
+export interface ItemBrowserRow {
+  id: string;
+  name: string;
+  level: number | null;
+  traits: string[];
+  rarity: string;
+  price: string | null;
+  bulk: string | null;
+  usage: string | null;
+  isMagical: boolean;
+  hasVariants: boolean;
+}
+
+export interface ItemVariant {
+  type: string;
+  level: number | null;
+  price: string | null;
+}
+
+/** Full item detail including description and parsed variants. */
+export interface ItemBrowserDetail extends ItemBrowserRow {
+  description: string;
+  source: string | null;
+  aonUrl: string | null;
+  variants: ItemVariant[];
+  hasActivation: boolean;
+}
+
+/** Distinct filter values for the item filter panel. */
+export interface ItemFacets {
+  traits: string[];
+  sources: string[];
+  usageCategories: string[];
+}
+
+// ---------------------------------------------------------------------------
 // Chat
 // ---------------------------------------------------------------------------
 
@@ -336,6 +394,20 @@ export interface ElectronAPI {
   importPackMappingFromFile(): Promise<Record<string, string> | null>;
   /** Merge multiple pack names into one and persist the change. */
   mergePacks(args: { sourcePacks: string[]; targetName: string }): Promise<Record<string, string>>;
+
+  // -----------------------------------------------------------------------
+  // Item browser
+  // -----------------------------------------------------------------------
+
+  /** Search/filter items from the PF2e database. Returns lightweight rows
+   *  without descriptions. Returns [] if the PF2e DB is not configured. */
+  searchItemsBrowser(params: ItemSearchParams): Promise<ItemBrowserRow[]>;
+  /** Full item detail including cleaned description and parsed variants.
+   *  Returns null if the item is not found or the DB is not configured. */
+  getItemBrowserDetail(id: string): Promise<ItemBrowserDetail | null>;
+  /** Distinct filter values (traits, sources, usage categories) for the
+   *  item filter panel. Returns empty facets if the DB is not configured. */
+  getItemFacets(): Promise<ItemFacets>;
 
   // -----------------------------------------------------------------------
   // Auto-Wall (wall detection for VTT import)
