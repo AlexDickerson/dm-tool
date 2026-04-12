@@ -135,12 +135,13 @@ export function MonsterTable({
               <div
                 key={vRow.index}
                 className={cn(
-                  'absolute left-0 right-0 grid cursor-pointer items-center border-b border-border/50 px-3 transition-colors',
+                  'absolute left-0 right-0 grid cursor-pointer items-center border-b border-border/50 px-3 transition-[colors,box-shadow]',
                   isSelected
                     ? 'bg-primary/10 text-foreground'
                     : vRow.index % 2 === 1
                       ? 'bg-muted/30 hover:bg-accent/40'
                       : 'hover:bg-accent/40',
+                  !isSelected && 'hover:shadow-[inset_3px_0_0_hsl(var(--primary))]',
                 )}
                 style={{
                   gridTemplateColumns: gridTemplate,

@@ -88,7 +88,7 @@ export function MonsterFilterPanel({ facets, params, onChange }: Props) {
           </button>
         )}
       </div>
-      <Separator />
+      <Separator variant="ornate" />
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 p-3">
           {/* Level range */}

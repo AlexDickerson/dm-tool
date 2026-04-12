@@ -87,13 +87,9 @@ export function FilterPanel({ facets, params, onChange }: FilterPanelProps) {
           </Button>
         )}
       </div>
-      <Separator />
+      <Separator variant="ornate" />
       <ScrollArea className="flex-1">
         <div className="space-y-4 p-3">
-          {/* Indoor/outdoor and time of day merged into one flowing pill
-              bar. The two axes are still independent (each has its own
-              setAxis call) but the labels are dropped — the pill text is
-              self-explanatory. */}
           <div className="flex flex-wrap gap-1">
             {INTERIOR_OPTS.map((opt) => (
               <PillButton

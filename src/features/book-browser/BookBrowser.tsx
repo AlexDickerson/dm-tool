@@ -175,7 +175,7 @@ export function BookBrowser() {
               <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
             </Button>
           </div>
-          <Separator />
+          <Separator variant="ornate" />
           <ScrollArea className="flex-1">
             <div className="py-1">
               <CategoryItem

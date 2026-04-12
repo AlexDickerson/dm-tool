@@ -105,7 +105,7 @@ export function ItemFilterPanel({ facets, params, onChange }: ItemFilterPanelPro
           </Button>
         )}
       </div>
-      <Separator />
+      <Separator variant="ornate" />
       <ScrollArea className="flex-1">
         <div className="space-y-4 p-3">
           {/* Rarity pills */}

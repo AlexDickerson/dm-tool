@@ -229,7 +229,7 @@ function MainApp() {
         }}
       />
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <main className="h-full overflow-hidden">
+        <main className="relative h-full overflow-hidden">
           {activeTab === 'maps' && (
             <MapBrowser
               thumbScale={thumbScale}
@@ -241,6 +241,13 @@ function MainApp() {
           {activeTab === 'combat' && <CombatPlaceholder />}
           {activeTab === 'monsters' && <MonsterBrowser />}
           {activeTab === 'items' && <ItemBrowser />}
+          {/* Vignette overlay — darkens edges for a "torchlight" feel */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: 'radial-gradient(ellipse at center, transparent 60%, hsl(var(--background) / 0.4) 100%)',
+            }}
+          />
         </main>
         <ChatDrawer
           open={chatOpen}
@@ -301,8 +308,11 @@ function NavTab({ active, onClick, children }: { active?: boolean; onClick?: () 
       {children}
       {active && (
         <span
-          className="absolute bottom-0 left-1/2 h-[2px] -translate-x-1/2 rounded-full bg-primary"
-          style={{ width: '60%' }}
+          className="absolute bottom-0 left-1/2 h-[2px] rounded-full bg-primary"
+          style={{
+            width: '60%',
+            animation: 'dmtool-tab-reveal 200ms ease-out forwards',
+          }}
         />
       )}
     </button>
