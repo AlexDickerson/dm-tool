@@ -8,7 +8,13 @@ import type { Message } from './types';
 /** Render links — AoN links get a hover card, others open externally. */
 function ChatLink(props: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   const href = props.href ?? '';
-  const isAon = href.includes('aonprd.com');
+  let isAon = false;
+  try {
+    const hostname = new URL(href).hostname;
+    isAon = hostname === 'aonprd.com' || hostname.endsWith('.aonprd.com');
+  } catch {
+    // malformed URL — not AoN
+  }
 
   const openExternal = useCallback(() => {
     if (href) window.electronAPI?.openExternal?.(href);

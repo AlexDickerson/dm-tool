@@ -26,14 +26,19 @@ function requireDb(): Database.Database {
 /** Strip Foundry @UUID/@ references and basic HTML from descriptions. */
 function cleanDescription(html: string | null): string {
   if (!html) return '';
-  return html
+  let text = html
     .replace(/@UUID\[Compendium\.[^\]]+\]\{([^}]+)\}/g, '$1')
     .replace(/@UUID\[Compendium\.[^\]]+\]/g, '')
     .replace(/@Check\[([^|]+)\|dc:(\d+)\]/g, '$1 DC $2')
     .replace(/<hr\s*\/?>/gi, '\n---\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6])[\s>]/gi, '\n')
-    .replace(/<[^>]+>/g, '')
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6])[\s>]/gi, '\n');
+  let prev: string;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, '');
+  } while (text !== prev);
+  return text
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')

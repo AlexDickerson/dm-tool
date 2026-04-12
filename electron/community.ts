@@ -4,10 +4,13 @@
 
 /** Strip HTML tags for Stack Exchange bodies. */
 function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|pre|code|blockquote)[\s>]/gi, '\n')
-    .replace(/<[^>]+>/g, '')
+  let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/?(p|div|li|ul|ol|h[1-6]|pre|code|blockquote)[\s>]/gi, '\n');
+  let prev: string;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, '');
+  } while (text !== prev);
+  return text
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')

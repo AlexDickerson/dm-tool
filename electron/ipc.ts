@@ -5,9 +5,9 @@
 // `shared/types.ts::ElectronAPI` and the corresponding contextBridge
 // exposure in preload.ts — the three files form one contract.
 
-import { app, dialog, ipcMain, shell } from 'electron';
+import { app, dialog, ipcMain, safeStorage, shell } from 'electron';
 import { join } from 'node:path';
-import { mkdir, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, writeFile, copyFile, readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import type { MapDb } from './db.js';
@@ -54,6 +54,42 @@ export function registerIpcHandlers(
   const coverPaths: CoverPaths = {
     absRoot: join(app.getPath('userData'), 'book-covers'),
   };
+
+  // --- Secure storage (API keys) -------------------------------------------
+
+  const secureStorePath = join(app.getPath('userData'), 'secure-store');
+
+  ipcMain.handle('secureStore', async (_e, key: string, value: string): Promise<void> => {
+    await mkdir(secureStorePath, { recursive: true });
+    if (safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(value);
+      await writeFile(join(secureStorePath, key), encrypted);
+    } else {
+      await writeFile(join(secureStorePath, key), value, 'utf-8');
+    }
+  });
+
+  ipcMain.handle('secureLoad', async (_e, key: string): Promise<string> => {
+    const filePath = join(secureStorePath, key);
+    if (!existsSync(filePath)) return '';
+    const raw = await readFile(filePath);
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        return safeStorage.decryptString(raw);
+      } catch {
+        return raw.toString('utf-8');
+      }
+    }
+    return raw.toString('utf-8');
+  });
+
+  ipcMain.handle('secureDelete', async (_e, key: string): Promise<void> => {
+    const filePath = join(secureStorePath, key);
+    if (existsSync(filePath)) {
+      const { unlink } = await import('node:fs/promises');
+      await unlink(filePath);
+    }
+  });
 
   // --- App mode + config ---------------------------------------------------
 

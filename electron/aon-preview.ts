@@ -36,10 +36,16 @@ interface AonSource {
 }
 
 function stripHtml(html: string): string {
-  return html
+  let text = html
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n')
-    .replace(/<[^>]+>/g, '')
+    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n');
+  // Loop to handle nested/malformed tags like <scr<script>ipt>
+  let prev: string;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, '');
+  } while (text !== prev);
+  return text
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
