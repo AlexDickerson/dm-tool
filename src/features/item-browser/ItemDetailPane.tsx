@@ -137,8 +137,9 @@ export function ItemDetailPane({ itemId, siblings, onSelectSibling, onClose }: I
               </>
             )}
 
-            {/* Variants (from item's own variant data) */}
-            {detail.variants.length > 0 && (
+            {/* Variants (from item's own variant data) — hidden when
+                siblings cover the same info via the Grades section */}
+            {detail.variants.length > 0 && !(siblings && siblings.length > 1) && (
               <>
                 <Separator />
                 <div>
