@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import type { MapDb } from '../db.js';
-import type { DmToolConfig } from '../config.js';
+import { type DmToolConfig, resolveConfigPath } from '../config.js';
 import type { ConfigPaths, MapDetail, PickPathArgs } from '../../shared/types.js';
 import { getMonsterPreview } from '../pf2e-db.js';
 import { fetchAonPreview } from '../aon-preview.js';
@@ -97,8 +97,9 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
     if (paths.booksPath?.trim()) config.booksPath = paths.booksPath;
     if (paths.autoWallBinPath?.trim()) config.autoWallBinPath = paths.autoWallBinPath;
     if (paths.pf2eDbPath?.trim()) config.pf2eDbPath = paths.pf2eDbPath;
+    if (paths.foundryMcpUrl?.trim()) config.foundryMcpUrl = paths.foundryMcpUrl;
 
-    const outPath = join(app.getPath('userData'), 'config.json');
+    const outPath = resolveConfigPath();
     await writeFile(outPath, JSON.stringify(config, null, 2), 'utf-8');
 
     app.relaunch();

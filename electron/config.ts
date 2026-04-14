@@ -80,7 +80,7 @@ export interface DmToolConfig {
  * Having an env var override is useful for running the app against multiple
  * libraries (e.g. a dev library vs the real one) without editing files.
  */
-function resolveConfigPath(): string {
+export function resolveConfigPath(): string {
   const fromEnv = process.env.DM_TOOL_CONFIG;
   if (fromEnv && existsSync(fromEnv)) return fromEnv;
 
