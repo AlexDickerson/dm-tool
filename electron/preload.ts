@@ -19,6 +19,7 @@ import type {
   ElectronAPI,
   Facets,
   FinalizeIngestArgs,
+  GlobePin,
   ItemBrowserDetail,
   ItemBrowserRow,
   ItemFacets,
@@ -128,6 +129,11 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('monstersSearch', params),
   monstersFacets: (): Promise<MonsterFacets> => ipcRenderer.invoke('monstersFacets'),
   monstersGetDetail: (name: string): Promise<MonsterDetail | null> => ipcRenderer.invoke('monstersGetDetail', name),
+
+  // Globe pins
+  globePinsList: (): Promise<GlobePin[]> => ipcRenderer.invoke('globePinsList'),
+  globePinsUpsert: (pin: GlobePin): Promise<void> => ipcRenderer.invoke('globePinsUpsert', pin),
+  globePinsDelete: (id: string): Promise<void> => ipcRenderer.invoke('globePinsDelete', id),
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),

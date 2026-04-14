@@ -2,29 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
+import { api } from '@/lib/api';
+import type { GlobePin } from '@shared/types';
 
 const PMTILES_URL = 'pmtiles://https://map.pathfinderwiki.com/golarion.pmtiles';
-const PINS_STORAGE_KEY = 'dmtool.globe.pins';
-
-interface GlobePin {
-  id: string;
-  lng: number;
-  lat: number;
-  label: string;
-}
-
-function loadPins(): GlobePin[] {
-  try {
-    const raw = localStorage.getItem(PINS_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as GlobePin[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function savePins(pins: GlobePin[]) {
-  localStorage.setItem(PINS_STORAGE_KEY, JSON.stringify(pins));
-}
 
 function createPinElement(pin: GlobePin, onRemove: () => void): HTMLDivElement {
   const el = document.createElement('div');
@@ -358,14 +339,16 @@ export function GlobeViewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
-  const [pins, setPins] = useState<GlobePin[]>(loadPins);
+  const [pins, setPins] = useState<GlobePin[]>([]);
+
+  // Load pins from the database on mount.
+  useEffect(() => {
+    api.globePinsList().then(setPins);
+  }, []);
 
   const removePin = useCallback((id: string) => {
-    setPins((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      savePins(next);
-      return next;
-    });
+    api.globePinsDelete(id);
+    setPins((prev) => prev.filter((p) => p.id !== id));
     const marker = markersRef.current.get(id);
     if (marker) {
       marker.remove();
@@ -373,24 +356,17 @@ export function GlobeViewer() {
     }
   }, []);
 
-  const addPin = useCallback(
-    (lng: number, lat: number) => {
-      const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '' };
-      setPins((prev) => {
-        const next = [...prev, pin];
-        savePins(next);
-        return next;
-      });
-    },
-    [],
-  );
+  const addPin = useCallback((lng: number, lat: number) => {
+    const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '' };
+    api.globePinsUpsert(pin);
+    setPins((prev) => [...prev, pin]);
+  }, []);
 
-  // Sync markers to the map whenever pins or map changes.
+  // Sync markers to the map whenever pins change.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Remove markers that no longer have a pin
     for (const [id, marker] of markersRef.current) {
       if (!pins.find((p) => p.id === id)) {
         marker.remove();
@@ -398,7 +374,6 @@ export function GlobeViewer() {
       }
     }
 
-    // Add markers for new pins
     for (const pin of pins) {
       if (!markersRef.current.has(pin.id)) {
         const el = createPinElement(pin, () => removePin(pin.id));
@@ -408,11 +383,9 @@ export function GlobeViewer() {
 
         marker.on('dragend', () => {
           const pos = marker.getLngLat();
-          setPins((prev) => {
-            const next = prev.map((p) => (p.id === pin.id ? { ...p, lng: pos.lng, lat: pos.lat } : p));
-            savePins(next);
-            return next;
-          });
+          const updated = { ...pin, lng: pos.lng, lat: pos.lat };
+          api.globePinsUpsert(updated);
+          setPins((prev) => prev.map((p) => (p.id === pin.id ? updated : p)));
         });
 
         markersRef.current.set(pin.id, marker);
@@ -448,27 +421,6 @@ export function GlobeViewer() {
     });
 
     mapRef.current = map;
-
-    // Restore existing pins once the map is ready
-    map.on('load', () => {
-      for (const pin of loadPins()) {
-        const el = createPinElement(pin, () => removePin(pin.id));
-        const marker = new maplibregl.Marker({ element: el, draggable: true })
-          .setLngLat([pin.lng, pin.lat])
-          .addTo(map);
-
-        marker.on('dragend', () => {
-          const pos = marker.getLngLat();
-          setPins((prev) => {
-            const next = prev.map((p) => (p.id === pin.id ? { ...p, lng: pos.lng, lat: pos.lat } : p));
-            savePins(next);
-            return next;
-          });
-        });
-
-        markersRef.current.set(pin.id, marker);
-      }
-    });
 
     return () => {
       markersRef.current.clear();

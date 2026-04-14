@@ -384,6 +384,15 @@ export interface TaggerResult {
  *  function here must have a corresponding handler registered in ipc.ts
  *  and a corresponding type declaration on `window.electronAPI` in the
  *  renderer's global types. */
+// --- Globe pins --------------------------------------------------------------
+
+export interface GlobePin {
+  id: string;
+  lng: number;
+  lat: number;
+  label: string;
+}
+
 export interface ElectronAPI {
   // -----------------------------------------------------------------------
   // Secure storage (OS keychain-backed via Electron safeStorage)
@@ -584,4 +593,15 @@ export interface ElectronAPI {
   monstersFacets(): Promise<MonsterFacets>;
   /** Full stat block for a single monster by name. */
   monstersGetDetail(name: string): Promise<MonsterDetail | null>;
+
+  // -----------------------------------------------------------------------
+  // Globe pins
+  // -----------------------------------------------------------------------
+
+  /** All saved globe pins. */
+  globePinsList(): Promise<GlobePin[]>;
+  /** Create or update a globe pin (upsert by id). */
+  globePinsUpsert(pin: GlobePin): Promise<void>;
+  /** Delete a globe pin by id. */
+  globePinsDelete(id: string): Promise<void>;
 }

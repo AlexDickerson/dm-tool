@@ -1,8 +1,9 @@
-// Read-only wrapper around the PF2e SQLite database.
-// Used by chat tools for monster, item, and NPC lookups instead of
-// hitting the AoN Elasticsearch endpoint.
+// Wrapper around the PF2e SQLite database.
+// Used by chat tools for monster, item, and NPC lookups, and as the
+// persistent store for dm-tool-owned data like globe pins.
 
 import Database from 'better-sqlite3';
+import type { GlobePin } from '../shared/types.js';
 import { tryParseJson } from './util.js';
 import { cleanFoundryMarkup } from '../shared/foundry-markup.js';
 
@@ -10,7 +11,37 @@ let db: Database.Database | null = null;
 
 export function openPf2eDb(path: string): void {
   if (db) return;
-  db = new Database(path, { readonly: true });
+  db = new Database(path);
+  db.pragma('journal_mode = WAL');
+  migratePf2eDb();
+}
+
+function migratePf2eDb(): void {
+  if (!db) return;
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS globe_pins (
+      id   TEXT PRIMARY KEY,
+      lng  REAL NOT NULL,
+      lat  REAL NOT NULL,
+      label TEXT NOT NULL DEFAULT ''
+    )
+  `);
+}
+
+// --- Globe pins CRUD --------------------------------------------------------
+
+export function listGlobePins(): GlobePin[] {
+  return requireDb().prepare('SELECT id, lng, lat, label FROM globe_pins').all() as GlobePin[];
+}
+
+export function upsertGlobePin(pin: GlobePin): void {
+  requireDb()
+    .prepare('INSERT INTO globe_pins (id, lng, lat, label) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET lng=excluded.lng, lat=excluded.lat, label=excluded.label')
+    .run(pin.id, pin.lng, pin.lat, pin.label);
+}
+
+export function deleteGlobePin(id: string): void {
+  requireDb().prepare('DELETE FROM globe_pins WHERE id = ?').run(id);
 }
 
 export function closePf2eDb(): void {
