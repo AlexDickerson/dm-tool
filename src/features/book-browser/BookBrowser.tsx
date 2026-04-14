@@ -73,6 +73,14 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   const [selectedPublisher, setSelectedPublisher] = useState<string | null>(null);
   const [openTarget, setOpenTarget] = useState<OpenTarget>(null);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; book: Book } | null>(null);
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const toggleExpanded = useCallback((key: string) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
 
   const handleUpdateMeta = useCallback(
     async (bookId: number, fields: { aiSystem?: string; aiCategory?: string }) => {
@@ -291,6 +299,8 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
                     selectedSystem={selectedSystem}
                     selectedCategory={selectedCategory}
                     selectedPublisher={selectedPublisher}
+                    expandedKeys={expandedKeys}
+                    onToggle={toggleExpanded}
                     onSelect={selectNav}
                   />
                 ))}
@@ -383,6 +393,8 @@ function NavGroup({
   count,
   active,
   indent,
+  expanded,
+  onToggle,
   onClick,
   children,
 }: {
@@ -390,17 +402,18 @@ function NavGroup({
   count: number;
   active: boolean;
   indent: number;
+  expanded: boolean;
+  onToggle: () => void;
   onClick: () => void;
   children: React.ReactNode;
 }) {
-  const [expanded, setExpanded] = useState(false);
   return (
     <div>
       <div className="flex items-center" style={{ paddingLeft: indent * 12 }}>
         <button
           type="button"
           className="flex h-6 w-5 items-center justify-center text-muted-foreground"
-          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
         >
           <ChevronRight className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')} />
         </button>
@@ -429,12 +442,16 @@ function SystemGroup({
   selectedSystem,
   selectedCategory,
   selectedPublisher,
+  expandedKeys,
+  onToggle,
   onSelect,
 }: {
   system: { name: string; categories: { name: string; publishers: { name: string; count: number }[]; count: number }[]; count: number };
   selectedSystem: string | null;
   selectedCategory: string | null;
   selectedPublisher: string | null;
+  expandedKeys: Set<string>;
+  onToggle: (key: string) => void;
   onSelect: (sys: string | null, cat: string | null, pub: string | null) => void;
 }) {
   const sysActive = selectedSystem === system.name && !selectedCategory;
@@ -444,11 +461,14 @@ function SystemGroup({
       count={system.count}
       active={sysActive}
       indent={0}
+      expanded={expandedKeys.has(system.name)}
+      onToggle={() => onToggle(system.name)}
       onClick={() => onSelect(sysActive ? null : system.name, null, null)}
     >
       {system.categories.map((cat) => {
         const catActive = selectedSystem === system.name && selectedCategory === cat.name && !selectedPublisher;
         const hasPubs = cat.publishers.length > 1 || (cat.publishers.length === 1 && cat.publishers[0]!.name !== 'Unknown');
+        const catKey = `${system.name}/${cat.name}`;
         return hasPubs ? (
           <NavGroup
             key={cat.name}
@@ -456,6 +476,8 @@ function SystemGroup({
             count={cat.count}
             active={catActive}
             indent={1}
+            expanded={expandedKeys.has(catKey)}
+            onToggle={() => onToggle(catKey)}
             onClick={() => onSelect(system.name, catActive ? null : cat.name, null)}
           >
             {cat.publishers.map((pub) => (
