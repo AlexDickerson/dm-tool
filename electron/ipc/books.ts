@@ -67,6 +67,13 @@ export function registerBookHandlers(
     return `book-file://covers/${id}`;
   });
 
+  ipcMain.handle(
+    'booksUpdateMeta',
+    async (_e, args: { id: number; fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null } }): Promise<Book | null> => {
+      return requireBookDb().updateMeta(args.id, args.fields);
+    },
+  );
+
   // --- AI classification ------------------------------------------------------
 
   let classifyAbort = false;

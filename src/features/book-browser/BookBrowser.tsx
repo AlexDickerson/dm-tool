@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronRight, Library, Layers, RefreshCw, Sparkles, X } from 'lucide-react';
+import { Check, ChevronRight, Library, Layers, RefreshCw, Sparkles, X } from 'lucide-react';
 import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -72,6 +72,15 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedPublisher, setSelectedPublisher] = useState<string | null>(null);
   const [openTarget, setOpenTarget] = useState<OpenTarget>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; book: Book } | null>(null);
+
+  const handleUpdateMeta = useCallback(
+    async (bookId: number, fields: { aiSystem?: string; aiCategory?: string }) => {
+      await api.booksUpdateMeta({ id: bookId, fields });
+      refetch();
+    },
+    [refetch],
+  );
 
   const selectNav = useCallback((sys: string | null, cat: string | null, pub: string | null) => {
     setSelectedSystem(sys);
@@ -310,11 +319,24 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
                     setOpenTarget({ kind: 'book', bookId: entry.book.id });
                   }
                 }}
+                onBookContextMenu={(e, book) => {
+                  e.preventDefault();
+                  setCtxMenu({ x: e.clientX, y: e.clientY, book });
+                }}
               />
             )}
           </div>
         </div>
       </div>
+      {ctxMenu && (
+        <BookContextMenu
+          book={ctxMenu.book}
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
+          onUpdateMeta={handleUpdateMeta}
+        />
+      )}
     </div>
   );
 }
@@ -477,7 +499,11 @@ const SECTION_HEIGHT = 36;
 /** A layout row is either a section header (full width) or a row of cards. */
 type LayoutRow = { kind: 'section'; label: string } | { kind: 'cards'; items: CatalogEntry[] };
 
-function CatalogGrid({ entries, onSelect }: { entries: CatalogEntry[]; onSelect: (e: CatalogEntry) => void }) {
+function CatalogGrid({ entries, onSelect, onBookContextMenu }: {
+  entries: CatalogEntry[];
+  onSelect: (e: CatalogEntry) => void;
+  onBookContextMenu?: (e: React.MouseEvent, book: Book) => void;
+}) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [columnCount, setColumnCount] = useState(1);
 
@@ -579,7 +605,7 @@ function CatalogGrid({ entries, onSelect }: { entries: CatalogEntry[]; onSelect:
                 entry.kind === 'ap' ? (
                   <ApCard key={`ap-${entry.group.subcategory}`} group={entry.group} onClick={() => onSelect(entry)} />
                 ) : entry.kind === 'book' ? (
-                  <BookCard key={entry.book.id} book={entry.book} onClick={() => onSelect(entry)} />
+                  <BookCard key={entry.book.id} book={entry.book} onClick={() => onSelect(entry)} onContextMenu={onBookContextMenu} />
                 ) : null,
               )}
             </div>
@@ -594,7 +620,7 @@ function CatalogGrid({ entries, onSelect }: { entries: CatalogEntry[]; onSelect:
 // Cards
 // ---------------------------------------------------------------------------
 
-function BookCard({ book, onClick }: { book: Book; onClick: () => void }) {
+function BookCard({ book, onClick, onContextMenu }: { book: Book; onClick: () => void; onContextMenu?: (e: React.MouseEvent, book: Book) => void }) {
   const [coverError, setCoverError] = useState(false);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
@@ -613,6 +639,7 @@ function BookCard({ book, onClick }: { book: Book; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
+      onContextMenu={onContextMenu ? (e) => onContextMenu(e, book) : undefined}
       className="group relative flex flex-col overflow-hidden rounded-md border border-border bg-card text-left transition-all hover:border-primary/60"
       style={{ height: CARD_HEIGHT }}
       title={effectiveTitle(book)}
@@ -745,6 +772,95 @@ function SystemBadge({ system }: { system: string }) {
   return (
     <div className="pointer-events-none absolute left-1 top-1 rounded bg-amber-600/90 px-1 py-0.5 text-[9px] font-semibold uppercase text-white shadow-xs">
       {system}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Right-click context menu for moving books between categories / systems
+// ---------------------------------------------------------------------------
+
+const CTX_CATEGORIES = ['Rulebook', 'Adventure Path', 'Adventure', 'Setting', 'Supplement'] as const;
+const CTX_SYSTEMS = ['PF2e', '5e', 'Generic'] as const;
+
+function BookContextMenu({
+  book,
+  x,
+  y,
+  onClose,
+  onUpdateMeta,
+}: {
+  book: Book;
+  x: number;
+  y: number;
+  onClose: () => void;
+  onUpdateMeta: (bookId: number, fields: { aiSystem?: string; aiCategory?: string }) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on click-outside or Escape.
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [onClose]);
+
+  // Clamp position so menu doesn't overflow viewport.
+  const style = useMemo(() => {
+    const menuW = 180;
+    const menuH = 280;
+    const left = Math.min(x, window.innerWidth - menuW - 8);
+    const top = Math.min(y, window.innerHeight - menuH - 8);
+    return { position: 'fixed' as const, left, top, zIndex: 9999 };
+  }, [x, y]);
+
+  const curCat = effectiveCategory(book);
+  const curSys = effectiveSystem(book);
+
+  return (
+    <div ref={ref} style={style} className="min-w-[160px] rounded-md border border-border bg-popover py-1 shadow-lg">
+      <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Category</div>
+      {CTX_CATEGORIES.map((cat) => (
+        <button
+          key={cat}
+          type="button"
+          className={cn(
+            'flex w-full items-center gap-2 px-2 py-1 text-left text-xs transition-colors hover:bg-accent',
+            curCat === cat && 'text-foreground font-medium',
+            curCat !== cat && 'text-muted-foreground',
+          )}
+          onClick={() => { onUpdateMeta(book.id, { aiCategory: cat }); onClose(); }}
+        >
+          <Check className={cn('h-3 w-3', curCat === cat ? 'opacity-100' : 'opacity-0')} />
+          {cat}
+        </button>
+      ))}
+      <div className="mx-2 my-1 h-px bg-border" />
+      <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">System</div>
+      {CTX_SYSTEMS.map((sys) => (
+        <button
+          key={sys}
+          type="button"
+          className={cn(
+            'flex w-full items-center gap-2 px-2 py-1 text-left text-xs transition-colors hover:bg-accent',
+            curSys === sys && 'text-foreground font-medium',
+            curSys !== sys && 'text-muted-foreground',
+          )}
+          onClick={() => { onUpdateMeta(book.id, { aiSystem: sys }); onClose(); }}
+        >
+          <Check className={cn('h-3 w-3', curSys === sys ? 'opacity-100' : 'opacity-0')} />
+          {sys}
+        </button>
+      ))}
     </div>
   );
 }

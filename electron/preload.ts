@@ -83,6 +83,8 @@ const api: ElectronAPI = {
   booksFinalizeIngest: (args: FinalizeIngestArgs): Promise<Book> => ipcRenderer.invoke('booksFinalizeIngest', args),
   booksGetFileUrl: (id: number): Promise<string> => ipcRenderer.invoke('booksGetFileUrl', id),
   booksGetCoverUrl: (id: number): Promise<string> => ipcRenderer.invoke('booksGetCoverUrl', id),
+  booksUpdateMeta: (args: { id: number; fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null } }): Promise<Book | null> =>
+    ipcRenderer.invoke('booksUpdateMeta', args),
   booksClassify: (args: { apiKey: string; reclassify?: boolean }): Promise<void> =>
     ipcRenderer.invoke('booksClassify', args),
   booksClassifyCancel: (): Promise<void> => ipcRenderer.invoke('booksClassifyCancel'),

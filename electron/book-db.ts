@@ -285,6 +285,20 @@ export class BookDb {
       .run(c.system, c.category, c.subcategory ?? null, c.title, c.publisher ?? null, Date.now(), id);
   }
 
+  /** Update individual AI metadata fields for a book. */
+  updateMeta(id: number, fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null }): Book | null {
+    const sets: string[] = [];
+    const vals: unknown[] = [];
+    if (fields.aiSystem !== undefined) { sets.push('ai_system = ?'); vals.push(fields.aiSystem); }
+    if (fields.aiCategory !== undefined) { sets.push('ai_category = ?'); vals.push(fields.aiCategory); }
+    if (fields.aiSubcategory !== undefined) { sets.push('ai_subcategory = ?'); vals.push(fields.aiSubcategory); }
+    if (fields.aiPublisher !== undefined) { sets.push('ai_publisher = ?'); vals.push(fields.aiPublisher); }
+    if (sets.length === 0) return this.getById(id);
+    vals.push(id);
+    this.db.prepare(`UPDATE books SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+    return this.getById(id);
+  }
+
   /** All ingested books without AI classification. */
   listUnclassified(): Array<{ id: number; path: string; cover_blob: Buffer }> {
     return this.db
