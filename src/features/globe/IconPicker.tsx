@@ -31,8 +31,39 @@ export function IconPicker({ selected, onSelect, onClose }: IconPickerProps) {
 
   const filtered = useMemo(() => {
     if (!query.trim()) return SUGGESTED_ICONS;
-    const q = query.toLowerCase();
-    return ALL_ICON_NAMES.filter((n) => n.includes(q)).slice(0, 120);
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return SUGGESTED_ICONS;
+
+    // Score each icon: every query term must match at least one word in the
+    // icon name (prefix match). Better matches (shorter word = tighter fit)
+    // score higher and sort first.
+    const scored: { name: string; score: number }[] = [];
+    for (const name of ALL_ICON_NAMES) {
+      const words = name.split('-');
+      let totalScore = 0;
+      let allMatch = true;
+      for (const term of terms) {
+        let best = 0;
+        for (const w of words) {
+          if (w === term) {
+            best = Math.max(best, 3);
+          } else if (w.startsWith(term)) {
+            best = Math.max(best, 2);
+          } else if (w.includes(term)) {
+            best = Math.max(best, 1);
+          }
+        }
+        if (best === 0) {
+          allMatch = false;
+          break;
+        }
+        totalScore += best;
+      }
+      if (allMatch) scored.push({ name, score: totalScore });
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 120).map((s) => s.name);
   }, [query]);
 
   return (
