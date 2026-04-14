@@ -12,13 +12,14 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import type { MapDetail } from '../shared/types.js';
-
-// Per the system prompt: default to the latest Sonnet for app-building.
-// Sonnet 4.6 has vision and is plenty for this prompt.
-const ANTHROPIC_MODEL = 'claude-sonnet-4-6';
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
-const MAX_TOKENS = 1024;
+import {
+  DEFAULT_MODEL,
+  ANTHROPIC_API_URL,
+  ANTHROPIC_API_VERSION,
+  ENCOUNTER_HOOK_MAX_TOKENS,
+  THUMBNAIL_SUFFIX,
+} from './constants.js';
+import { buildEncounterHookPrompt } from './prompts.js';
 
 type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 
@@ -57,7 +58,7 @@ function loadImageAsBase64(filePath: string): {
 /** Resolve the on-disk path of the pre-generated thumbnail for a map.
  *  Falls back to the original full-size image if no thumbnail exists. */
 function resolveImagePath(libraryPath: string, fileName: string): string {
-  const thumb = join(libraryPath, `${fileName}.thumb.jpg`);
+  const thumb = join(libraryPath, `${fileName}${THUMBNAIL_SUFFIX}`);
   if (existsSync(thumb)) return thumb;
   return join(libraryPath, fileName);
 }
@@ -69,43 +70,6 @@ interface AnthropicTextBlock {
 interface AnthropicResponse {
   content: Array<AnthropicTextBlock | { type: string }>;
   // Other fields exist but we don't need them.
-}
-
-/** Build the user-side prompt. The model is asked to return a JSON array
- *  of new encounter hooks, distinct from the ones we already have. */
-function buildPrompt(detail: MapDetail): string {
-  const existing = [...detail.encounterHooks, ...detail.additionalEncounterHooks];
-  const existingBlock =
-    existing.length > 0
-      ? `Existing encounter hooks (do NOT repeat or paraphrase these):\n${existing
-          .map((h, i) => `${i + 1}. ${h}`)
-          .join('\n')}`
-      : 'There are no existing encounter hooks yet.';
-
-  const tags = [
-    detail.biomes.length > 0 ? `Biomes: ${detail.biomes.join(', ')}` : null,
-    detail.locationTypes.length > 0 ? `Locations: ${detail.locationTypes.join(', ')}` : null,
-    detail.mood.length > 0 ? `Mood: ${detail.mood.join(', ')}` : null,
-    detail.features.length > 0 ? `Features: ${detail.features.join(', ')}` : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  return [
-    `You are helping a tabletop RPG dungeon master brainstorm encounter hooks for a battlemap.`,
-    ``,
-    `Map title: ${detail.title}`,
-    detail.description ? `Map description: ${detail.description}` : null,
-    tags || null,
-    ``,
-    existingBlock,
-    ``,
-    `Look at the attached image and write 3 NEW encounter hooks that could play out on this map. Each hook should be 1–2 sentences, evocative, and directly grounded in what is visible in the image. Vary the tone (combat, social, exploration, mystery). Do not repeat anything from the existing hooks.`,
-    ``,
-    `Respond with ONLY a JSON array of strings — no preamble, no code fences, no commentary. Example format: ["First hook here.", "Second hook here.", "Third hook here."]`,
-  ]
-    .filter((line) => line !== null)
-    .join('\n');
 }
 
 /** Strip Markdown code fences (```json … ```) the model sometimes wraps
@@ -150,11 +114,11 @@ export async function generateEncounterHooks(args: {
 
   const imagePath = resolveImagePath(libraryPath, detail.fileName);
   const { base64, mediaType } = loadImageAsBase64(imagePath);
-  const prompt = buildPrompt(detail);
+  const prompt = buildEncounterHookPrompt(detail);
 
   const body = {
-    model: ANTHROPIC_MODEL,
-    max_tokens: MAX_TOKENS,
+    model: DEFAULT_MODEL,
+    max_tokens: ENCOUNTER_HOOK_MAX_TOKENS,
     messages: [
       {
         role: 'user',
@@ -176,12 +140,12 @@ export async function generateEncounterHooks(args: {
     ],
   };
 
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_VERSION,
+      'anthropic-version': ANTHROPIC_API_VERSION,
     },
     body: JSON.stringify(body),
   });

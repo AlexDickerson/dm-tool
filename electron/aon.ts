@@ -1,7 +1,8 @@
 // Archives of Nethys lookup via their public Elasticsearch endpoint.
 // Used by the chat assistant's tools to fetch authoritative PF2e content.
 
-const AON_URL = 'https://elasticsearch.aonprd.com/aon/_search';
+import { AON_BASE_URL, AON_ELASTICSEARCH_URL } from './constants.js';
+import { stripHtml, truncate } from './util.js';
 
 interface AonHit {
   name: string;
@@ -11,39 +12,16 @@ interface AonHit {
   url: string;
 }
 
-/** Strip HTML tags so the model sees clean text. */
-function stripHtml(html: string): string {
-  let text = html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n');
-  let prev: string;
-  do {
-    prev = text;
-    text = text.replace(/<[^>]+>/g, '');
-  } while (text !== prev);
-  const entities: Record<string, string> = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
-  return text
-    .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => entities[m])
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-/** Truncate text to a reasonable length for context. */
-function truncate(text: string, max = 1500): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max) + '…';
-}
-
 function formatHits(hits: AonHit[], label: string): string {
   if (hits.length === 0) return `[No ${label} results found]`;
   return hits
     .map((h, i) => {
       const sources = Array.isArray(h.source) ? h.source.join(', ') : h.source;
-      const body = truncate(stripHtml(h.text));
+      const body = truncate(stripHtml(h.text), 1500);
       return [
         `--- ${label} Result ${i + 1}: ${h.name} (${h.category}) ---`,
         `Source: ${sources}`,
-        `URL: https://2e.aonprd.com${h.url}`,
+        `URL: ${AON_BASE_URL}${h.url}`,
         '',
         body,
       ].join('\n');
@@ -72,7 +50,7 @@ async function queryAoN(
         }
       : { multi_match: { query, fields: ['name^3', 'text'] } };
 
-    const res = await fetch(AON_URL, {
+    const res = await fetch(AON_ELASTICSEARCH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(10_000),

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { THUMBNAIL_SUFFIX } from './constants';
 
 /** shadcn's standard className helper — concats classes and resolves
  *  Tailwind conflicts (`p-2 p-4` → `p-4`). */
@@ -27,7 +28,7 @@ export function mapFileUrl(fileName: string): string {
  *  the original extension. E.g. `Alchemists_Lab.jpg` →
  *  `Alchemists_Lab.jpg.thumb.jpg`. */
 export function thumbnailUrl(fileName: string): string {
-  return mapFileUrl(`${fileName}.thumb.jpg`);
+  return mapFileUrl(`${fileName}${THUMBNAIL_SUFFIX}`);
 }
 
 /** Convert a raw tag value from the tagger index into a display string.

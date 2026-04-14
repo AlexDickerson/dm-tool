@@ -18,7 +18,7 @@ import { existsSync } from 'node:fs';
 import { configExists, loadConfig, type DmToolConfig } from './config.js';
 import { MapDb } from './db.js';
 import { BookDb } from './book-db.js';
-import { registerIpcHandlers } from './ipc.js';
+import { registerIpcHandlers } from './ipc/index.js';
 import { registerSetupIpcHandlers } from './setup-ipc.js';
 import { scanBookRoot } from './book-scanner.js';
 import { openPf2eDb, closePf2eDb } from './pf2e-db.js';

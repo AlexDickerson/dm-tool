@@ -1,8 +1,8 @@
 // Fetch a single AoN entry by its URL path for hover previews.
 
 import type { AonPreviewData } from '../shared/types.js';
-
-const AON_URL = 'https://elasticsearch.aonprd.com/aon/_search';
+import { AON_ELASTICSEARCH_URL } from './constants.js';
+import { stripHtml } from './util.js';
 
 interface AonSource {
   name: string;
@@ -35,30 +35,13 @@ interface AonSource {
   charisma?: number;
 }
 
-function stripHtml(html: string): string {
-  let text = html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n');
-  // Loop to handle nested/malformed tags like <scr<script>ipt>
-  let prev: string;
-  do {
-    prev = text;
-    text = text.replace(/<[^>]+>/g, '');
-  } while (text !== prev);
-  const entities: Record<string, string> = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
-  return text
-    .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => entities[m])
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
 /**
  * Fetch preview data for an AoN entry by URL path.
  * Returns structured creature data or generic text preview.
  */
 export async function fetchAonPreview(urlPath: string): Promise<AonPreviewData | null> {
   try {
-    const res = await fetch(AON_URL, {
+    const res = await fetch(AON_ELASTICSEARCH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(8_000),

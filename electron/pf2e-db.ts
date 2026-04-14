@@ -3,6 +3,8 @@
 // hitting the AoN Elasticsearch endpoint.
 
 import Database from 'better-sqlite3';
+import { tryParseJson } from './util.js';
+import { cleanFoundryMarkup } from '../shared/foundry-markup.js';
 
 let db: Database.Database | null = null;
 
@@ -37,13 +39,13 @@ const ACTION_GLYPH: Record<string, string> = {
   F: '◇',
 };
 
-/** Strip Foundry @UUID/@ references and basic HTML from descriptions. */
+/** Strip Foundry @-tags and HTML from descriptions.
+ *  Uses cleanFoundryMarkup (shared) for @-tag handling, then does the
+ *  HTML stripping and action-glyph conversion specific to DB output. */
 function cleanDescription(html: string | null): string {
   if (!html) return '';
-  let text = html
-    .replace(/@UUID\[Compendium\.[^\]]+\]\{([^}]+)\}/g, '$1')
-    .replace(/@UUID\[Compendium\.[^\]]+\]/g, '')
-    .replace(/@Check\[([^|]+)\|dc:(\d+)\]/g, '$1 DC $2')
+  // First pass: strip all @Damage, @Check, @Template, @UUID, etc.
+  let text = cleanFoundryMarkup(html)
     // Convert action-glyph spans to Unicode before stripping HTML
     .replace(
       /<span[^>]*class="[^"]*action-glyph[^"]*"[^>]*>([^<]*)<\/span>/gi,
@@ -68,14 +70,6 @@ function cleanDescription(html: string | null): string {
     .trim();
 }
 
-function tryParseJson<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
 
 // --- Monster queries --------------------------------------------------------
 

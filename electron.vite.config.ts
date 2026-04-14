@@ -43,6 +43,13 @@ export default defineConfig({
   renderer: {
     root: __dirname,
     plugins: [react()],
+    server: {
+      fs: {
+        // In a git worktree node_modules lives in the main repo root,
+        // which is outside this directory. Allow Vite to serve from there.
+        allow: [__dirname, resolve(__dirname, '..', '..', '..')],
+      },
+    },
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
