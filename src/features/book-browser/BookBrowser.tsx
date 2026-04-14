@@ -508,12 +508,10 @@ function BookCard({ book, onClick }: { book: Book; onClick: () => void }) {
         coverError={coverError}
         onCoverError={() => setCoverError(true)}
         ingested={book.ingested}
+        title={book.title}
       />
       {book.ruleset && <RulesetBadge ruleset={book.ruleset} />}
-      <div className="flex flex-1 flex-col justify-center px-2">
-        <div className="truncate text-xs font-medium leading-tight">{book.title}</div>
-        {book.pageCount != null && <div className="text-[10px] text-muted-foreground">{book.pageCount} pages</div>}
-      </div>
+      <HoverMeta title={book.title} pageCount={book.pageCount} />
     </button>
   );
 }
@@ -549,41 +547,41 @@ function ApCard({ group, onClick }: { group: ApGroup; onClick: () => void }) {
         coverError={coverError}
         onCoverError={() => setCoverError(true)}
         ingested={coverBook?.ingested ?? false}
+        title={group.subcategory}
       />
       {/* AP badge */}
       <div className="pointer-events-none absolute right-1 top-1 flex items-center gap-0.5 rounded bg-primary/90 px-1 py-0.5 text-[9px] font-semibold text-primary-foreground shadow-xs">
         <Layers className="h-2.5 w-2.5" />
         {group.parts.length}
       </div>
-      <div className="flex flex-1 flex-col justify-center px-2">
-        <div className="truncate text-xs font-medium leading-tight">{group.subcategory}</div>
-        <div className="text-[10px] text-muted-foreground">
-          {group.parts.length}-part AP
-          {totalPages != null && ` · ${totalPages} pages`}
-        </div>
-      </div>
+      <HoverMeta
+        title={group.subcategory}
+        subtitle={`${group.parts.length}-part AP${totalPages != null ? ` · ${totalPages} pages` : ''}`}
+      />
     </button>
   );
 }
 
-// Shared cover image area used by both card types.
+// Shared cover image area — fills the entire card.
 function CoverArea({
   coverUrl,
   coverError,
   onCoverError,
   ingested,
+  title,
 }: {
   coverUrl: string | null;
   coverError: boolean;
   onCoverError: () => void;
   ingested: boolean;
+  title: string;
 }) {
   return (
-    <div className="relative overflow-hidden bg-muted" style={{ height: CARD_HEIGHT - 46, width: '100%' }}>
+    <div className="absolute inset-0 overflow-hidden bg-muted">
       {coverUrl && !coverError ? (
         <img
           src={coverUrl}
-          alt=""
+          alt={title}
           loading="lazy"
           onError={onCoverError}
           style={{
@@ -603,6 +601,27 @@ function CoverArea({
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+// Metadata overlay shown on hover at the bottom of the card.
+function HoverMeta({
+  title,
+  pageCount,
+  subtitle,
+}: {
+  title: string;
+  pageCount?: number | null;
+  subtitle?: string;
+}) {
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-black/75 px-2 py-1.5 backdrop-blur-sm transition-transform group-hover:translate-y-0"
+    >
+      <div className="truncate text-xs font-medium leading-tight text-white">{title}</div>
+      {subtitle && <div className="text-[10px] text-white/70">{subtitle}</div>}
+      {!subtitle && pageCount != null && <div className="text-[10px] text-white/70">{pageCount} pages</div>}
     </div>
   );
 }
