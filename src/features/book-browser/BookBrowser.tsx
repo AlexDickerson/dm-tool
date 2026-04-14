@@ -827,7 +827,7 @@ function BookContextMenu({
   const curSys = effectiveSystem(book);
 
   return (
-    <div ref={ref} style={style} className="min-w-[160px] rounded-md border border-border bg-popover py-1 shadow-lg">
+    <div ref={ref} style={{ ...style, backgroundColor: 'hsl(var(--popover))' }} className="min-w-[160px] rounded-md border border-border py-1 shadow-lg">
       <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Category</div>
       {CTX_CATEGORIES.map((cat) => (
         <button
