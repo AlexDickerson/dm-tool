@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronRight, Library, Layers, RefreshCw } from 'lucide-react';
+import { ChevronRight, Library, Layers, RefreshCw, Sparkles, X } from 'lucide-react';
 import { ResizableSidebar } from '@/components/ResizableSidebar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
-import { useBackgroundIngest, useBookList, useBookScan } from './useBooks';
+import { useBackgroundIngest, useBookClassify, useBookList, useBookScan } from './useBooks';
 import { BookReader } from './BookReader';
 import { groupAdventurePaths, apTotalPages, type ApGroup } from './ap-merge';
 import type { Book } from '@shared/types';
@@ -20,6 +20,21 @@ type CatalogEntry = { kind: 'book'; book: Book } | { kind: 'ap'; group: ApGroup 
 
 type OpenTarget = { kind: 'book'; bookId: number } | { kind: 'ap'; group: ApGroup } | null;
 
+// Use AI-derived classification when available, fall back to folder-derived.
+function effectiveCategory(b: Book): string {
+  return b.aiCategory ?? b.category;
+}
+function effectiveSubcategory(b: Book): string | null {
+  return b.aiSubcategory ?? b.subcategory;
+}
+function effectiveTitle(b: Book): string {
+  return b.aiTitle ?? b.title;
+}
+
+const CATEGORY_ORDER = ['Rulebook', 'Adventure Path', 'Adventure', 'Setting', 'Supplement',
+  // Legacy folder-derived names (fallback for unclassified books)
+  'Rulebooks', 'Adventure Paths', 'Adventures', 'Lost Omens', 'Beginner Box'];
+
 // ---------------------------------------------------------------------------
 // Top-level component
 // ---------------------------------------------------------------------------
@@ -27,8 +42,22 @@ type OpenTarget = { kind: 'book'; bookId: number } | { kind: 'ap'; group: ApGrou
 export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   const { data: books, loading, error, refetch } = useBookList();
   const { scan, scanning } = useBookScan();
+  const { classify, cancel: cancelClassify, running: classifying, current: classifyCurrent, total: classifyTotal } =
+    useBookClassify();
   // Hook triggers background cover extraction — side-effect only.
   useBackgroundIngest(books, refetch);
+
+  const handleClassify = useCallback(
+    async (reclassify?: boolean) => {
+      try {
+        await classify(reclassify);
+      } catch (e) {
+        console.error('Classification error:', e);
+      }
+      refetch();
+    },
+    [classify, refetch],
+  );
   const filter = keywords;
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
@@ -45,26 +74,27 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
     [books],
   );
 
-  // Group books by category for the left rail. For Adventure Paths, count
-  // the number of AP groups (not individual PDFs) so the rail reads "8"
-  // for 8 APs rather than "42" for all individual parts.
+  // Group books by effective (AI or folder-derived) category for the left
+  // rail. For Adventure Paths, count AP groups instead of individual PDFs.
   const categories = useMemo(() => {
     if (!books) return [];
     const map = new Map<string, { sub: Map<string | null, Book[]> }>();
     for (const b of books) {
-      let entry = map.get(b.category);
+      const cat = effectiveCategory(b);
+      const sub = effectiveSubcategory(b);
+      let entry = map.get(cat);
       if (!entry) {
         entry = { sub: new Map() };
-        map.set(b.category, entry);
+        map.set(cat, entry);
       }
-      let list = entry.sub.get(b.subcategory);
+      let list = entry.sub.get(sub);
       if (!list) {
         list = [];
-        entry.sub.set(b.subcategory, list);
+        entry.sub.set(sub, list);
       }
       list.push(b);
     }
-    const CATEGORY_ORDER = ['Rulebooks', 'Adventure Paths', 'Adventures', 'Lost Omens', 'Beginner Box'];
+    const isAp = (n: string) => n === 'Adventure Path' || n === 'Adventure Paths';
     return Array.from(map.entries())
       .map(([name, v]) => ({
         name,
@@ -72,10 +102,9 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
           name: sub,
           books: bks,
         })),
-        count:
-          name === 'Adventure Paths'
-            ? apGroups.length
-            : Array.from(v.sub.values()).reduce((n, bks) => n + bks.length, 0),
+        count: isAp(name)
+          ? apGroups.length
+          : Array.from(v.sub.values()).reduce((n, bks) => n + bks.length, 0),
       }))
       .sort((a, b) => {
         const ai = CATEGORY_ORDER.indexOf(a.name);
@@ -85,43 +114,44 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   }, [books, apGroups]);
 
   // Build catalog entries grouped by category with section dividers.
+  const isAp = (name: string) => name === 'Adventure Path' || name === 'Adventure Paths';
   const entries = useMemo((): CatalogEntry[] => {
     const q = filter.trim().toLowerCase();
     const out: CatalogEntry[] = [];
 
-    // Collect entries per category, preserving CATEGORY_ORDER.
-    const CATEGORY_ORDER = ['Rulebooks', 'Adventure Paths', 'Adventures', 'Lost Omens', 'Beginner Box'];
-
-    // Group non-AP books by category.
+    // Group non-AP books by effective category.
     const byCat = new Map<string, Book[]>();
     for (const b of otherBooks) {
-      if (selectedCategory && b.category !== selectedCategory) continue;
-      if (selectedSubcategory && b.subcategory !== selectedSubcategory) continue;
-      if (q && !b.title.toLowerCase().includes(q)) continue;
-      let list = byCat.get(b.category);
+      const cat = effectiveCategory(b);
+      const sub = effectiveSubcategory(b);
+      if (selectedCategory && cat !== selectedCategory) continue;
+      if (selectedSubcategory && sub !== selectedSubcategory) continue;
+      if (q && !effectiveTitle(b).toLowerCase().includes(q)) continue;
+      let list = byCat.get(cat);
       if (!list) {
         list = [];
-        byCat.set(b.category, list);
+        byCat.set(cat, list);
       }
       list.push(b);
     }
 
     // Collect AP entries if they pass the filter.
+    const apCatName = [...byCat.keys(), ...CATEGORY_ORDER].find(isAp) ?? 'Adventure Path';
     const apEntries: CatalogEntry[] = [];
     for (const g of apGroups) {
-      if (selectedCategory && selectedCategory !== 'Adventure Paths') continue;
+      if (selectedCategory && !isAp(selectedCategory)) continue;
       if (selectedSubcategory && selectedSubcategory !== g.subcategory) continue;
       if (q && !g.subcategory.toLowerCase().includes(q)) continue;
       apEntries.push({ kind: 'ap', group: g });
       for (const s of g.supplements) {
-        if (q && !s.title.toLowerCase().includes(q)) continue;
+        if (q && !effectiveTitle(s).toLowerCase().includes(q)) continue;
         apEntries.push({ kind: 'book', book: s });
       }
     }
 
     // Emit entries in category order with section headers.
     const allCats = new Set([...CATEGORY_ORDER, ...byCat.keys()]);
-    if (apEntries.length > 0) allCats.add('Adventure Paths');
+    if (apEntries.length > 0) allCats.add(apCatName);
     const sorted = [...allCats].sort((a, b) => {
       const ai = CATEGORY_ORDER.indexOf(a);
       const bi = CATEGORY_ORDER.indexOf(b);
@@ -130,7 +160,7 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
 
     for (const cat of sorted) {
       const catEntries: CatalogEntry[] = [];
-      if (cat === 'Adventure Paths') {
+      if (isAp(cat)) {
         catEntries.push(...apEntries);
       }
       const books = byCat.get(cat);
@@ -138,7 +168,6 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
         for (const b of books) catEntries.push({ kind: 'book', book: b });
       }
       if (catEntries.length === 0) continue;
-      // Only show section headers when viewing "All Books" (no category filter).
       if (!selectedCategory) {
         out.push({ kind: 'section', label: cat });
       }
@@ -166,16 +195,41 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
               <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
                 Categories
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                title="Rescan PDF folder"
-                onClick={handleRescan}
-                disabled={scanning}
-              >
-                <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
-              </Button>
+              <div className="flex items-center gap-1">
+                {classifying ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 px-1.5 text-[10px] text-muted-foreground"
+                    title="Cancel classification"
+                    onClick={cancelClassify}
+                  >
+                    <Sparkles className="h-3 w-3 animate-pulse text-primary" />
+                    {classifyCurrent}/{classifyTotal}
+                    <X className="h-3 w-3" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    title="Classify books with AI"
+                    onClick={() => handleClassify()}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  title="Rescan PDF folder"
+                  onClick={handleRescan}
+                  disabled={scanning}
+                >
+                  <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
+                </Button>
+              </div>
             </div>
             <Separator variant="ornate" />
             <ScrollArea className="flex-1">
@@ -501,17 +555,18 @@ function BookCard({ book, onClick }: { book: Book; onClick: () => void }) {
       onClick={onClick}
       className="group relative flex flex-col overflow-hidden rounded-md border border-border bg-card text-left transition-all hover:border-primary/60"
       style={{ height: CARD_HEIGHT }}
-      title={book.title}
+      title={effectiveTitle(book)}
     >
       <CoverArea
         coverUrl={coverUrl}
         coverError={coverError}
         onCoverError={() => setCoverError(true)}
         ingested={book.ingested}
-        title={book.title}
+        title={effectiveTitle(book)}
       />
+      {book.aiSystem && book.aiSystem !== 'PF2e' && <SystemBadge system={book.aiSystem} />}
       {book.ruleset && <RulesetBadge ruleset={book.ruleset} />}
-      <HoverMeta title={book.title} pageCount={book.pageCount} />
+      <HoverMeta title={effectiveTitle(book)} pageCount={book.pageCount} />
     </button>
   );
 }
@@ -622,6 +677,14 @@ function HoverMeta({
       <div className="truncate text-xs font-medium leading-tight text-white">{title}</div>
       {subtitle && <div className="text-[10px] text-white/70">{subtitle}</div>}
       {!subtitle && pageCount != null && <div className="text-[10px] text-white/70">{pageCount} pages</div>}
+    </div>
+  );
+}
+
+function SystemBadge({ system }: { system: string }) {
+  return (
+    <div className="pointer-events-none absolute left-1 top-1 rounded bg-amber-600/90 px-1 py-0.5 text-[9px] font-semibold uppercase text-white shadow-xs">
+      {system}
     </div>
   );
 }

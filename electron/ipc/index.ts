@@ -26,7 +26,7 @@ export function registerIpcHandlers(
   getMainWindow: () => Electron.BrowserWindow | null,
 ): void {
   registerMapHandlers(db, cfg);
-  registerBookHandlers(bookDb, cfg);
+  registerBookHandlers(bookDb, cfg, getMainWindow);
   registerChatHandlers(getMainWindow);
   registerMonsterHandlers();
   registerItemHandlers(cfg);

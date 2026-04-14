@@ -14,7 +14,7 @@
 
 import { basename } from 'node:path';
 import Database, { type Database as BetterSqliteDB } from 'better-sqlite3';
-import type { Book } from '../shared/types.js';
+import type { Book, BookClassification } from '../shared/types.js';
 
 /** Raw row shape as it comes back from the SELECT (excludes cover_blob
  *  which is only fetched on demand to keep list queries lightweight). */
@@ -29,6 +29,12 @@ interface BookRow {
   file_size: number;
   mtime: number;
   ingested_at: number | null;
+  ai_system: string | null;
+  ai_category: string | null;
+  ai_subcategory: string | null;
+  ai_title: string | null;
+  ai_publisher: string | null;
+  ai_classified_at: number | null;
 }
 
 /** A minimal file-system row passed from the scanner. BookDb doesn't walk
@@ -86,19 +92,26 @@ export class BookDb {
       this.db.exec('ALTER TABLE books ADD COLUMN cover_blob BLOB');
     }
     if (hasOldCol) {
-      // Drop the obsolete column (SQLite 3.35+). The cover files on disk
-      // are migrated into blobs by the caller (main.ts) before the DB is
-      // handed to the IPC layer, so no data is lost.
       try {
         this.db.exec('ALTER TABLE books DROP COLUMN cover_path');
       } catch {
         // SQLite < 3.35 doesn't support DROP COLUMN — harmless, just ignore.
       }
     }
+
+    // Migration v2→v3: AI classification columns.
+    if (!cols.some((c) => c.name === 'ai_system')) {
+      this.db.exec('ALTER TABLE books ADD COLUMN ai_system TEXT');
+      this.db.exec('ALTER TABLE books ADD COLUMN ai_category TEXT');
+      this.db.exec('ALTER TABLE books ADD COLUMN ai_subcategory TEXT');
+      this.db.exec('ALTER TABLE books ADD COLUMN ai_title TEXT');
+      this.db.exec('ALTER TABLE books ADD COLUMN ai_publisher TEXT');
+      this.db.exec('ALTER TABLE books ADD COLUMN ai_classified_at INTEGER');
+    }
   }
 
   private static readonly LIST_COLS =
-    'id, path, title, category, subcategory, ruleset, page_count, file_size, mtime, ingested_at';
+    'id, path, title, category, subcategory, ruleset, page_count, file_size, mtime, ingested_at, ai_system, ai_category, ai_subcategory, ai_title, ai_publisher, ai_classified_at';
 
   /** All rows in catalog-display order (category → subcategory → title).
    *  Excludes cover_blob to keep the result set lightweight. */
@@ -150,7 +163,7 @@ export class BookDb {
     total: number;
   } {
     const existing = this.db
-      .prepare('SELECT id, path, mtime, cover_blob, page_count, ingested_at FROM books')
+      .prepare('SELECT id, path, mtime, cover_blob, page_count, ingested_at, ai_system, ai_category, ai_subcategory, ai_title, ai_publisher, ai_classified_at FROM books')
       .all() as Array<{
       id: number;
       path: string;
@@ -158,6 +171,12 @@ export class BookDb {
       cover_blob: Buffer | null;
       page_count: number | null;
       ingested_at: number | null;
+      ai_system: string | null;
+      ai_category: string | null;
+      ai_subcategory: string | null;
+      ai_title: string | null;
+      ai_publisher: string | null;
+      ai_classified_at: number | null;
     }>;
     const byPath = new Map<string, (typeof existing)[0]>();
     for (const row of existing) {
@@ -181,8 +200,10 @@ export class BookDb {
        WHERE path = @path`,
     );
     const deleteStmt = this.db.prepare('DELETE FROM books WHERE id = ?');
-    const transferCover = this.db.prepare(
-      `UPDATE books SET cover_blob = ?, page_count = ?, ingested_at = ? WHERE path = ?`,
+    const transferMetadata = this.db.prepare(
+      `UPDATE books SET cover_blob = ?, page_count = ?, ingested_at = ?,
+       ai_system = ?, ai_category = ?, ai_subcategory = ?, ai_title = ?, ai_publisher = ?, ai_classified_at = ?
+       WHERE path = ?`,
     );
 
     let added = 0;
@@ -204,26 +225,31 @@ export class BookDb {
         }
       }
 
-      // Pass 2: identify orphans (in DB but not in scan) that have covers.
-      const orphansWithCovers = new Map<string, (typeof existing)[0]>();
+      // Pass 2: identify orphans (in DB but not in scan) that have metadata worth transferring.
+      const orphansWithMetadata = new Map<string, (typeof existing)[0]>();
       const orphanIds: number[] = [];
       for (const row of existing) {
         if (!scannedPaths.has(row.path)) {
           orphanIds.push(row.id);
-          if (row.cover_blob) {
-            orphansWithCovers.set(basename(row.path).toLowerCase(), row);
+          if (row.cover_blob || row.ai_classified_at) {
+            orphansWithMetadata.set(basename(row.path).toLowerCase(), row);
           }
         }
       }
 
-      // Pass 3: soft-match orphan covers to newly inserted rows by filename.
-      if (orphansWithCovers.size > 0 && newPaths.length > 0) {
+      // Pass 3: soft-match orphan metadata to newly inserted rows by filename.
+      if (orphansWithMetadata.size > 0 && newPaths.length > 0) {
         for (const newPath of newPaths) {
           const key = basename(newPath).toLowerCase();
-          const donor = orphansWithCovers.get(key);
+          const donor = orphansWithMetadata.get(key);
           if (donor) {
-            transferCover.run(donor.cover_blob, donor.page_count, donor.ingested_at, newPath);
-            orphansWithCovers.delete(key);
+            transferMetadata.run(
+              donor.cover_blob, donor.page_count, donor.ingested_at,
+              donor.ai_system, donor.ai_category, donor.ai_subcategory,
+              donor.ai_title, donor.ai_publisher, donor.ai_classified_at,
+              newPath,
+            );
+            orphansWithMetadata.delete(key);
           }
         }
       }
@@ -247,6 +273,30 @@ export class BookDb {
       .prepare('UPDATE books SET page_count = ?, cover_blob = ?, ingested_at = ? WHERE id = ?')
       .run(pageCount, coverPng, now, id);
     return this.getById(id);
+  }
+
+  /** Save AI classification for a single book. */
+  saveClassification(id: number, c: BookClassification): void {
+    this.db
+      .prepare(
+        `UPDATE books SET ai_system = ?, ai_category = ?, ai_subcategory = ?,
+         ai_title = ?, ai_publisher = ?, ai_classified_at = ? WHERE id = ?`,
+      )
+      .run(c.system, c.category, c.subcategory ?? null, c.title, c.publisher ?? null, Date.now(), id);
+  }
+
+  /** All ingested books without AI classification. */
+  listUnclassified(): Array<{ id: number; path: string; cover_blob: Buffer }> {
+    return this.db
+      .prepare('SELECT id, path, cover_blob FROM books WHERE cover_blob IS NOT NULL AND ai_classified_at IS NULL')
+      .all() as Array<{ id: number; path: string; cover_blob: Buffer }>;
+  }
+
+  /** All ingested books (for reclassify-all). */
+  listClassifiable(): Array<{ id: number; path: string; cover_blob: Buffer }> {
+    return this.db
+      .prepare('SELECT id, path, cover_blob FROM books WHERE cover_blob IS NOT NULL')
+      .all() as Array<{ id: number; path: string; cover_blob: Buffer }>;
   }
 
   /** Migrate cover PNGs from disk files into the database. Called once at
@@ -283,5 +333,11 @@ function rowToBook(row: BookRow): Book {
     pageCount: row.page_count,
     fileSize: row.file_size,
     ingested: row.ingested_at !== null,
+    aiSystem: row.ai_system,
+    aiCategory: row.ai_category,
+    aiSubcategory: row.ai_subcategory,
+    aiTitle: row.ai_title,
+    aiPublisher: row.ai_publisher,
+    classified: row.ai_classified_at !== null,
   };
 }

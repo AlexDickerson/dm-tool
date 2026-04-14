@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
-import type { Book, BookScanResult } from '@shared/types';
+import type { Book, BookClassifyProgress, BookScanResult } from '@shared/types';
 
 interface AsyncState<T> {
   data: T | null;
@@ -61,6 +61,49 @@ export function useBookScan(): {
     }
   }, []);
   return { scan, scanning };
+}
+
+// ---------------------------------------------------------------------------
+// AI classification
+// ---------------------------------------------------------------------------
+
+export function useBookClassify(): {
+  classify: (reclassify?: boolean) => Promise<void>;
+  cancel: () => void;
+  running: boolean;
+  current: number;
+  total: number;
+} {
+  const [running, setRunning] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    const unsub = api.onBookClassifyProgress((p: BookClassifyProgress) => {
+      if (p.type === 'progress') {
+        setCurrent(p.current ?? 0);
+        setTotal(p.total ?? 0);
+      } else if (p.type === 'done') {
+        setRunning(false);
+      }
+    });
+    return unsub;
+  }, []);
+
+  const classify = useCallback(async (reclassify?: boolean) => {
+    const apiKey = await api.secureLoad('anthropic-api-key');
+    if (!apiKey) throw new Error('No API key configured. Set your Anthropic API key in Settings.');
+    setRunning(true);
+    setCurrent(0);
+    setTotal(0);
+    await api.booksClassify({ apiKey, reclassify });
+  }, []);
+
+  const cancel = useCallback(() => {
+    api.booksClassifyCancel();
+  }, []);
+
+  return { classify, cancel, running, current, total };
 }
 
 // ---------------------------------------------------------------------------

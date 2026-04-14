@@ -1,10 +1,16 @@
+import { basename } from 'node:path';
 import { ipcMain } from 'electron';
 import type { BookDb } from '../book-db.js';
 import type { DmToolConfig } from '../config.js';
-import type { Book, BookScanResult, FinalizeIngestArgs } from '../../shared/types.js';
+import type { Book, BookClassifyProgress, BookScanResult, FinalizeIngestArgs } from '../../shared/types.js';
 import { scanBookRoot } from '../book-scanner.js';
+import { classifyBook } from '../book-classifier.js';
 
-export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): void {
+export function registerBookHandlers(
+  bookDb: BookDb | null,
+  cfg: DmToolConfig,
+  getMainWindow: () => Electron.BrowserWindow | null,
+): void {
   const requireBookDb = (): BookDb => {
     if (!bookDb) {
       throw new Error('Book catalog not configured. Set `booksPath` in config.json to the root of your PDF library.');
@@ -59,5 +65,54 @@ export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): 
   ipcMain.handle('booksGetCoverUrl', async (_e, id: number): Promise<string> => {
     requireBookDb();
     return `book-file://covers/${id}`;
+  });
+
+  // --- AI classification ------------------------------------------------------
+
+  let classifyAbort = false;
+
+  const sendProgress = (p: BookClassifyProgress): void => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) win.webContents.send('book-classify-progress', p);
+  };
+
+  ipcMain.handle(
+    'booksClassify',
+    async (_e, args: { apiKey: string; reclassify?: boolean }): Promise<void> => {
+      const b = requireBookDb();
+      const books = args.reclassify ? b.listClassifiable() : b.listUnclassified();
+      const total = books.length;
+      classifyAbort = false;
+
+      for (let i = 0; i < books.length; i++) {
+        if (classifyAbort) break;
+        const book = books[i]!;
+        const fileName = basename(book.path);
+        sendProgress({ type: 'progress', bookId: book.id, bookTitle: fileName, current: i + 1, total });
+
+        try {
+          const classification = await classifyBook({
+            apiKey: args.apiKey,
+            coverBlob: book.cover_blob,
+            fileName,
+          });
+          b.saveClassification(book.id, classification);
+        } catch (err) {
+          console.error(`Classification failed for ${fileName}:`, err);
+          sendProgress({ type: 'error', bookId: book.id, bookTitle: fileName, error: (err as Error).message });
+        }
+
+        // Rate-limit: small delay between calls.
+        if (i < books.length - 1 && !classifyAbort) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+
+      sendProgress({ type: 'done', current: total, total });
+    },
+  );
+
+  ipcMain.handle('booksClassifyCancel', (): void => {
+    classifyAbort = true;
   });
 }
