@@ -236,6 +236,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           extractCover(b.id).then(onIngestComplete).catch(console.error);
         }
       } catch (e) {
+        console.error('[BookReader] single-doc load failed:', e);
         if (!cancelled) setError((e as Error).message);
       }
     })();
@@ -341,6 +342,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
         }
         onIngestComplete?.();
       } catch (e) {
+        console.error('[BookReader] multi-doc load failed:', e);
         if (!cancelled) setError((e as Error).message);
       }
     })();
@@ -592,6 +594,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           The file may be corrupted, password-protected, or not a standard PDF. Common with pregenerated character
           sheets and form-fillable documents.
         </p>
+        <p className="max-w-md text-[10px] font-mono text-muted-foreground/60 break-all">{error}</p>
         <Button variant="outline" size="sm" onClick={onClose}>
           Back to catalog
         </Button>
