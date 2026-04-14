@@ -22,6 +22,7 @@ import { registerIpcHandlers } from './ipc.js';
 import { registerSetupIpcHandlers } from './setup-ipc.js';
 import { scanBookRoot } from './book-scanner.js';
 import { openPf2eDb, closePf2eDb } from './pf2e-db.js';
+import { initUpdater } from './updater.js';
 
 // `map-file://` and `book-file://` must be registered as privileged
 // schemes BEFORE app.ready fires, otherwise the CSP rules in index.html
@@ -423,6 +424,7 @@ async function startup(): Promise<void> {
   });
 
   createWindow();
+  initUpdater(() => mainWindow);
 }
 
 app.whenReady().then(startup);

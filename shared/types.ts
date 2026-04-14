@@ -538,4 +538,30 @@ export interface ElectronAPI {
   monstersFacets(): Promise<MonsterFacets>;
   /** Full stat block for a single monster by name. */
   monstersGetDetail(name: string): Promise<MonsterDetail | null>;
+
+  // -----------------------------------------------------------------------
+  // Auto-updater
+  // -----------------------------------------------------------------------
+
+  /** Returns the app version string from package.json. */
+  getAppVersion(): Promise<string>;
+  /** Begin downloading a discovered update. */
+  updaterDownload(): Promise<void>;
+  /** Quit the app and install the downloaded update. */
+  updaterInstall(): Promise<void>;
+  /** Subscribe to updater status changes. Returns an unsubscribe function. */
+  onUpdaterStatus(callback: (status: UpdateStatus) => void): () => void;
 }
+
+// ---------------------------------------------------------------------------
+// Auto-updater status (shared between main → renderer)
+// ---------------------------------------------------------------------------
+
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'not-available' }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string };

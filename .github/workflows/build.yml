@@ -34,9 +34,10 @@ jobs:
             echo "SHOULD_RELEASE=true" >> "$GITHUB_OUTPUT"
           fi
 
-  build-windows:
+  build-and-release:
     runs-on: windows-latest
     needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
 
     steps:
       - uses: actions/checkout@v6
@@ -60,7 +61,9 @@ jobs:
         run: |
           gh release download v1.4.0-cli --repo AlexDickerson/auto-wall --pattern "Auto-Wall.exe" --dir auto-wall-bin
 
-      # -- Node: build the Electron app --
+      # -- Node: build the Electron app and publish to GitHub Releases --
+      # electron-builder --publish always creates the GitHub release and
+      # uploads the installer + latest.yml (needed by electron-updater).
       - uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -72,31 +75,7 @@ jobs:
 
       - run: npm run build
 
-      - run: npx electron-builder --win --publish never
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: dm-tool-windows
-          path: 'dist/DM Tool Setup *.exe'
-
-  release:
-    runs-on: ubuntu-latest
-    needs: [check-version, build-windows]
-    if: needs.check-version.outputs.should_release == 'true'
-
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v7
-        with:
-          name: dm-tool-windows
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: v${{ needs.check-version.outputs.version }}
-          name: DM Tool v${{ needs.check-version.outputs.version }}
-          files: '*.exe'
-          draft: false
-          prerelease: false
+      - name: Package and publish
+        run: npx electron-builder --win --publish always
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

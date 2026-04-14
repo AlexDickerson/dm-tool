@@ -3,14 +3,17 @@ import {
   Backpack,
   BookOpen,
   ClipboardCopy,
+  Download,
   FolderOpen,
   Map,
   MessageSquare,
+  RefreshCw,
   RotateCcw,
   Search,
   Settings,
   Skull,
   Swords,
+  X,
 } from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
@@ -32,7 +35,7 @@ import { Button } from './components/ui/button';
 import { Slider } from './components/ui/slider';
 import { Label } from './components/ui/label';
 import { Input } from './components/ui/input';
-import type { ConfigPaths } from '../shared/types';
+import type { ConfigPaths, UpdateStatus } from '../shared/types';
 
 // UI scale knob — wired through to the root font-size in CSS so every
 // rem-based Tailwind utility responds. Stored in localStorage so the
@@ -126,12 +129,27 @@ function MainApp() {
   const [theme, setTheme] = useState<ThemeId>(() => (loadString(THEME_KEY) as ThemeId) || THEME_DEFAULT);
   const [chatOpen, setChatOpen] = useState(false);
   const [keywords, setKeywords] = useState('');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' });
+  const [updateDismissed, setUpdateDismissed] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
 
   // Load API key from secure storage on mount
   useEffect(() => {
     window.electronAPI?.secureLoad('anthropicApiKey').then((key) => {
       if (key) setAnthropicApiKey(key);
     });
+  }, []);
+
+  // Subscribe to auto-updater status and load app version.
+  useEffect(() => {
+    window.electronAPI?.getAppVersion?.().then(setAppVersion);
+    const unsub = window.electronAPI?.onUpdaterStatus?.((status) => {
+      setUpdateStatus(status);
+      // Reset dismissed state when a new update stage arrives so the
+      // banner reappears after download completes.
+      if (status.state === 'downloaded') setUpdateDismissed(false);
+    });
+    return () => unsub?.();
   }, []);
 
   // Apply the UI scale to the root <html> element and tell the main
@@ -287,6 +305,7 @@ function MainApp() {
             onPackMappingImported={() => setPackMappingVersion((v) => v + 1)}
             chatModel={chatModel}
             onChatModelChange={setChatModel}
+            appVersion={appVersion}
           />
         </div>
       </header>
@@ -300,6 +319,7 @@ function MainApp() {
             'linear-gradient(90deg, hsl(var(--border)) 0%, hsl(var(--primary) / 0.3) 50%, hsl(var(--border)) 100%)',
         }}
       />
+      <UpdateBanner status={updateStatus} dismissed={updateDismissed} onDismiss={() => setUpdateDismissed(true)} />
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <main className="relative h-full overflow-hidden">
           {activeTab === 'maps' && (
@@ -414,6 +434,71 @@ function CombatPlaceholder() {
   );
 }
 
+function UpdateBanner({
+  status,
+  dismissed,
+  onDismiss,
+}: {
+  status: UpdateStatus;
+  dismissed: boolean;
+  onDismiss: () => void;
+}) {
+  if (dismissed) return null;
+
+  if (status.state === 'available') {
+    return (
+      <div className="flex shrink-0 items-center justify-center gap-3 border-b border-primary/30 bg-primary/10 px-4 py-1.5 text-xs">
+        <span>
+          Update <strong>v{status.version}</strong> available
+        </span>
+        <button
+          type="button"
+          onClick={() => window.electronAPI.updaterDownload()}
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Download className="h-3 w-3" />
+          Download
+        </button>
+        <button type="button" onClick={onDismiss} className="text-muted-foreground hover:text-foreground">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  if (status.state === 'downloading') {
+    return (
+      <div className="flex shrink-0 items-center justify-center gap-3 border-b border-primary/30 bg-primary/10 px-4 py-1.5 text-xs">
+        <RefreshCw className="h-3 w-3 animate-spin" />
+        <span>Downloading update... {status.percent}%</span>
+      </div>
+    );
+  }
+
+  if (status.state === 'downloaded') {
+    return (
+      <div className="flex shrink-0 items-center justify-center gap-3 border-b border-primary/30 bg-primary/10 px-4 py-1.5 text-xs">
+        <span>
+          Update <strong>v{status.version}</strong> ready
+        </span>
+        <button
+          type="button"
+          onClick={() => window.electronAPI.updaterInstall()}
+          className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <RotateCcw className="h-3 w-3" />
+          Restart to install
+        </button>
+        <button type="button" onClick={onDismiss} className="text-muted-foreground hover:text-foreground">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 type SettingsTab = 'paths' | 'maps' | 'books' | 'combat' | 'monsters' | 'items';
 
 function SettingsDialog({
@@ -430,6 +515,7 @@ function SettingsDialog({
   onPackMappingImported,
   chatModel,
   onChatModelChange,
+  appVersion,
 }: {
   uiScale: number;
   onUiScaleChange: (n: number) => void;
@@ -444,6 +530,7 @@ function SettingsDialog({
   onPackMappingImported: () => void;
   chatModel: string;
   onChatModelChange: (s: string) => void;
+  appVersion: string;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTab>('maps');
@@ -798,6 +885,10 @@ function SettingsDialog({
               Model used by the chat assistant. Higher tiers are smarter but cost more per message.
             </p>
           </div>
+
+          {appVersion && (
+            <p className="text-center text-[11px] text-muted-foreground/60">DM Tool v{appVersion}</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

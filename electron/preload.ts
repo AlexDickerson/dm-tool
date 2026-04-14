@@ -33,6 +33,7 @@ import type {
   TaggerProgress,
   TaggerRunArgs,
   TaggerResult,
+  UpdateStatus,
 } from '../shared/types.js';
 
 const api: ElectronAPI = {
@@ -122,6 +123,16 @@ const api: ElectronAPI = {
     fileName: string,
   ): Promise<{ sceneId: string; sceneName: string; wallsCreated: number; doorsCreated: number }> =>
     ipcRenderer.invoke('pushToFoundry', fileName),
+
+  // Auto-updater
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('getAppVersion'),
+  updaterDownload: (): Promise<void> => ipcRenderer.invoke('updater:download'),
+  updaterInstall: (): Promise<void> => ipcRenderer.invoke('updater:install'),
+  onUpdaterStatus: (callback: (status: UpdateStatus) => void): (() => void) => {
+    const handler = (_event: unknown, status: UpdateStatus) => callback(status);
+    ipcRenderer.on('updater:status', handler);
+    return () => ipcRenderer.removeListener('updater:status', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', api);
