@@ -47,11 +47,15 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   // Hook triggers background cover extraction — side-effect only.
   useBackgroundIngest(books, refetch);
 
+  const [classifyError, setClassifyError] = useState<string | null>(null);
   const handleClassify = useCallback(
     async (reclassify?: boolean) => {
+      setClassifyError(null);
       try {
         await classify(reclassify);
       } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setClassifyError(msg);
         console.error('Classification error:', e);
       }
       refetch();
@@ -232,6 +236,11 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
               </div>
             </div>
             <Separator variant="ornate" />
+            {classifyError && (
+              <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
+                {classifyError}
+              </div>
+            )}
             <ScrollArea className="flex-1">
               <div className="py-1">
                 <CategoryItem

@@ -91,7 +91,7 @@ export function useBookClassify(): {
   }, []);
 
   const classify = useCallback(async (reclassify?: boolean) => {
-    const apiKey = await api.secureLoad('anthropic-api-key');
+    const apiKey = await api.secureLoad('anthropicApiKey');
     if (!apiKey) throw new Error('No API key configured. Set your Anthropic API key in Settings.');
     setRunning(true);
     setCurrent(0);
