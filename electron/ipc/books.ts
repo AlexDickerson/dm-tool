@@ -76,6 +76,8 @@ export function registerBookHandlers(
     if (win && !win.isDestroyed()) win.webContents.send('book-classify-progress', p);
   };
 
+  const CLASSIFY_CONCURRENCY = 10;
+
   ipcMain.handle(
     'booksClassify',
     async (_e, args: { apiKey: string; reclassify?: boolean }): Promise<void> => {
@@ -83,30 +85,33 @@ export function registerBookHandlers(
       const books = args.reclassify ? b.listClassifiable() : b.listUnclassified();
       const total = books.length;
       classifyAbort = false;
+      let completed = 0;
+      let idx = 0;
 
-      for (let i = 0; i < books.length; i++) {
-        if (classifyAbort) break;
-        const book = books[i]!;
-        const fileName = basename(book.path);
-        sendProgress({ type: 'progress', bookId: book.id, bookTitle: fileName, current: i + 1, total });
-
-        try {
-          const classification = await classifyBook({
-            apiKey: args.apiKey,
-            coverBlob: book.cover_blob,
-            fileName,
-          });
-          b.saveClassification(book.id, classification);
-        } catch (err) {
-          console.error(`Classification failed for ${fileName}:`, err);
-          sendProgress({ type: 'error', bookId: book.id, bookTitle: fileName, error: (err as Error).message });
+      // Worker function — each grabs the next unprocessed book until done.
+      const worker = async (): Promise<void> => {
+        while (idx < books.length && !classifyAbort) {
+          const book = books[idx++]!;
+          const fileName = basename(book.path);
+          try {
+            const classification = await classifyBook({
+              apiKey: args.apiKey,
+              coverBlob: book.cover_blob,
+              fileName,
+            });
+            b.saveClassification(book.id, classification);
+          } catch (err) {
+            console.error(`Classification failed for ${fileName}:`, err);
+            sendProgress({ type: 'error', bookId: book.id, bookTitle: fileName, error: (err as Error).message });
+          }
+          completed++;
+          sendProgress({ type: 'progress', bookId: book.id, bookTitle: fileName, current: completed, total });
         }
+      };
 
-        // Rate-limit: small delay between calls.
-        if (i < books.length - 1 && !classifyAbort) {
-          await new Promise((r) => setTimeout(r, 500));
-        }
-      }
+      await Promise.all(
+        Array.from({ length: Math.min(CLASSIFY_CONCURRENCY, total) }, () => worker()),
+      );
 
       sendProgress({ type: 'done', current: total, total });
     },
