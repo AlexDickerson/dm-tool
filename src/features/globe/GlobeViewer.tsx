@@ -6,27 +6,18 @@ import { api } from '@/lib/api';
 import type { GlobePin } from '@shared/types';
 
 const PMTILES_URL = 'pmtiles://https://map.pathfinderwiki.com/golarion.pmtiles';
+const PIN_SOURCE = 'globe-pins';
+const PIN_LAYER = 'globe-pins-circle';
 
-function createPinElement(pin: GlobePin, onRemove: () => void): HTMLDivElement {
-  const el = document.createElement('div');
-  el.style.cssText =
-    'width:14px;height:14px;border-radius:50%;background:hsl(32 95% 52%);border:2px solid white;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.4);position:relative;';
-  el.title = pin.label || 'Pin';
-
-  const x = document.createElement('button');
-  x.textContent = '\u00d7';
-  x.style.cssText =
-    'position:absolute;top:-10px;right:-10px;width:16px;height:16px;border-radius:50%;background:hsl(0 70% 50%);color:white;border:none;font-size:11px;line-height:16px;text-align:center;cursor:pointer;display:none;padding:0;';
-  el.appendChild(x);
-
-  el.addEventListener('mouseenter', () => (x.style.display = 'block'));
-  el.addEventListener('mouseleave', () => (x.style.display = 'none'));
-  x.addEventListener('click', (e) => {
-    e.stopPropagation();
-    onRemove();
-  });
-
-  return el;
+function pinsToGeoJson(pins: GlobePin[]): GeoJSON.FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: pins.map((p) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
+      properties: { id: p.id, label: p.label },
+    })),
+  };
 }
 
 const colors = {
@@ -338,60 +329,49 @@ let protocolRegistered = false;
 export function GlobeViewer() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const pinsRef = useRef<GlobePin[]>([]);
   const [pins, setPins] = useState<GlobePin[]>([]);
+  const dragIdRef = useRef<string | null>(null);
+
+  // Keep the ref in sync so map event handlers always see current pins.
+  useEffect(() => {
+    pinsRef.current = pins;
+  }, [pins]);
 
   // Load pins from the database on mount.
   useEffect(() => {
     api.globePinsList().then(setPins);
   }, []);
 
-  const removePin = useCallback((id: string) => {
-    api.globePinsDelete(id);
-    setPins((prev) => prev.filter((p) => p.id !== id));
-    const marker = markersRef.current.get(id);
-    if (marker) {
-      marker.remove();
-      markersRef.current.delete(id);
-    }
+  const syncSource = useCallback((updated: GlobePin[]) => {
+    const src = mapRef.current?.getSource(PIN_SOURCE) as maplibregl.GeoJSONSource | undefined;
+    src?.setData(pinsToGeoJson(updated));
   }, []);
 
-  const addPin = useCallback((lng: number, lat: number) => {
-    const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '' };
-    api.globePinsUpsert(pin);
-    setPins((prev) => [...prev, pin]);
-  }, []);
+  const removePin = useCallback(
+    (id: string) => {
+      api.globePinsDelete(id);
+      setPins((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        syncSource(next);
+        return next;
+      });
+    },
+    [syncSource],
+  );
 
-  // Sync markers to the map whenever pins change.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    for (const [id, marker] of markersRef.current) {
-      if (!pins.find((p) => p.id === id)) {
-        marker.remove();
-        markersRef.current.delete(id);
-      }
-    }
-
-    for (const pin of pins) {
-      if (!markersRef.current.has(pin.id)) {
-        const el = createPinElement(pin, () => removePin(pin.id));
-        const marker = new maplibregl.Marker({ element: el, draggable: true })
-          .setLngLat([pin.lng, pin.lat])
-          .addTo(map);
-
-        marker.on('dragend', () => {
-          const pos = marker.getLngLat();
-          const updated = { ...pin, lng: pos.lng, lat: pos.lat };
-          api.globePinsUpsert(updated);
-          setPins((prev) => prev.map((p) => (p.id === pin.id ? updated : p)));
-        });
-
-        markersRef.current.set(pin.id, marker);
-      }
-    }
-  }, [pins, removePin]);
+  const addPin = useCallback(
+    (lng: number, lat: number) => {
+      const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '' };
+      api.globePinsUpsert(pin);
+      setPins((prev) => {
+        const next = [...prev, pin];
+        syncSource(next);
+        return next;
+      });
+    },
+    [syncSource],
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -416,18 +396,87 @@ export function GlobeViewer() {
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
-    map.on('contextmenu', (e) => {
-      addPin(e.lngLat.lng, e.lngLat.lat);
+    map.on('load', () => {
+      map.addSource(PIN_SOURCE, {
+        type: 'geojson',
+        data: pinsToGeoJson(pinsRef.current),
+      });
+
+      map.addLayer({
+        id: PIN_LAYER,
+        type: 'circle',
+        source: PIN_SOURCE,
+        paint: {
+          'circle-radius': 7,
+          'circle-color': 'hsl(32, 95%, 52%)',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      });
+
+      // Pointer cursor on hover
+      map.on('mouseenter', PIN_LAYER, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', PIN_LAYER, () => {
+        if (!dragIdRef.current) map.getCanvas().style.cursor = '';
+      });
+
+      // Right-click: place new pin, or remove existing one
+      map.on('contextmenu', (e) => {
+        const features = map.queryRenderedFeatures(e.point, { layers: [PIN_LAYER] });
+        if (features.length > 0) {
+          removePin(features[0].properties!.id as string);
+        } else {
+          addPin(e.lngLat.lng, e.lngLat.lat);
+        }
+      });
+
+      // Drag: mousedown on pin starts, mousemove updates, mouseup commits
+      map.on('mousedown', PIN_LAYER, (e) => {
+        if (e.originalEvent.button !== 0) return; // left-click only
+        e.preventDefault();
+        dragIdRef.current = e.features![0].properties!.id as string;
+        map.getCanvas().style.cursor = 'grabbing';
+        map.dragPan.disable();
+      });
+
+      map.on('mousemove', (e) => {
+        const id = dragIdRef.current;
+        if (!id) return;
+        const updated = pinsRef.current.map((p) =>
+          p.id === id ? { ...p, lng: e.lngLat.lng, lat: e.lngLat.lat } : p,
+        );
+        pinsRef.current = updated;
+        syncSource(updated);
+      });
+
+      map.on('mouseup', () => {
+        const id = dragIdRef.current;
+        if (!id) return;
+        dragIdRef.current = null;
+        map.getCanvas().style.cursor = '';
+        map.dragPan.enable();
+        const pin = pinsRef.current.find((p) => p.id === id);
+        if (pin) {
+          api.globePinsUpsert(pin);
+          setPins([...pinsRef.current]);
+        }
+      });
     });
 
     mapRef.current = map;
 
     return () => {
-      markersRef.current.clear();
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  // Re-sync the source whenever React state changes (e.g. after initial DB load).
+  useEffect(() => {
+    syncSource(pins);
+  }, [pins, syncSource]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 }
