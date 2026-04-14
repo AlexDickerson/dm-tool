@@ -15,11 +15,13 @@ export function ChatDrawer({
   onClose,
   anthropicApiKey,
   chatModel,
+  activeToolUrl,
 }: {
   open: boolean;
   onClose: () => void;
   anthropicApiKey: string;
   chatModel: string;
+  activeToolUrl?: string;
 }) {
   const CHAT_MIN = 280;
   const CHAT_MAX = 1600;
@@ -102,7 +104,7 @@ export function ChatDrawer({
   }, [onClose]);
 
   const handleSend = useCallback(
-    (text: string) => {
+    (raw: string) => {
       if (!anthropicApiKey) {
         const errMsg: Message = {
           id: uid(),
@@ -113,6 +115,10 @@ export function ChatDrawer({
         setMessages((prev) => [...prev, errMsg]);
         return;
       }
+
+      // Detect /rule prefix — triggers two-pass adversarial review mode.
+      const rulesMode = /^\/rule\s/i.test(raw);
+      const text = rulesMode ? raw.replace(/^\/rule\s+/i, '') : raw;
 
       const userMsg: Message = {
         id: uid(),
@@ -141,14 +147,35 @@ export function ChatDrawer({
         content: m.content,
       }));
 
-      api.chatSend({ messages: history, apiKey: anthropicApiKey, model: chatModel as any }).catch(() => {
+      // If the user has a tool page open, extract its text content to
+      // give the AI context about what they're looking at.
+      const sendWithContext = async () => {
+        let toolContext: string | undefined;
+        if (activeToolUrl) {
+          try {
+            const pageText = await api.getToolPageContent(activeToolUrl);
+            if (pageText) toolContext = pageText;
+          } catch {
+            // Non-fatal — just send without context.
+          }
+        }
+        return api.chatSend({
+          messages: history,
+          apiKey: anthropicApiKey,
+          model: chatModel as any,
+          toolContext,
+          rulesMode,
+        });
+      };
+
+      sendWithContext().catch(() => {
         // Error chunk already sent via onChatChunk; this catch prevents
         // an unhandled rejection if the IPC invoke itself fails.
         streamingIdRef.current = null;
         setStreaming(false);
       });
     },
-    [anthropicApiKey, chatModel, messages],
+    [anthropicApiKey, chatModel, messages, activeToolUrl],
   );
 
   if (!open) return null;

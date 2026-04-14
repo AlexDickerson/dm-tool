@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Backpack, BookOpen, Map, MessageSquare, Search, Skull, Swords } from 'lucide-react';
+import { Backpack, BookOpen, Map, MessageSquare, Search, Skull, Swords, Wrench } from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
 import { MonsterBrowser } from './features/monsters/MonsterBrowser';
+import { ToolsBrowser } from './features/tools/ToolsBrowser';
 import { ChatDrawer } from './features/chat/ChatDrawer';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { SettingsDialog } from './features/settings/SettingsDialog';
@@ -17,8 +18,10 @@ import {
   FONT_STACKS,
   THEME_DEFAULT,
   DEFAULT_CHAT_MODEL,
+  DEFAULT_TOOLS,
   type FontFamily,
   type ThemeId,
+  type ToolEntry,
 } from './lib/constants';
 
 function loadString(key: string): string {
@@ -41,7 +44,7 @@ function loadNumber(key: string, fallback: number, min: number, max: number): nu
   }
 }
 
-type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items';
+type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items' | 'tools';
 
 export default function App() {
   const [appMode, setAppMode] = useState<'loading' | 'normal' | 'setup'>('loading');
@@ -75,6 +78,21 @@ function MainApp() {
   const [theme, setTheme] = useState<ThemeId>(
     () => (loadString(STORAGE_KEYS.theme) as ThemeId) || THEME_DEFAULT,
   );
+  const [toolUrls, setToolUrls] = useState<ToolEntry[]>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.toolUrls);
+      if (raw) return JSON.parse(raw) as ToolEntry[];
+    } catch { /* fall through */ }
+    return DEFAULT_TOOLS;
+  });
+  const [toolFavicons, setToolFavicons] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.toolFavicons) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [activeToolId, setActiveToolId] = useState(toolUrls[0]?.id ?? '');
   const [chatOpen, setChatOpen] = useState(false);
   const [keywords, setKeywords] = useState('');
 
@@ -160,6 +178,18 @@ function MainApp() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.toolUrls, JSON.stringify(toolUrls));
+    } catch { /* non-fatal */ }
+  }, [toolUrls]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.toolFavicons, String(toolFavicons));
+    } catch { /* non-fatal */ }
+  }, [toolFavicons]);
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       {/* Custom title bar. The native OS chrome is hidden via
@@ -188,30 +218,33 @@ function MainApp() {
             label="Monsters"
           />
           <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')} icon={Backpack} label="Items" />
+          <NavTab active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={Wrench} label="Tools" />
         </nav>
         {/* Search bar — shared across all tabs */}
-        <div
-          className="relative mx-2 flex max-w-md flex-1 items-center"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
-          <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={keywords}
-            onChange={(e) => setKeywords(e.target.value)}
-            placeholder={
-              activeTab === 'maps'
-                ? 'Search maps…'
-                : activeTab === 'books'
-                  ? 'Filter books…'
-                  : activeTab === 'monsters'
-                    ? 'Search monsters…'
-                    : activeTab === 'items'
-                      ? 'Search items…'
-                      : 'Search…'
-            }
-            className="h-8 bg-background/50 pl-8 text-xs"
-          />
-        </div>
+        {activeTab !== 'tools' && (
+          <div
+            className="relative mx-2 flex max-w-md flex-1 items-center"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+              placeholder={
+                activeTab === 'maps'
+                  ? 'Search maps…'
+                  : activeTab === 'books'
+                    ? 'Filter books…'
+                    : activeTab === 'monsters'
+                      ? 'Search monsters…'
+                      : activeTab === 'items'
+                        ? 'Search items…'
+                        : 'Search…'
+              }
+              className="h-8 bg-background/50 pl-8 text-xs"
+            />
+          </div>
+        )}
         <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             type="button"
@@ -238,6 +271,10 @@ function MainApp() {
             onPackMappingImported={() => setPackMappingVersion((v) => v + 1)}
             chatModel={chatModel}
             onChatModelChange={setChatModel}
+            toolUrls={toolUrls}
+            onToolUrlsChange={setToolUrls}
+            toolFavicons={toolFavicons}
+            onToolFaviconsChange={setToolFavicons}
           />
         </div>
       </header>
@@ -265,6 +302,14 @@ function MainApp() {
           {activeTab === 'combat' && <CombatPlaceholder />}
           {activeTab === 'monsters' && <MonsterBrowser keywords={keywords} />}
           {activeTab === 'items' && <ItemBrowser keywords={keywords} />}
+          {activeTab === 'tools' && (
+            <ToolsBrowser
+              tools={toolUrls}
+              useFavicons={toolFavicons}
+              activeId={activeToolId}
+              onActiveIdChange={setActiveToolId}
+            />
+          )}
           {/* Vignette overlay — darkens edges for a "torchlight" feel */}
           <div
             className="pointer-events-none absolute inset-0"
@@ -278,6 +323,7 @@ function MainApp() {
           onClose={() => setChatOpen(false)}
           anthropicApiKey={anthropicApiKey}
           chatModel={chatModel}
+          activeToolUrl={activeTab === 'tools' ? toolUrls.find((t) => t.id === activeToolId)?.url : undefined}
         />
       </div>
     </div>

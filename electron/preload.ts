@@ -58,8 +58,14 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('regenerateEncounterHooks', args),
 
   // Chat
-  chatSend: (args: { messages: ChatMessage[]; apiKey: string; model?: ChatModel }): Promise<void> =>
-    ipcRenderer.invoke('chatSend', args),
+  chatSend: (args: {
+    messages: ChatMessage[];
+    apiKey: string;
+    model?: ChatModel;
+    toolContext?: string;
+    rulesMode?: boolean;
+  }): Promise<void> => ipcRenderer.invoke('chatSend', args),
+  getToolPageContent: (toolUrl: string): Promise<string> => ipcRenderer.invoke('getToolPageContent', toolUrl),
   onChatChunk: (callback: (chunk: ChatChunk) => void): (() => void) => {
     const handler = (_event: unknown, chunk: ChatChunk) => callback(chunk);
     ipcRenderer.on('chat-chunk', handler);

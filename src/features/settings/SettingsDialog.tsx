@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ClipboardCopy, FolderOpen, RotateCcw, Settings } from 'lucide-react';
+import { ClipboardCopy, FolderOpen, Plus, RotateCcw, Settings, X } from 'lucide-react';
 import { PathField } from '../../components/PathField';
 import { cn } from '../../lib/utils';
 import {
@@ -23,9 +23,10 @@ import {
   CHAT_MODELS,
   type FontFamily,
   type ThemeId,
+  type ToolEntry,
 } from '../../lib/constants';
 
-type SettingsTab = 'paths' | 'maps' | 'books' | 'combat' | 'monsters' | 'items';
+type SettingsTab = 'paths' | 'maps' | 'books' | 'combat' | 'monsters' | 'items' | 'tools';
 
 export interface SettingsDialogProps {
   uiScale: number;
@@ -41,6 +42,10 @@ export interface SettingsDialogProps {
   onPackMappingImported: () => void;
   chatModel: string;
   onChatModelChange: (s: string) => void;
+  toolUrls: ToolEntry[];
+  onToolUrlsChange: (tools: ToolEntry[]) => void;
+  toolFavicons: boolean;
+  onToolFaviconsChange: (v: boolean) => void;
 }
 
 export function SettingsDialog({
@@ -57,6 +62,10 @@ export function SettingsDialog({
   onPackMappingImported,
   chatModel,
   onChatModelChange,
+  toolUrls,
+  onToolUrlsChange,
+  toolFavicons,
+  onToolFaviconsChange,
 }: SettingsDialogProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTab>('maps');
@@ -223,7 +232,7 @@ export function SettingsDialog({
           {/* Per-page tabs */}
           <div className="border-t border-border pt-4">
             <nav className="flex flex-wrap gap-1">
-              {(['paths', 'maps', 'books', 'combat', 'monsters', 'items'] as const).map((t) => (
+              {(['paths', 'maps', 'tools', 'books', 'combat', 'monsters', 'items'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -390,6 +399,15 @@ export function SettingsDialog({
               {tab === 'monsters' && <p className="text-xs text-muted-foreground">No monster settings yet.</p>}
 
               {tab === 'items' && <p className="text-xs text-muted-foreground">No item settings yet.</p>}
+
+              {tab === 'tools' && (
+                <ToolsSettings
+                  tools={toolUrls}
+                  onChange={onToolUrlsChange}
+                  useFavicons={toolFavicons}
+                  onUseFaviconsChange={onToolFaviconsChange}
+                />
+              )}
             </div>
           </div>
 
@@ -416,5 +434,122 @@ export function SettingsDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tools sub-settings: URL list + favicon toggle
+// ---------------------------------------------------------------------------
+
+function ToolsSettings({
+  tools,
+  onChange,
+  useFavicons,
+  onUseFaviconsChange,
+}: {
+  tools: ToolEntry[];
+  onChange: (tools: ToolEntry[]) => void;
+  useFavicons: boolean;
+  onUseFaviconsChange: (v: boolean) => void;
+}) {
+  const [draft, setDraft] = useState('');
+
+  const addTool = () => {
+    let url = draft.trim();
+    if (!url) return;
+    // Auto-prepend https:// if missing
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    try {
+      const parsed = new URL(url);
+      const label = parsed.hostname.replace(/^www\./, '');
+      const id = `custom-${Date.now()}`;
+      onChange([...tools, { id, label, url: parsed.href }]);
+      setDraft('');
+    } catch {
+      // invalid URL — ignore
+    }
+  };
+
+  const removeTool = (id: string) => {
+    onChange(tools.filter((t) => t.id !== id));
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label className="text-xs font-medium">Tool Sites</Label>
+        <div className="space-y-1.5">
+          {tools.map((t) => (
+            <div key={t.id} className="flex items-center gap-2 rounded-md border border-border bg-background/50 px-2 py-1.5">
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${new URL(t.url).hostname}&sz=16`}
+                alt=""
+                className="h-4 w-4 shrink-0"
+              />
+              <span className="min-w-0 flex-1 truncate text-xs">{t.label}</span>
+              <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">{t.url}</span>
+              <button
+                type="button"
+                onClick={() => removeTool(t.id)}
+                className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-destructive/20 hover:text-destructive"
+                aria-label={`Remove ${t.label}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            addTool();
+          }}
+          className="flex gap-1.5"
+        >
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="https://example.com"
+            className="h-8 flex-1 text-xs"
+          />
+          <Button type="submit" variant="outline" size="sm" className="h-8 gap-1 px-2.5">
+            <Plus className="h-3.5 w-3.5" />
+            Add
+          </Button>
+        </form>
+        <p className="text-[11px] text-muted-foreground">
+          Each URL opens in its own iframe tab under the Tools page.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="tool-favicons" className="text-xs font-medium">
+            Use Favicons as Tab Labels
+          </Label>
+          <button
+            id="tool-favicons"
+            type="button"
+            role="switch"
+            aria-checked={useFavicons}
+            onClick={() => onUseFaviconsChange(!useFavicons)}
+            className={cn(
+              'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
+              useFavicons ? 'bg-primary' : 'bg-muted',
+            )}
+          >
+            <span
+              className={cn(
+                'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform',
+                useFavicons ? 'translate-x-4' : 'translate-x-0',
+              )}
+            />
+          </button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Show site favicons instead of text labels in the tool tab bar.
+        </p>
+      </div>
+    </>
   );
 }

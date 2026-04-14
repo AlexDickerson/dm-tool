@@ -410,7 +410,15 @@ export interface ElectronAPI {
   /** Send a chat message and begin streaming the assistant response.
    *  Resolves when the stream completes. Text chunks arrive via
    *  onChatChunk before the promise settles. */
-  chatSend(args: { messages: ChatMessage[]; apiKey: string; model?: ChatModel }): Promise<void>;
+  chatSend(args: {
+    messages: ChatMessage[];
+    apiKey: string;
+    model?: ChatModel;
+    toolContext?: string;
+    rulesMode?: boolean;
+  }): Promise<void>;
+  /** Extract the visible text content from an embedded tool iframe by its base URL. */
+  getToolPageContent(toolUrl: string): Promise<string>;
   /** Subscribe to chat stream chunks. Returns an unsubscribe function.
    *  Same push-event pattern as onTaggerProgress. */
   onChatChunk(callback: (chunk: ChatChunk) => void): () => void;
