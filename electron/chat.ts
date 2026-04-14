@@ -71,7 +71,7 @@ async function streamGeneralMode(
     system: systemPrompt,
     messages: mapped,
     tools: chatTools,
-    maxSteps: CHAT_STEP_LIMIT,
+    stopWhen: stepCountIs(CHAT_STEP_LIMIT),
   });
 
   for await (const part of result.fullStream) {
