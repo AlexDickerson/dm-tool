@@ -21,18 +21,23 @@ type CatalogEntry = { kind: 'book'; book: Book } | { kind: 'ap'; group: ApGroup 
 type OpenTarget = { kind: 'book'; bookId: number } | { kind: 'ap'; group: ApGroup } | null;
 
 // Use AI-derived classification when available, fall back to folder-derived.
-function effectiveCategory(b: Book): string {
-  return b.aiCategory ?? b.category;
+// For folder-derived books: category = system (e.g. "PF2e"), subcategory = category type (e.g. "Rulebooks").
+function effectiveSystem(b: Book): string {
+  return b.aiSystem ?? b.category;
 }
-function effectiveSubcategory(b: Book): string | null {
-  return b.aiSubcategory ?? b.subcategory;
+function effectiveCategory(b: Book): string {
+  return b.aiCategory ?? b.subcategory ?? 'Uncategorized';
+}
+function effectivePublisher(b: Book): string | null {
+  return b.aiPublisher ?? null;
 }
 function effectiveTitle(b: Book): string {
   return b.aiTitle ?? b.title;
 }
 
+const isApCategory = (n: string) => n === 'Adventure Path' || n === 'Adventure Paths';
+const SYSTEM_ORDER = ['PF2e', '5e', 'Generic'];
 const CATEGORY_ORDER = ['Rulebook', 'Adventure Path', 'Adventure', 'Setting', 'Supplement',
-  // Legacy folder-derived names (fallback for unclassified books)
   'Rulebooks', 'Adventure Paths', 'Adventures', 'Lost Omens', 'Beginner Box'];
 
 // ---------------------------------------------------------------------------
@@ -63,9 +68,16 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
     [classify, refetch],
   );
   const filter = keywords;
+  const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const [selectedPublisher, setSelectedPublisher] = useState<string | null>(null);
   const [openTarget, setOpenTarget] = useState<OpenTarget>(null);
+
+  const selectNav = useCallback((sys: string | null, cat: string | null, pub: string | null) => {
+    setSelectedSystem(sys);
+    setSelectedCategory(cat);
+    setSelectedPublisher(pub);
+  }, []);
 
   const handleRescan = useCallback(async () => {
     await scan();
@@ -78,73 +90,93 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
     [books],
   );
 
-  // Group books by effective (AI or folder-derived) category for the left
-  // rail. For Adventure Paths, count AP groups instead of individual PDFs.
-  const categories = useMemo(() => {
+  // Build 3-level sidebar tree: System → Category → Publisher.
+  const systems = useMemo(() => {
     if (!books) return [];
-    const map = new Map<string, { sub: Map<string | null, Book[]> }>();
+
+    // system → category → publisher → book count
+    const tree = new Map<string, Map<string, Map<string, number>>>();
     for (const b of books) {
+      const sys = effectiveSystem(b);
       const cat = effectiveCategory(b);
-      const sub = effectiveSubcategory(b);
-      let entry = map.get(cat);
-      if (!entry) {
-        entry = { sub: new Map() };
-        map.set(cat, entry);
-      }
-      let list = entry.sub.get(sub);
-      if (!list) {
-        list = [];
-        entry.sub.set(sub, list);
-      }
-      list.push(b);
+      const pub = effectivePublisher(b) ?? 'Unknown';
+      if (!tree.has(sys)) tree.set(sys, new Map());
+      const catMap = tree.get(sys)!;
+      if (!catMap.has(cat)) catMap.set(cat, new Map());
+      const pubMap = catMap.get(cat)!;
+      pubMap.set(pub, (pubMap.get(pub) ?? 0) + 1);
     }
-    const isAp = (n: string) => n === 'Adventure Path' || n === 'Adventure Paths';
-    return Array.from(map.entries())
-      .map(([name, v]) => ({
-        name,
-        subcategories: Array.from(v.sub.entries()).map(([sub, bks]) => ({
-          name: sub,
-          books: bks,
-        })),
-        count: isAp(name)
-          ? apGroups.length
-          : Array.from(v.sub.values()).reduce((n, bks) => n + bks.length, 0),
+
+    // AP groups per system (for count correction)
+    const apCountBySys = new Map<string, number>();
+    for (const g of apGroups) {
+      const first = g.parts[0]?.book;
+      if (!first) continue;
+      const sys = effectiveSystem(first);
+      apCountBySys.set(sys, (apCountBySys.get(sys) ?? 0) + 1);
+    }
+
+    return Array.from(tree.entries())
+      .map(([sysName, catMap]) => ({
+        name: sysName,
+        categories: Array.from(catMap.entries())
+          .map(([catName, pubMap]) => ({
+            name: catName,
+            publishers: Array.from(pubMap.entries())
+              .map(([pubName, count]) => ({ name: pubName, count }))
+              .sort((a, b) => b.count - a.count),
+            count: isApCategory(catName)
+              ? (apCountBySys.get(sysName) ?? 0)
+              : Array.from(pubMap.values()).reduce((s, c) => s + c, 0),
+          }))
+          .sort((a, b) => {
+            const ai = CATEGORY_ORDER.indexOf(a.name);
+            const bi = CATEGORY_ORDER.indexOf(b.name);
+            return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+          }),
+        count: Array.from(catMap.values()).reduce(
+          (s, pubMap) => s + Array.from(pubMap.values()).reduce((s2, c) => s2 + c, 0),
+          0,
+        ),
       }))
       .sort((a, b) => {
-        const ai = CATEGORY_ORDER.indexOf(a.name);
-        const bi = CATEGORY_ORDER.indexOf(b.name);
+        const ai = SYSTEM_ORDER.indexOf(a.name);
+        const bi = SYSTEM_ORDER.indexOf(b.name);
         return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
       });
   }, [books, apGroups]);
 
-  // Build catalog entries grouped by category with section dividers.
-  const isAp = (name: string) => name === 'Adventure Path' || name === 'Adventure Paths';
+  // Build catalog entries filtered by System → Category → Publisher.
   const entries = useMemo((): CatalogEntry[] => {
     const q = filter.trim().toLowerCase();
     const out: CatalogEntry[] = [];
 
-    // Group non-AP books by effective category.
+    // Filter non-AP books.
     const byCat = new Map<string, Book[]>();
     for (const b of otherBooks) {
+      const sys = effectiveSystem(b);
       const cat = effectiveCategory(b);
-      const sub = effectiveSubcategory(b);
+      const pub = effectivePublisher(b) ?? 'Unknown';
+      if (selectedSystem && sys !== selectedSystem) continue;
       if (selectedCategory && cat !== selectedCategory) continue;
-      if (selectedSubcategory && sub !== selectedSubcategory) continue;
+      if (selectedPublisher && pub !== selectedPublisher) continue;
       if (q && !effectiveTitle(b).toLowerCase().includes(q)) continue;
       let list = byCat.get(cat);
-      if (!list) {
-        list = [];
-        byCat.set(cat, list);
-      }
+      if (!list) { list = []; byCat.set(cat, list); }
       list.push(b);
     }
 
-    // Collect AP entries if they pass the filter.
-    const apCatName = [...byCat.keys(), ...CATEGORY_ORDER].find(isAp) ?? 'Adventure Path';
+    // Filter AP groups.
+    const apCatName = [...byCat.keys(), ...CATEGORY_ORDER].find(isApCategory) ?? 'Adventure Path';
     const apEntries: CatalogEntry[] = [];
     for (const g of apGroups) {
-      if (selectedCategory && !isAp(selectedCategory)) continue;
-      if (selectedSubcategory && selectedSubcategory !== g.subcategory) continue;
+      const first = g.parts[0]?.book;
+      if (!first) continue;
+      const sys = effectiveSystem(first);
+      const pub = effectivePublisher(first) ?? 'Unknown';
+      if (selectedSystem && sys !== selectedSystem) continue;
+      if (selectedCategory && !isApCategory(selectedCategory)) continue;
+      if (selectedPublisher && pub !== selectedPublisher) continue;
       if (q && !g.subcategory.toLowerCase().includes(q)) continue;
       apEntries.push({ kind: 'ap', group: g });
       for (const s of g.supplements) {
@@ -153,7 +185,7 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
       }
     }
 
-    // Emit entries in category order with section headers.
+    // Emit in category order with section headers.
     const allCats = new Set([...CATEGORY_ORDER, ...byCat.keys()]);
     if (apEntries.length > 0) allCats.add(apCatName);
     const sorted = [...allCats].sort((a, b) => {
@@ -164,22 +196,16 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
 
     for (const cat of sorted) {
       const catEntries: CatalogEntry[] = [];
-      if (isAp(cat)) {
-        catEntries.push(...apEntries);
-      }
-      const books = byCat.get(cat);
-      if (books) {
-        for (const b of books) catEntries.push({ kind: 'book', book: b });
-      }
+      if (isApCategory(cat)) catEntries.push(...apEntries);
+      const catBooks = byCat.get(cat);
+      if (catBooks) for (const b of catBooks) catEntries.push({ kind: 'book', book: b });
       if (catEntries.length === 0) continue;
-      if (!selectedCategory) {
-        out.push({ kind: 'section', label: cat });
-      }
+      if (!selectedCategory) out.push({ kind: 'section', label: cat });
       out.push(...catEntries);
     }
 
     return out;
-  }, [apGroups, otherBooks, selectedCategory, selectedSubcategory, filter]);
+  }, [apGroups, otherBooks, selectedSystem, selectedCategory, selectedPublisher, filter]);
 
   // Open target → reader.
   if (openTarget) {
@@ -243,37 +269,20 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
             )}
             <ScrollArea className="flex-1">
               <div className="py-1">
-                <CategoryItem
+                <NavItem
                   name="All Books"
                   count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
-                  active={selectedCategory === null}
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setSelectedSubcategory(null);
-                  }}
+                  active={!selectedSystem}
+                  onClick={() => selectNav(null, null, null)}
                 />
-                {categories.map((cat) => (
-                  <CategoryGroup
-                    key={cat.name}
-                    category={cat}
-                    activeCategory={selectedCategory}
-                    activeSubcategory={selectedSubcategory}
-                    onSelectCategory={() => {
-                      if (selectedCategory === cat.name && !selectedSubcategory) {
-                        setSelectedCategory(null);
-                      } else {
-                        setSelectedCategory(cat.name);
-                        setSelectedSubcategory(null);
-                      }
-                    }}
-                    onSelectSubcategory={(sub) => {
-                      setSelectedCategory(cat.name);
-                      if (selectedSubcategory === sub) {
-                        setSelectedSubcategory(null);
-                      } else {
-                        setSelectedSubcategory(sub);
-                      }
-                    }}
+                {systems.map((sys) => (
+                  <SystemGroup
+                    key={sys.name}
+                    system={sys}
+                    selectedSystem={selectedSystem}
+                    selectedCategory={selectedCategory}
+                    selectedPublisher={selectedPublisher}
+                    onSelect={selectNav}
                   />
                 ))}
               </div>
@@ -314,30 +323,31 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
 // Category rail components
 // ---------------------------------------------------------------------------
 
-function CategoryItem({
+/** Leaf nav item — no chevron, just a clickable label + count. */
+function NavItem({
   name,
   count,
   active,
   onClick,
-  indent = false,
+  indent = 0,
 }: {
   name: string;
   count: number;
   active: boolean;
   onClick: () => void;
-  indent?: boolean;
+  indent?: number;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center justify-between px-3 py-1.5 text-left text-xs transition-colors',
-        indent && 'pl-6',
+        'flex w-full items-center justify-between pr-3 py-1.5 text-left text-xs transition-colors',
         active
           ? 'bg-accent text-foreground font-medium'
           : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
       )}
+      style={{ paddingLeft: 12 + indent * 12 }}
     >
       <span className="truncate">{name}</span>
       <span className="ml-2 shrink-0 tabular-nums text-[10px] opacity-60">{count}</span>
@@ -345,72 +355,113 @@ function CategoryItem({
   );
 }
 
-function CategoryGroup({
-  category,
-  activeCategory,
-  activeSubcategory,
-  onSelectCategory,
-  onSelectSubcategory,
+/** Expandable nav group — chevron + label + count, with children. */
+function NavGroup({
+  name,
+  count,
+  active,
+  indent,
+  onClick,
+  children,
 }: {
-  category: {
-    name: string;
-    subcategories: Array<{ name: string | null; books: Book[] }>;
-    count: number;
-  };
-  activeCategory: string | null;
-  activeSubcategory: string | null;
-  onSelectCategory: () => void;
-  onSelectSubcategory: (sub: string) => void;
+  name: string;
+  count: number;
+  active: boolean;
+  indent: number;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const hasSubs = category.subcategories.some((s) => s.name !== null);
-  const isCatActive = activeCategory === category.name && !activeSubcategory;
-
   return (
     <div>
-      <div className="flex items-center">
-        {hasSubs && (
-          <button
-            type="button"
-            className="flex h-6 w-5 items-center justify-center text-muted-foreground"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            }}
-          >
-            <ChevronRight className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')} />
-          </button>
-        )}
+      <div className="flex items-center" style={{ paddingLeft: indent * 12 }}>
         <button
           type="button"
-          onClick={onSelectCategory}
+          className="flex h-6 w-5 items-center justify-center text-muted-foreground"
+          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+        >
+          <ChevronRight className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')} />
+        </button>
+        <button
+          type="button"
+          onClick={onClick}
           className={cn(
             'flex flex-1 items-center justify-between py-1.5 pr-3 text-left text-xs transition-colors',
-            !hasSubs && 'pl-3',
-            isCatActive
+            active
               ? 'bg-accent text-foreground font-medium'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
           )}
         >
-          <span className="truncate">{category.name}</span>
-          <span className="ml-2 shrink-0 tabular-nums text-[10px] opacity-60">{category.count}</span>
+          <span className="truncate">{name}</span>
+          <span className="ml-2 shrink-0 tabular-nums text-[10px] opacity-60">{count}</span>
         </button>
       </div>
-      {expanded &&
-        hasSubs &&
-        category.subcategories
-          .filter((s) => s.name !== null)
-          .map((s) => (
-            <CategoryItem
-              key={s.name}
-              name={s.name!}
-              count={s.books.length}
-              active={activeCategory === category.name && activeSubcategory === s.name}
-              onClick={() => onSelectSubcategory(s.name!)}
-              indent
-            />
-          ))}
+      {expanded && children}
     </div>
+  );
+}
+
+/** Top-level system group with nested category → publisher tree. */
+function SystemGroup({
+  system,
+  selectedSystem,
+  selectedCategory,
+  selectedPublisher,
+  onSelect,
+}: {
+  system: { name: string; categories: { name: string; publishers: { name: string; count: number }[]; count: number }[]; count: number };
+  selectedSystem: string | null;
+  selectedCategory: string | null;
+  selectedPublisher: string | null;
+  onSelect: (sys: string | null, cat: string | null, pub: string | null) => void;
+}) {
+  const sysActive = selectedSystem === system.name && !selectedCategory;
+  return (
+    <NavGroup
+      name={system.name}
+      count={system.count}
+      active={sysActive}
+      indent={0}
+      onClick={() => onSelect(sysActive ? null : system.name, null, null)}
+    >
+      {system.categories.map((cat) => {
+        const catActive = selectedSystem === system.name && selectedCategory === cat.name && !selectedPublisher;
+        const hasPubs = cat.publishers.length > 1 || (cat.publishers.length === 1 && cat.publishers[0]!.name !== 'Unknown');
+        return hasPubs ? (
+          <NavGroup
+            key={cat.name}
+            name={cat.name}
+            count={cat.count}
+            active={catActive}
+            indent={1}
+            onClick={() => onSelect(system.name, catActive ? null : cat.name, null)}
+          >
+            {cat.publishers.map((pub) => (
+              <NavItem
+                key={pub.name}
+                name={pub.name}
+                count={pub.count}
+                indent={4}
+                active={selectedSystem === system.name && selectedCategory === cat.name && selectedPublisher === pub.name}
+                onClick={() => {
+                  const pubActive = selectedSystem === system.name && selectedCategory === cat.name && selectedPublisher === pub.name;
+                  onSelect(system.name, cat.name, pubActive ? null : pub.name);
+                }}
+              />
+            ))}
+          </NavGroup>
+        ) : (
+          <NavItem
+            key={cat.name}
+            name={cat.name}
+            count={cat.count}
+            indent={3}
+            active={catActive}
+            onClick={() => onSelect(system.name, catActive ? null : cat.name, null)}
+          />
+        );
+      })}
+    </NavGroup>
   );
 }
 
