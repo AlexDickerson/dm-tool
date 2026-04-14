@@ -454,6 +454,12 @@ async function startup(): Promise<void> {
       }
     }
 
+    // Inject CORS headers for the Golarion map tile host so MapLibre GL
+    // can fetch PMTiles, sprites, and font glyphs from the renderer.
+    if (details.url.startsWith('https://map.pathfinderwiki.com/')) {
+      headers['Access-Control-Allow-Origin'] = ['*'];
+    }
+
     callback({ responseHeaders: headers });
   });
 
