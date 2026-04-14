@@ -10,6 +10,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AonPreviewData,
   Book,
+  BookClassifyProgress,
   BookScanResult,
   ChatChunk,
   ChatMessage,
@@ -82,6 +83,18 @@ const api: ElectronAPI = {
   booksFinalizeIngest: (args: FinalizeIngestArgs): Promise<Book> => ipcRenderer.invoke('booksFinalizeIngest', args),
   booksGetFileUrl: (id: number): Promise<string> => ipcRenderer.invoke('booksGetFileUrl', id),
   booksGetCoverUrl: (id: number): Promise<string> => ipcRenderer.invoke('booksGetCoverUrl', id),
+  booksUpdateMeta: (args: {
+    id: number;
+    fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null };
+  }): Promise<Book | null> => ipcRenderer.invoke('booksUpdateMeta', args),
+  booksClassify: (args: { apiKey: string; reclassify?: boolean }): Promise<void> =>
+    ipcRenderer.invoke('booksClassify', args),
+  booksClassifyCancel: (): Promise<void> => ipcRenderer.invoke('booksClassifyCancel'),
+  onBookClassifyProgress: (callback: (p: BookClassifyProgress) => void): (() => void) => {
+    const handler = (_event: unknown, p: BookClassifyProgress) => callback(p);
+    ipcRenderer.on('book-classify-progress', handler);
+    return () => ipcRenderer.removeListener('book-classify-progress', handler);
+  },
 
   // Map tagger
   taggerPickSource: (): Promise<string | null> => ipcRenderer.invoke('taggerPickSource'),

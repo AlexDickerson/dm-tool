@@ -90,6 +90,30 @@ export interface Book {
    *  `book-file://covers/<id>` URLs; if this is false, the UI should show
    *  a placeholder instead of a broken image. */
   ingested: boolean;
+  // AI classification (null until classified)
+  aiSystem: string | null;
+  aiCategory: string | null;
+  aiSubcategory: string | null;
+  aiTitle: string | null;
+  aiPublisher: string | null;
+  classified: boolean;
+}
+
+export interface BookClassification {
+  system: string;
+  category: string;
+  subcategory: string | null;
+  title: string;
+  publisher: string | null;
+}
+
+export interface BookClassifyProgress {
+  type: 'progress' | 'done' | 'error';
+  bookId?: number;
+  bookTitle?: string;
+  current?: number;
+  total?: number;
+  error?: string;
 }
 
 /** Result of a phase-1 scan. Summary counts only — if the renderer needs
@@ -451,6 +475,20 @@ export interface ElectronAPI {
    *  <img> tag's onError handler will fall back to a placeholder, and
    *  once ingest completes the URL starts resolving. */
   booksGetCoverUrl(id: number): Promise<string>;
+
+  /** Update AI metadata fields for a single book (manual reclassification). */
+  booksUpdateMeta(args: {
+    id: number;
+    fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null };
+  }): Promise<Book | null>;
+
+  /** Classify all unclassified books (or all if reclassify=true) using AI.
+   *  Progress streams via onBookClassifyProgress. */
+  booksClassify(args: { apiKey: string; reclassify?: boolean }): Promise<void>;
+  /** Cancel an in-progress classification run. */
+  booksClassifyCancel(): Promise<void>;
+  /** Subscribe to classification progress events. Returns unsubscribe fn. */
+  onBookClassifyProgress(callback: (p: BookClassifyProgress) => void): () => void;
 
   // -----------------------------------------------------------------------
   // Map tagger (ingest new maps)

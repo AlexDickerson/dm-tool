@@ -33,6 +33,8 @@ interface ReaderProps {
   /** Merged AP mode — open all parts as one combined document. */
   apGroup?: ApGroup;
   onClose: () => void;
+  /** Navigate back to catalog without closing the tab. Falls back to onClose. */
+  onBack?: () => void;
   onIngestComplete?: () => void;
 }
 
@@ -140,7 +142,7 @@ function saveScroll(key: string | null, top: number) {
 // Main reader component
 // ---------------------------------------------------------------------------
 
-export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: ReaderProps) {
+export function BookReader({ bookId, apGroup, onClose, onBack, onIngestComplete }: ReaderProps) {
   const isMulti = !!apGroup;
   const [title, setTitle] = useState('');
   const [totalPages, setTotalPages] = useState(0);
@@ -236,6 +238,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           extractCover(b.id).then(onIngestComplete).catch(console.error);
         }
       } catch (e) {
+        console.error('[BookReader] single-doc load failed:', e);
         if (!cancelled) setError((e as Error).message);
       }
     })();
@@ -341,6 +344,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
         }
         onIngestComplete?.();
       } catch (e) {
+        console.error('[BookReader] multi-doc load failed:', e);
         if (!cancelled) setError((e as Error).message);
       }
     })();
@@ -475,18 +479,21 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
   }, [computeCurrentPage, sKey]);
 
   // Restore saved scroll position once pages are laid out.
+  // Guard: el.clientHeight === 0 when the tab is hidden (display:none),
+  // so setting scrollTop is a no-op. Defer until the tab becomes visible
+  // (ResizeObserver will trigger a containerSize → pageHeight change).
   const restoredRef = useRef(false);
   useEffect(() => {
     if (restoredRef.current || !pageHeight || slots.length === 0) return;
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || el.clientHeight === 0) return;
     const saved = loadScroll(sKey);
     if (saved > 0) {
       el.scrollTop = saved;
       setCurrentPage(computeCurrentPage(saved));
     }
     restoredRef.current = true;
-  }, [pageHeight, slots, sKey, computeCurrentPage]);
+  }, [pageHeight, slots, sKey, computeCurrentPage, containerSize]);
 
   // Jump to a specific 1-based page number.
   const jumpToPage = useCallback(
@@ -592,6 +599,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
           The file may be corrupted, password-protected, or not a standard PDF. Common with pregenerated character
           sheets and form-fillable documents.
         </p>
+        <p className="max-w-md text-[10px] font-mono text-muted-foreground/60 break-all">{error}</p>
         <Button variant="outline" size="sm" onClick={onClose}>
           Back to catalog
         </Button>
@@ -603,7 +611,7 @@ export function BookReader({ bookId, apGroup, onClose, onIngestComplete }: Reade
     <div className="flex h-full flex-col" onKeyDown={handleKeyDown} tabIndex={-1}>
       {/* Toolbar */}
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border px-2">
-        <Button variant="ghost" size="sm" onClick={onClose} className="gap-1">
+        <Button variant="ghost" size="sm" onClick={onBack ?? onClose} className="gap-1">
           <ArrowLeft className="h-3.5 w-3.5" />
           <span className="text-xs">Catalog</span>
         </Button>

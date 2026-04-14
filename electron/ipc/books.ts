@@ -1,14 +1,16 @@
-import { app, ipcMain } from 'electron';
-import { join } from 'node:path';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { basename } from 'node:path';
+import { ipcMain } from 'electron';
 import type { BookDb } from '../book-db.js';
 import type { DmToolConfig } from '../config.js';
-import type { Book, BookScanResult, FinalizeIngestArgs } from '../../shared/types.js';
+import type { Book, BookClassifyProgress, BookScanResult, FinalizeIngestArgs } from '../../shared/types.js';
 import { scanBookRoot } from '../book-scanner.js';
+import { classifyBook } from '../book-classifier.js';
 
-export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): void {
-  const coverAbsRoot = join(app.getPath('userData'), 'book-covers');
-
+export function registerBookHandlers(
+  bookDb: BookDb | null,
+  cfg: DmToolConfig,
+  getMainWindow: () => Electron.BrowserWindow | null,
+): void {
   const requireBookDb = (): BookDb => {
     if (!bookDb) {
       throw new Error('Book catalog not configured. Set `booksPath` in config.json to the root of your PDF library.');
@@ -46,12 +48,7 @@ export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): 
       throw new Error(`booksFinalizeIngest: unknown book id ${args.id}`);
     }
 
-    await mkdir(coverAbsRoot, { recursive: true });
-    const relName = `${args.id}.png`;
-    const absPath = join(coverAbsRoot, relName);
-    await writeFile(absPath, args.coverPngBytes);
-
-    const updated = b.finalizeIngest(args.id, args.pageCount, relName);
+    const updated = b.finalizeIngest(args.id, args.pageCount, Buffer.from(args.coverPngBytes));
     if (!updated) {
       throw new Error(`booksFinalizeIngest: row vanished for id ${args.id}`);
     }
@@ -68,5 +65,67 @@ export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): 
   ipcMain.handle('booksGetCoverUrl', async (_e, id: number): Promise<string> => {
     requireBookDb();
     return `book-file://covers/${id}`;
+  });
+
+  ipcMain.handle(
+    'booksUpdateMeta',
+    async (
+      _e,
+      args: {
+        id: number;
+        fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null };
+      },
+    ): Promise<Book | null> => {
+      return requireBookDb().updateMeta(args.id, args.fields);
+    },
+  );
+
+  // --- AI classification ------------------------------------------------------
+
+  let classifyAbort = false;
+
+  const sendProgress = (p: BookClassifyProgress): void => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) win.webContents.send('book-classify-progress', p);
+  };
+
+  const CLASSIFY_CONCURRENCY = 10;
+
+  ipcMain.handle('booksClassify', async (_e, args: { apiKey: string; reclassify?: boolean }): Promise<void> => {
+    const b = requireBookDb();
+    const books = args.reclassify ? b.listClassifiable() : b.listUnclassified();
+    const total = books.length;
+    classifyAbort = false;
+    let completed = 0;
+    let idx = 0;
+
+    // Worker function — each grabs the next unprocessed book until done.
+    const worker = async (): Promise<void> => {
+      while (idx < books.length && !classifyAbort) {
+        const book = books[idx++]!;
+        const fileName = basename(book.path);
+        try {
+          const classification = await classifyBook({
+            apiKey: args.apiKey,
+            coverBlob: book.cover_blob,
+            fileName,
+          });
+          b.saveClassification(book.id, classification);
+        } catch (err) {
+          console.error(`Classification failed for ${fileName}:`, err);
+          sendProgress({ type: 'error', bookId: book.id, bookTitle: fileName, error: (err as Error).message });
+        }
+        completed++;
+        sendProgress({ type: 'progress', bookId: book.id, bookTitle: fileName, current: completed, total });
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(CLASSIFY_CONCURRENCY, total) }, () => worker()));
+
+    sendProgress({ type: 'done', current: total, total });
+  });
+
+  ipcMain.handle('booksClassifyCancel', (): void => {
+    classifyAbort = true;
   });
 }

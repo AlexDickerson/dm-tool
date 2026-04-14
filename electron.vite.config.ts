@@ -46,8 +46,9 @@ export default defineConfig({
     server: {
       fs: {
         // In a git worktree node_modules lives in the main repo root,
-        // which is outside this directory. Allow Vite to serve from there.
-        allow: [__dirname, resolve(__dirname, '..', '..', '..')],
+        // which is outside this worktree directory. Disable strict mode
+        // so Vite can serve pdfjs worker, fonts, etc. from there.
+        strict: false,
       },
     },
     resolve: {
