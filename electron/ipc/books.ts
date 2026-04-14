@@ -1,14 +1,10 @@
-import { app, ipcMain } from 'electron';
-import { join } from 'node:path';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { ipcMain } from 'electron';
 import type { BookDb } from '../book-db.js';
 import type { DmToolConfig } from '../config.js';
 import type { Book, BookScanResult, FinalizeIngestArgs } from '../../shared/types.js';
 import { scanBookRoot } from '../book-scanner.js';
 
 export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): void {
-  const coverAbsRoot = join(app.getPath('userData'), 'book-covers');
-
   const requireBookDb = (): BookDb => {
     if (!bookDb) {
       throw new Error('Book catalog not configured. Set `booksPath` in config.json to the root of your PDF library.');
@@ -46,12 +42,7 @@ export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): 
       throw new Error(`booksFinalizeIngest: unknown book id ${args.id}`);
     }
 
-    await mkdir(coverAbsRoot, { recursive: true });
-    const relName = `${args.id}.png`;
-    const absPath = join(coverAbsRoot, relName);
-    await writeFile(absPath, args.coverPngBytes);
-
-    const updated = b.finalizeIngest(args.id, args.pageCount, relName);
+    const updated = b.finalizeIngest(args.id, args.pageCount, Buffer.from(args.coverPngBytes));
     if (!updated) {
       throw new Error(`booksFinalizeIngest: row vanished for id ${args.id}`);
     }

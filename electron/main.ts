@@ -14,7 +14,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, net, session } from 'electron';
 import { dirname, join, normalize, sep, resolve as resolvePath } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { configExists, loadConfig, type DmToolConfig } from './config.js';
 import { MapDb } from './db.js';
 import { BookDb } from './book-db.js';
@@ -193,8 +193,7 @@ function registerMapFileProtocol(cfg: DmToolConfig): void {
  *  Two URL shapes, distinguished by host:
  *
  *    book-file://files/<id>    → the PDF at books[id].path
- *    book-file://covers/<id>   → the cached cover PNG at
- *                                <userData>/book-covers/<id>.png
+ *    book-file://covers/<id>   → the cover PNG blob from the DB
  *
  *  The renderer never sees absolute paths — it just hands the URL to
  *  pdfjs (or an <img> tag). Main resolves the id to a real path here, so
@@ -205,7 +204,7 @@ function registerMapFileProtocol(cfg: DmToolConfig): void {
  *  underlying `file://` URL — the Chromium PDF layer asks for chunks as
  *  the user scrolls, so a 68 MB file doesn't have to be fully loaded to
  *  show page 1. */
-function registerBookFileProtocol(getBookDb: () => BookDb | null, coverCacheRoot: string): void {
+function registerBookFileProtocol(getBookDb: () => BookDb | null): void {
   protocol.handle('book-file', async (request) => {
     try {
       const url = new URL(request.url);
@@ -237,19 +236,15 @@ function registerBookFileProtocol(getBookDb: () => BookDb | null, coverCacheRoot
         if (!Number.isFinite(id) || !Number.isInteger(id)) {
           return new Response('Bad cover id', { status: 400 });
         }
-        // Cover filenames are `<id>.png`. Normalize + verify we stay
-        // inside the cover cache root (belt-and-suspenders; the filename
-        // is derived from a number so traversal isn't actually possible).
-        const target = normalize(join(coverCacheRoot, `${id}.png`));
-        if (!target.startsWith(coverCacheRoot + sep) && target !== coverCacheRoot) {
-          return new Response('Forbidden', { status: 403 });
-        }
-        if (!existsSync(target)) {
-          // Not an error — the renderer's <img> tag uses onError to fall
-          // back to a placeholder until phase-2 ingest runs.
+        const b = getBookDb();
+        if (!b) return new Response('Book catalog not configured', { status: 503 });
+        const blob = b.getCoverBlob(id);
+        if (!blob) {
           return new Response('Cover not yet cached', { status: 404 });
         }
-        return net.fetch(pathToFileURL(target).toString());
+        return new Response(blob, {
+          headers: { 'Content-Type': 'image/png', 'Cache-Control': 'max-age=86400' },
+        });
       }
 
       return new Response(`Bad host: ${host}`, { status: 400 });
@@ -390,7 +385,20 @@ async function startup(): Promise<void> {
     }
   }
 
-  const coverCacheRoot = resolvePath(join(app.getPath('userData'), 'book-covers'));
+  // Migrate cover PNGs from disk (v1) into the database (v2). Runs once —
+  // after migration the disk files are no longer needed.
+  const coverDiskRoot = join(app.getPath('userData'), 'book-covers');
+  if (bookDb) {
+    const migrated = bookDb.migrateDiskCovers((id) => {
+      const p = join(coverDiskRoot, `${id}.png`);
+      try {
+        return existsSync(p) ? readFileSync(p) : null;
+      } catch {
+        return null;
+      }
+    });
+    if (migrated > 0) console.log(`Migrated ${migrated} cover(s) from disk into DB`);
+  }
 
   // Kill the default Electron application menu (File/Edit/View/...).
   // Our custom title bar in the renderer replaces it. Standard OS
@@ -399,7 +407,7 @@ async function startup(): Promise<void> {
   Menu.setApplicationMenu(null);
 
   registerMapFileProtocol(cfg);
-  registerBookFileProtocol(() => bookDb, coverCacheRoot);
+  registerBookFileProtocol(() => bookDb);
   if (cfg.pf2eDbPath) registerMonsterFileProtocol(cfg.pf2eDbPath);
   registerIpcHandlers(db, bookDb, cfg, () => mainWindow);
 
