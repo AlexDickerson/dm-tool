@@ -18,7 +18,41 @@ import type { Book } from '@shared/types';
 
 type CatalogEntry = { kind: 'book'; book: Book } | { kind: 'ap'; group: ApGroup } | { kind: 'section'; label: string };
 
-type OpenTarget = { kind: 'book'; bookId: number } | { kind: 'ap'; group: ApGroup } | null;
+type TabDef =
+  | { id: 'browser'; kind: 'browser' }
+  | { id: string; kind: 'book'; bookId: number; title: string }
+  | { id: string; kind: 'ap'; group: ApGroup; title: string };
+
+const BROWSER_TAB: TabDef = { id: 'browser', kind: 'browser' };
+
+/** Serializable shape saved to localStorage. */
+type PersistedTab =
+  | { id: 'browser'; kind: 'browser' }
+  | { id: string; kind: 'book'; bookId: number; title: string }
+  | { id: string; kind: 'ap'; subcategory: string; title: string };
+
+const TAB_STORAGE_KEY = 'dmtool.bookbrowser.tabs';
+const ACTIVE_TAB_STORAGE_KEY = 'dmtool.bookbrowser.activeTab';
+
+function persistTabs(tabs: TabDef[], activeTabId: string) {
+  const serializable: PersistedTab[] = tabs.map((t) => {
+    if (t.kind === 'ap') return { id: t.id, kind: 'ap', subcategory: t.group.subcategory, title: t.title };
+    return t as PersistedTab;
+  });
+  localStorage.setItem(TAB_STORAGE_KEY, JSON.stringify(serializable));
+  localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTabId);
+}
+
+function loadPersistedTabs(): { tabs: PersistedTab[]; activeTabId: string } | null {
+  try {
+    const raw = localStorage.getItem(TAB_STORAGE_KEY);
+    const active = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    if (!raw) return null;
+    return { tabs: JSON.parse(raw), activeTabId: active ?? 'browser' };
+  } catch {
+    return null;
+  }
+}
 
 // Use AI-derived classification when available, fall back to folder-derived.
 // For folder-derived books: category = system (e.g. "PF2e"), subcategory = category type (e.g. "Rulebooks").
@@ -71,7 +105,9 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedPublisher, setSelectedPublisher] = useState<string | null>(null);
-  const [openTarget, setOpenTarget] = useState<OpenTarget>(null);
+  const [tabs, setTabs] = useState<TabDef[]>([BROWSER_TAB]);
+  const [activeTabId, setActiveTabId] = useState<string>('browser');
+  const [tabsRestored, setTabsRestored] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; book: Book } | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const toggleExpanded = useCallback((key: string) => {
@@ -80,6 +116,20 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
+  }, []);
+
+  const openTab = useCallback((tab: TabDef) => {
+    setTabs((prev) => {
+      if (prev.some((t) => t.id === tab.id)) return prev;
+      return [...prev, tab];
+    });
+    setActiveTabId(tab.id);
+  }, []);
+
+  const closeTab = useCallback((tabId: string) => {
+    if (tabId === 'browser') return; // can't close browser tab
+    setTabs((prev) => prev.filter((t) => t.id !== tabId));
+    setActiveTabId((prev) => (prev === tabId ? 'browser' : prev));
   }, []);
 
   const handleUpdateMeta = useCallback(
@@ -106,6 +156,36 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
     () => (books ? groupAdventurePaths(books) : { apGroups: [], otherBooks: [] }),
     [books],
   );
+
+  // Rehydrate persisted tabs once books have loaded.
+  useEffect(() => {
+    if (tabsRestored || !books) return;
+    setTabsRestored(true);
+    const saved = loadPersistedTabs();
+    if (!saved || saved.tabs.length <= 1) return;
+    const apByName = new Map(apGroups.map((g) => [g.subcategory, g]));
+    const bookById = new Map(books.map((b) => [b.id, b]));
+    const restored: TabDef[] = [BROWSER_TAB];
+    for (const pt of saved.tabs) {
+      if (pt.kind === 'browser') continue;
+      if (pt.kind === 'book') {
+        if (bookById.has(pt.bookId)) restored.push(pt);
+      } else if (pt.kind === 'ap') {
+        const group = apByName.get(pt.subcategory);
+        if (group) restored.push({ id: pt.id, kind: 'ap', group, title: pt.title });
+      }
+    }
+    if (restored.length > 1) {
+      setTabs(restored);
+      setActiveTabId(restored.some((t) => t.id === saved.activeTabId) ? saved.activeTabId : 'browser');
+    }
+  }, [books, apGroups, tabsRestored]);
+
+  // Persist tabs whenever they change.
+  useEffect(() => {
+    if (!tabsRestored) return;
+    persistTabs(tabs, activeTabId);
+  }, [tabs, activeTabId, tabsRestored]);
 
   // Build 3-level sidebar tree: System → Category → Publisher.
   const systems = useMemo(() => {
@@ -224,94 +304,95 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
     return out;
   }, [apGroups, otherBooks, selectedSystem, selectedCategory, selectedPublisher, filter]);
 
-  // Open target → reader.
-  if (openTarget) {
-    if (openTarget.kind === 'ap') {
-      return <BookReader apGroup={openTarget.group} onClose={() => setOpenTarget(null)} onIngestComplete={refetch} />;
-    }
-    return <BookReader bookId={openTarget.bookId} onClose={() => setOpenTarget(null)} onIngestComplete={refetch} />;
-  }
+  const isBrowserActive = activeTabId === 'browser';
 
   return (
     <div className="flex h-full flex-col">
+      {/* Tab bar — only show when more than just the browser tab */}
+      {tabs.length > 1 && (
+        <TabBar tabs={tabs} activeTabId={activeTabId} onActivate={setActiveTabId} onClose={closeTab} />
+      )}
       <div className="flex min-h-0 flex-1">
-        {/* Category rail */}
-        <ResizableSidebar storageKey="dmtool.sidebar.books">
-          <div className="flex h-full flex-col border-r border-border bg-card">
-            <div className="flex h-12 items-center justify-between px-3">
-              <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
-                Categories
-              </span>
-              <div className="flex items-center gap-1">
-                {classifying ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 gap-1 px-1.5 text-[10px] text-muted-foreground"
-                    title="Cancel classification"
-                    onClick={cancelClassify}
-                  >
-                    <Sparkles className="h-3 w-3 animate-pulse text-primary" />
-                    {classifyCurrent}/{classifyTotal}
-                    <X className="h-3 w-3" />
-                  </Button>
-                ) : (
+        {/* Category rail — only visible on browser tab */}
+        {isBrowserActive && (
+          <ResizableSidebar storageKey="dmtool.sidebar.books">
+            <div className="flex h-full flex-col border-r border-border bg-card">
+              <div className="flex h-12 items-center justify-between px-3">
+                <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+                  Categories
+                </span>
+                <div className="flex items-center gap-1">
+                  {classifying ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 gap-1 px-1.5 text-[10px] text-muted-foreground"
+                      title="Cancel classification"
+                      onClick={cancelClassify}
+                    >
+                      <Sparkles className="h-3 w-3 animate-pulse text-primary" />
+                      {classifyCurrent}/{classifyTotal}
+                      <X className="h-3 w-3" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      title="Classify books with AI"
+                      onClick={() => handleClassify()}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0"
-                    title="Classify books with AI"
-                    onClick={() => handleClassify()}
+                    title="Rescan PDF folder"
+                    onClick={handleRescan}
+                    disabled={scanning}
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
                   </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  title="Rescan PDF folder"
-                  onClick={handleRescan}
-                  disabled={scanning}
-                >
-                  <RefreshCw className={cn('h-3.5 w-3.5', scanning && 'animate-spin')} />
-                </Button>
+                </div>
               </div>
-            </div>
-            <Separator variant="ornate" />
-            {classifyError && (
-              <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
-                {classifyError}
-              </div>
-            )}
-            <ScrollArea className="flex-1">
-              <div className="py-1">
-                <NavItem
-                  name="All Books"
-                  count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
-                  active={!selectedSystem}
-                  onClick={() => selectNav(null, null, null)}
-                />
-                {systems.map((sys) => (
-                  <SystemGroup
-                    key={sys.name}
-                    system={sys}
-                    selectedSystem={selectedSystem}
-                    selectedCategory={selectedCategory}
-                    selectedPublisher={selectedPublisher}
-                    expandedKeys={expandedKeys}
-                    onToggle={toggleExpanded}
-                    onSelect={selectNav}
+              <Separator variant="ornate" />
+              {classifyError && (
+                <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[11px] text-destructive">
+                  {classifyError}
+                </div>
+              )}
+              <ScrollArea className="flex-1">
+                <div className="py-1">
+                  <NavItem
+                    name="All Books"
+                    count={apGroups.length + apGroups.reduce((n, g) => n + g.supplements.length, 0) + otherBooks.length}
+                    active={!selectedSystem}
+                    onClick={() => selectNav(null, null, null)}
                   />
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        </ResizableSidebar>
+                  {systems.map((sys) => (
+                    <SystemGroup
+                      key={sys.name}
+                      system={sys}
+                      selectedSystem={selectedSystem}
+                      selectedCategory={selectedCategory}
+                      selectedPublisher={selectedPublisher}
+                      expandedKeys={expandedKeys}
+                      onToggle={toggleExpanded}
+                      onSelect={selectNav}
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          </ResizableSidebar>
+        )}
 
-        {/* Main area: grid */}
+        {/* Content area — all tabs mounted, only active one visible */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex-1 overflow-hidden">
+          {/* Browser tab */}
+          <div className="flex-1 overflow-hidden" style={{ display: isBrowserActive ? undefined : 'none' }}>
             {entries.length === 0 && !loading ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                 <Library className="h-8 w-8 opacity-50" />
@@ -324,9 +405,9 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
                 entries={entries}
                 onSelect={(entry) => {
                   if (entry.kind === 'ap') {
-                    setOpenTarget({ kind: 'ap', group: entry.group });
+                    openTab({ id: `ap-${entry.group.subcategory}`, kind: 'ap', group: entry.group, title: entry.group.subcategory });
                   } else if (entry.kind === 'book') {
-                    setOpenTarget({ kind: 'book', bookId: entry.book.id });
+                    openTab({ id: `book-${entry.book.id}`, kind: 'book', bookId: entry.book.id, title: effectiveTitle(entry.book) });
                   }
                 }}
                 onBookContextMenu={(e, book) => {
@@ -336,6 +417,23 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
               />
             )}
           </div>
+          {/* Reader tabs */}
+          {tabs.map((tab) => {
+            if (tab.kind === 'browser') return null;
+            return (
+              <div
+                key={tab.id}
+                className="flex-1 overflow-hidden"
+                style={{ display: activeTabId === tab.id ? undefined : 'none' }}
+              >
+                {tab.kind === 'ap' ? (
+                  <BookReader apGroup={tab.group} onClose={() => closeTab(tab.id)} onBack={() => setActiveTabId('browser')} onIngestComplete={refetch} />
+                ) : (
+                  <BookReader bookId={tab.bookId} onClose={() => closeTab(tab.id)} onBack={() => setActiveTabId('browser')} onIngestComplete={refetch} />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
       {ctxMenu && (
@@ -347,6 +445,61 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
           onUpdateMeta={handleUpdateMeta}
         />
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab bar
+// ---------------------------------------------------------------------------
+
+function TabBar({
+  tabs,
+  activeTabId,
+  onActivate,
+  onClose,
+}: {
+  tabs: TabDef[];
+  activeTabId: string;
+  onActivate: (id: string) => void;
+  onClose: (id: string) => void;
+}) {
+  return (
+    <div
+      className="flex items-end gap-px border-b border-border"
+      style={{ backgroundColor: 'hsl(var(--card))', minHeight: 32 }}
+    >
+      {tabs.map((tab) => {
+        const active = tab.id === activeTabId;
+        const label = tab.kind === 'browser' ? 'Library' : tab.title;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            className={cn(
+              'group flex max-w-[200px] items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs transition-colors',
+              active
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+            onClick={() => onActivate(tab.id)}
+            title={label}
+          >
+            {tab.kind === 'browser' && <Library className="h-3 w-3 shrink-0" />}
+            <span className="truncate">{label}</span>
+            {tab.kind !== 'browser' && (
+              <span
+                role="button"
+                className="ml-auto shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                onClick={(e) => { e.stopPropagation(); onClose(tab.id); }}
+                style={active ? { opacity: 1 } : undefined}
+              >
+                <X className="h-3 w-3" />
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
