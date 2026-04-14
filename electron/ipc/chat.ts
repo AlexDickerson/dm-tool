@@ -5,9 +5,7 @@ import { streamChat } from '../chat.js';
 /** Max characters of page text to send as tool context. ~2K tokens. */
 const TOOL_CONTEXT_LIMIT = 8000;
 
-export function registerChatHandlers(
-  getMainWindow: () => Electron.BrowserWindow | null,
-): void {
+export function registerChatHandlers(getMainWindow: () => Electron.BrowserWindow | null): void {
   ipcMain.handle(
     'chatSend',
     async (

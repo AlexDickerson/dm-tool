@@ -480,7 +480,10 @@ function ToolsSettings({
         <Label className="text-xs font-medium">Tool Sites</Label>
         <div className="space-y-1.5">
           {tools.map((t) => (
-            <div key={t.id} className="flex items-center gap-2 rounded-md border border-border bg-background/50 px-2 py-1.5">
+            <div
+              key={t.id}
+              className="flex items-center gap-2 rounded-md border border-border bg-background/50 px-2 py-1.5"
+            >
               <img
                 src={`https://www.google.com/s2/favicons?domain=${new URL(t.url).hostname}&sz=16`}
                 alt=""
@@ -517,9 +520,7 @@ function ToolsSettings({
             Add
           </Button>
         </form>
-        <p className="text-[11px] text-muted-foreground">
-          Each URL opens in its own iframe tab under the Tools page.
-        </p>
+        <p className="text-[11px] text-muted-foreground">Each URL opens in its own iframe tab under the Tools page.</p>
       </div>
 
       <div className="space-y-2">

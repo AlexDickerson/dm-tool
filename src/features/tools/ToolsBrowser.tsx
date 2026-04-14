@@ -15,7 +15,7 @@ export function ToolsBrowser({
   onActiveIdChange: (id: string) => void;
 }) {
   // If active tab was removed, fall back to first
-  const resolved = tools.find((t) => t.id === activeId) ? activeId : tools[0]?.id ?? '';
+  const resolved = tools.find((t) => t.id === activeId) ? activeId : (tools[0]?.id ?? '');
   useEffect(() => {
     if (resolved !== activeId) onActiveIdChange(resolved);
   }, [resolved, activeId, onActiveIdChange]);

@@ -67,9 +67,7 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
   );
 
   ipcMain.handle('pickPath', async (_e, args: PickPathArgs): Promise<string | null> => {
-    const properties: ('openDirectory' | 'openFile')[] = [
-      args.mode === 'directory' ? 'openDirectory' : 'openFile',
-    ];
+    const properties: ('openDirectory' | 'openFile')[] = [args.mode === 'directory' ? 'openDirectory' : 'openFile'];
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: args.title ?? (args.mode === 'directory' ? 'Select folder' : 'Select file'),
       properties,
