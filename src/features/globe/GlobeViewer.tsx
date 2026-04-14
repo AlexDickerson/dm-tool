@@ -4,18 +4,20 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { api } from '@/lib/api';
 import type { GlobePin } from '@shared/types';
+import { ensureDefaultImage, resolvePinIcon, getIconBody } from './globe-icons';
+import { IconPicker } from './IconPicker';
 
 const PMTILES_URL = 'pmtiles://https://map.pathfinderwiki.com/golarion.pmtiles';
 const PIN_SOURCE = 'globe-pins';
-const PIN_LAYER = 'globe-pins-circle';
+const PIN_LAYER = 'globe-pins-symbol';
 
-function pinsToGeoJson(pins: GlobePin[]): GeoJSON.FeatureCollection {
+function pinsToGeoJson(pins: GlobePin[], map: maplibregl.Map): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: pins.map((p) => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
-      properties: { id: p.id, label: p.label },
+      properties: { id: p.id, label: p.label, icon: resolvePinIcon(map, p.icon) },
     })),
   };
 }
@@ -331,7 +333,14 @@ export function GlobeViewer() {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const pinsRef = useRef<GlobePin[]>([]);
   const [pins, setPins] = useState<GlobePin[]>([]);
+  const [selectedIcon, setSelectedIcon] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const dragIdRef = useRef<string | null>(null);
+  const selectedIconRef = useRef(selectedIcon);
+
+  useEffect(() => {
+    selectedIconRef.current = selectedIcon;
+  }, [selectedIcon]);
 
   // Keep the ref in sync so map event handlers always see current pins.
   useEffect(() => {
@@ -344,8 +353,10 @@ export function GlobeViewer() {
   }, []);
 
   const syncSource = useCallback((updated: GlobePin[]) => {
-    const src = mapRef.current?.getSource(PIN_SOURCE) as maplibregl.GeoJSONSource | undefined;
-    src?.setData(pinsToGeoJson(updated));
+    const map = mapRef.current;
+    if (!map) return;
+    const src = map.getSource(PIN_SOURCE) as maplibregl.GeoJSONSource | undefined;
+    src?.setData(pinsToGeoJson(updated, map));
   }, []);
 
   const removePin = useCallback(
@@ -362,7 +373,7 @@ export function GlobeViewer() {
 
   const addPin = useCallback(
     (lng: number, lat: number) => {
-      const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '' };
+      const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '', icon: selectedIconRef.current };
       api.globePinsUpsert(pin);
       setPins((prev) => {
         const next = [...prev, pin];
@@ -397,20 +408,23 @@ export function GlobeViewer() {
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     map.on('load', () => {
+      ensureDefaultImage(map);
+
       map.addSource(PIN_SOURCE, {
         type: 'geojson',
-        data: pinsToGeoJson(pinsRef.current),
+        data: pinsToGeoJson(pinsRef.current, map),
       });
 
       map.addLayer({
         id: PIN_LAYER,
-        type: 'circle',
+        type: 'symbol',
         source: PIN_SOURCE,
-        paint: {
-          'circle-radius': 7,
-          'circle-color': 'hsl(32, 95%, 52%)',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
+        layout: {
+          'icon-image': ['get', 'icon'],
+          'icon-size': 0.75,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'icon-pitch-alignment': 'map',
         },
       });
 
@@ -478,5 +492,42 @@ export function GlobeViewer() {
     syncSource(pins);
   }, [pins, syncSource]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  const selectedBody = selectedIcon ? getIconBody(selectedIcon) : null;
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {/* Active icon indicator */}
+      <button
+        type="button"
+        onClick={() => setPickerOpen((o) => !o)}
+        title={selectedIcon || 'Default pin (click to change)'}
+        className="absolute left-3 top-3 z-10 flex items-center justify-center rounded-lg border border-border bg-background/90 shadow-md backdrop-blur-sm transition-colors hover:bg-accent"
+        style={{ width: 40, height: 40 }}
+      >
+        {selectedBody ? (
+          <span dangerouslySetInnerHTML={{
+            __html: `<svg viewBox="0 0 512 512" fill="currentColor" width="22" height="22">${selectedBody}</svg>`,
+          }} />
+        ) : (
+          <span
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: 'hsl(32, 95%, 52%)',
+              border: '2px solid white',
+            }}
+          />
+        )}
+      </button>
+      {pickerOpen && (
+        <IconPicker
+          selected={selectedIcon}
+          onSelect={setSelectedIcon}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+    </div>
+  );
 }

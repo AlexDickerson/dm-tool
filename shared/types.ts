@@ -391,6 +391,8 @@ export interface GlobePin {
   lng: number;
   lat: number;
   label: string;
+  /** game-icons.net icon name (e.g. "crossed-swords"). Empty string = default dot. */
+  icon: string;
 }
 
 export interface ElectronAPI {

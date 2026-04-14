@@ -20,24 +20,32 @@ function migratePf2eDb(): void {
   if (!db) return;
   db.exec(`
     CREATE TABLE IF NOT EXISTS globe_pins (
-      id   TEXT PRIMARY KEY,
-      lng  REAL NOT NULL,
-      lat  REAL NOT NULL,
-      label TEXT NOT NULL DEFAULT ''
+      id    TEXT PRIMARY KEY,
+      lng   REAL NOT NULL,
+      lat   REAL NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      icon  TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Add icon column if migrating from earlier schema.
+  const cols = db.prepare("SELECT name FROM pragma_table_info('globe_pins')").all() as { name: string }[];
+  if (!cols.find((c) => c.name === 'icon')) {
+    db.exec("ALTER TABLE globe_pins ADD COLUMN icon TEXT NOT NULL DEFAULT ''");
+  }
 }
 
 // --- Globe pins CRUD --------------------------------------------------------
 
 export function listGlobePins(): GlobePin[] {
-  return requireDb().prepare('SELECT id, lng, lat, label FROM globe_pins').all() as GlobePin[];
+  return requireDb().prepare('SELECT id, lng, lat, label, icon FROM globe_pins').all() as GlobePin[];
 }
 
 export function upsertGlobePin(pin: GlobePin): void {
   requireDb()
-    .prepare('INSERT INTO globe_pins (id, lng, lat, label) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET lng=excluded.lng, lat=excluded.lat, label=excluded.label')
-    .run(pin.id, pin.lng, pin.lat, pin.label);
+    .prepare(
+      'INSERT INTO globe_pins (id, lng, lat, label, icon) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET lng=excluded.lng, lat=excluded.lat, label=excluded.label, icon=excluded.icon',
+    )
+    .run(pin.id, pin.lng, pin.lat, pin.label, pin.icon);
 }
 
 export function deleteGlobePin(id: string): void {
