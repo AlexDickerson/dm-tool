@@ -4,9 +4,9 @@
 // is unavailable until a valid config exists and the app restarts.
 
 import { app, dialog, ipcMain } from 'electron';
-import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import type { ConfigPaths, PickPathArgs } from '../shared/types.js';
+import { resolveConfigPath } from './config.js';
 
 export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserWindow | null): void {
   ipcMain.handle('getAppMode', (): 'normal' | 'setup' => 'setup');
@@ -56,8 +56,9 @@ export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserW
     if (paths.booksPath?.trim()) config.booksPath = paths.booksPath;
     if (paths.autoWallBinPath?.trim()) config.autoWallBinPath = paths.autoWallBinPath;
     if (paths.pf2eDbPath?.trim()) config.pf2eDbPath = paths.pf2eDbPath;
+    if (paths.foundryMcpUrl?.trim()) config.foundryMcpUrl = paths.foundryMcpUrl;
 
-    const outPath = join(app.getPath('userData'), 'config.json');
+    const outPath = resolveConfigPath();
     await writeFile(outPath, JSON.stringify(config, null, 2), 'utf-8');
 
     app.relaunch();
