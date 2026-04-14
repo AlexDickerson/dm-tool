@@ -3,10 +3,7 @@ import type { DmToolConfig } from '../config.js';
 import type { TaggerRunArgs, TaggerResult } from '../../shared/types.js';
 import { runTagger, cancelTagger, isTaggerRunning } from '../tagger.js';
 
-export function registerTaggerHandlers(
-  cfg: DmToolConfig,
-  getMainWindow: () => Electron.BrowserWindow | null,
-): void {
+export function registerTaggerHandlers(cfg: DmToolConfig, getMainWindow: () => Electron.BrowserWindow | null): void {
   ipcMain.handle('taggerPickSource', async (): Promise<string | null> => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: 'Select folder containing new maps',

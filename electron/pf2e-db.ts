@@ -70,7 +70,6 @@ function cleanDescription(html: string | null): string {
     .trim();
 }
 
-
 // --- Monster queries --------------------------------------------------------
 
 export interface MonsterRow {

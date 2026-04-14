@@ -21,7 +21,7 @@ function buildSystemPrompt(base: string, pageContext?: string): string {
     base +
     '\n\n---\n\nThe user currently has a web tool open in the Tools tab. ' +
     'Here is the visible text content of that page (truncated to ~8 000 chars). ' +
-    'Reference this context if the user\'s question relates to it:\n\n' +
+    "Reference this context if the user's question relates to it:\n\n" +
     pageContext
   );
 }

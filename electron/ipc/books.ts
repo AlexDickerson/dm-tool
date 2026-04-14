@@ -11,9 +11,7 @@ export function registerBookHandlers(bookDb: BookDb | null, cfg: DmToolConfig): 
 
   const requireBookDb = (): BookDb => {
     if (!bookDb) {
-      throw new Error(
-        'Book catalog not configured. Set `booksPath` in config.json to the root of your PDF library.',
-      );
+      throw new Error('Book catalog not configured. Set `booksPath` in config.json to the root of your PDF library.');
     }
     return bookDb;
   };

@@ -441,9 +441,7 @@ async function startup(): Promise<void> {
       if (key.toLowerCase() === 'content-security-policy') {
         const values = headers[key];
         if (values) {
-          headers[key] = values.map((v) =>
-            v.replace(/frame-ancestors\s+[^;]+(;|$)/gi, ''),
-          );
+          headers[key] = values.map((v) => v.replace(/frame-ancestors\s+[^;]+(;|$)/gi, ''));
         }
       }
     }

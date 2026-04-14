@@ -75,14 +75,14 @@ function MainApp() {
   const [fontFamily, setFontFamily] = useState<FontFamily>(
     () => (loadString(STORAGE_KEYS.fontFamily) as FontFamily) || 'sans-serif',
   );
-  const [theme, setTheme] = useState<ThemeId>(
-    () => (loadString(STORAGE_KEYS.theme) as ThemeId) || THEME_DEFAULT,
-  );
+  const [theme, setTheme] = useState<ThemeId>(() => (loadString(STORAGE_KEYS.theme) as ThemeId) || THEME_DEFAULT);
   const [toolUrls, setToolUrls] = useState<ToolEntry[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.toolUrls);
       if (raw) return JSON.parse(raw) as ToolEntry[];
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
     return DEFAULT_TOOLS;
   });
   const [toolFavicons, setToolFavicons] = useState<boolean>(() => {
@@ -181,13 +181,17 @@ function MainApp() {
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.toolUrls, JSON.stringify(toolUrls));
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   }, [toolUrls]);
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.toolFavicons, String(toolFavicons));
-    } catch { /* non-fatal */ }
+    } catch {
+      /* non-fatal */
+    }
   }, [toolFavicons]);
 
   return (
@@ -410,4 +414,3 @@ function CombatPlaceholder() {
     </div>
   );
 }
-

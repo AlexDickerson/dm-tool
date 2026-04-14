@@ -62,11 +62,7 @@ export function AutoWallPanel({ fileName, hasUvtt, onUvttImported }: AutoWallPan
       <div>
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Walls</h3>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => api.autoWallLaunch(fileName)}
-          >
+          <Button variant="outline" size="sm" onClick={() => api.autoWallLaunch(fileName)}>
             <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
             Open in Auto-Wall
           </Button>
@@ -75,9 +71,7 @@ export function AutoWallPanel({ fileName, hasUvtt, onUvttImported }: AutoWallPan
             Import .uvtt
           </Button>
           {hasUvtt && (
-            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
-              .uvtt
-            </span>
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">.uvtt</span>
           )}
           {hasUvtt && foundryAvailable && (
             <Button variant="outline" size="sm" disabled={pushing} onClick={handlePush}>
