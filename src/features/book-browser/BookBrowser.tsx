@@ -71,8 +71,18 @@ function effectiveTitle(b: Book): string {
 
 const isApCategory = (n: string) => n === 'Adventure Path' || n === 'Adventure Paths';
 const SYSTEM_ORDER = ['PF2e', '5e', 'Generic'];
-const CATEGORY_ORDER = ['Rulebook', 'Adventure Path', 'Adventure', 'Setting', 'Supplement',
-  'Rulebooks', 'Adventure Paths', 'Adventures', 'Lost Omens', 'Beginner Box'];
+const CATEGORY_ORDER = [
+  'Rulebook',
+  'Adventure Path',
+  'Adventure',
+  'Setting',
+  'Supplement',
+  'Rulebooks',
+  'Adventure Paths',
+  'Adventures',
+  'Lost Omens',
+  'Beginner Box',
+];
 
 // ---------------------------------------------------------------------------
 // Top-level component
@@ -81,8 +91,13 @@ const CATEGORY_ORDER = ['Rulebook', 'Adventure Path', 'Adventure', 'Setting', 'S
 export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   const { data: books, loading, error, refetch } = useBookList();
   const { scan, scanning } = useBookScan();
-  const { classify, cancel: cancelClassify, running: classifying, current: classifyCurrent, total: classifyTotal } =
-    useBookClassify();
+  const {
+    classify,
+    cancel: cancelClassify,
+    running: classifying,
+    current: classifyCurrent,
+    total: classifyTotal,
+  } = useBookClassify();
   // Hook triggers background cover extraction — side-effect only.
   useBackgroundIngest(books, refetch);
 
@@ -113,7 +128,8 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
   const toggleExpanded = useCallback((key: string) => {
     setExpandedKeys((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
@@ -259,7 +275,10 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
       if (selectedPublisher && pub !== selectedPublisher) continue;
       if (q && !effectiveTitle(b).toLowerCase().includes(q)) continue;
       let list = byCat.get(cat);
-      if (!list) { list = []; byCat.set(cat, list); }
+      if (!list) {
+        list = [];
+        byCat.set(cat, list);
+      }
       list.push(b);
     }
 
@@ -318,7 +337,10 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
           <ResizableSidebar storageKey="dmtool.sidebar.books">
             <div className="flex h-full flex-col border-r border-border bg-card">
               <div className="flex h-12 items-center justify-between px-3">
-                <span className="text-sm text-foreground" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+                <span
+                  className="text-sm text-foreground"
+                  style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}
+                >
                   Categories
                 </span>
                 <div className="flex items-center gap-1">
@@ -405,9 +427,19 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
                 entries={entries}
                 onSelect={(entry) => {
                   if (entry.kind === 'ap') {
-                    openTab({ id: `ap-${entry.group.subcategory}`, kind: 'ap', group: entry.group, title: entry.group.subcategory });
+                    openTab({
+                      id: `ap-${entry.group.subcategory}`,
+                      kind: 'ap',
+                      group: entry.group,
+                      title: entry.group.subcategory,
+                    });
                   } else if (entry.kind === 'book') {
-                    openTab({ id: `book-${entry.book.id}`, kind: 'book', bookId: entry.book.id, title: effectiveTitle(entry.book) });
+                    openTab({
+                      id: `book-${entry.book.id}`,
+                      kind: 'book',
+                      bookId: entry.book.id,
+                      title: effectiveTitle(entry.book),
+                    });
                   }
                 }}
                 onBookContextMenu={(e, book) => {
@@ -427,9 +459,19 @@ export function BookBrowser({ keywords = '' }: { keywords?: string }) {
                 style={{ display: activeTabId === tab.id ? undefined : 'none' }}
               >
                 {tab.kind === 'ap' ? (
-                  <BookReader apGroup={tab.group} onClose={() => closeTab(tab.id)} onBack={() => setActiveTabId('browser')} onIngestComplete={refetch} />
+                  <BookReader
+                    apGroup={tab.group}
+                    onClose={() => closeTab(tab.id)}
+                    onBack={() => setActiveTabId('browser')}
+                    onIngestComplete={refetch}
+                  />
                 ) : (
-                  <BookReader bookId={tab.bookId} onClose={() => closeTab(tab.id)} onBack={() => setActiveTabId('browser')} onIngestComplete={refetch} />
+                  <BookReader
+                    bookId={tab.bookId}
+                    onClose={() => closeTab(tab.id)}
+                    onBack={() => setActiveTabId('browser')}
+                    onIngestComplete={refetch}
+                  />
                 )}
               </div>
             );
@@ -491,7 +533,10 @@ function TabBar({
               <span
                 role="button"
                 className="ml-auto shrink-0 rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
-                onClick={(e) => { e.stopPropagation(); onClose(tab.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose(tab.id);
+                }}
                 style={active ? { opacity: 1 } : undefined}
               >
                 <X className="h-3 w-3" />
@@ -566,7 +611,10 @@ function NavGroup({
         <button
           type="button"
           className="flex h-6 w-5 items-center justify-center text-muted-foreground"
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
         >
           <ChevronRight className={cn('h-3 w-3 transition-transform', expanded && 'rotate-90')} />
         </button>
@@ -599,7 +647,11 @@ function SystemGroup({
   onToggle,
   onSelect,
 }: {
-  system: { name: string; categories: { name: string; publishers: { name: string; count: number }[]; count: number }[]; count: number };
+  system: {
+    name: string;
+    categories: { name: string; publishers: { name: string; count: number }[]; count: number }[];
+    count: number;
+  };
   selectedSystem: string | null;
   selectedCategory: string | null;
   selectedPublisher: string | null;
@@ -620,7 +672,8 @@ function SystemGroup({
     >
       {system.categories.map((cat) => {
         const catActive = selectedSystem === system.name && selectedCategory === cat.name && !selectedPublisher;
-        const hasPubs = cat.publishers.length > 1 || (cat.publishers.length === 1 && cat.publishers[0]!.name !== 'Unknown');
+        const hasPubs =
+          cat.publishers.length > 1 || (cat.publishers.length === 1 && cat.publishers[0]!.name !== 'Unknown');
         const catKey = `${system.name}/${cat.name}`;
         return hasPubs ? (
           <NavGroup
@@ -639,9 +692,12 @@ function SystemGroup({
                 name={pub.name}
                 count={pub.count}
                 indent={4}
-                active={selectedSystem === system.name && selectedCategory === cat.name && selectedPublisher === pub.name}
+                active={
+                  selectedSystem === system.name && selectedCategory === cat.name && selectedPublisher === pub.name
+                }
                 onClick={() => {
-                  const pubActive = selectedSystem === system.name && selectedCategory === cat.name && selectedPublisher === pub.name;
+                  const pubActive =
+                    selectedSystem === system.name && selectedCategory === cat.name && selectedPublisher === pub.name;
                   onSelect(system.name, cat.name, pubActive ? null : pub.name);
                 }}
               />
@@ -674,7 +730,11 @@ const SECTION_HEIGHT = 36;
 /** A layout row is either a section header (full width) or a row of cards. */
 type LayoutRow = { kind: 'section'; label: string } | { kind: 'cards'; items: CatalogEntry[] };
 
-function CatalogGrid({ entries, onSelect, onBookContextMenu }: {
+function CatalogGrid({
+  entries,
+  onSelect,
+  onBookContextMenu,
+}: {
   entries: CatalogEntry[];
   onSelect: (e: CatalogEntry) => void;
   onBookContextMenu?: (e: React.MouseEvent, book: Book) => void;
@@ -780,7 +840,12 @@ function CatalogGrid({ entries, onSelect, onBookContextMenu }: {
                 entry.kind === 'ap' ? (
                   <ApCard key={`ap-${entry.group.subcategory}`} group={entry.group} onClick={() => onSelect(entry)} />
                 ) : entry.kind === 'book' ? (
-                  <BookCard key={entry.book.id} book={entry.book} onClick={() => onSelect(entry)} onContextMenu={onBookContextMenu} />
+                  <BookCard
+                    key={entry.book.id}
+                    book={entry.book}
+                    onClick={() => onSelect(entry)}
+                    onContextMenu={onBookContextMenu}
+                  />
                 ) : null,
               )}
             </div>
@@ -795,7 +860,15 @@ function CatalogGrid({ entries, onSelect, onBookContextMenu }: {
 // Cards
 // ---------------------------------------------------------------------------
 
-function BookCard({ book, onClick, onContextMenu }: { book: Book; onClick: () => void; onContextMenu?: (e: React.MouseEvent, book: Book) => void }) {
+function BookCard({
+  book,
+  onClick,
+  onContextMenu,
+}: {
+  book: Book;
+  onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent, book: Book) => void;
+}) {
   const [coverError, setCoverError] = useState(false);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
@@ -923,19 +996,9 @@ function CoverArea({
 }
 
 // Metadata overlay shown on hover at the bottom of the card.
-function HoverMeta({
-  title,
-  pageCount,
-  subtitle,
-}: {
-  title: string;
-  pageCount?: number | null;
-  subtitle?: string;
-}) {
+function HoverMeta({ title, pageCount, subtitle }: { title: string; pageCount?: number | null; subtitle?: string }) {
   return (
-    <div
-      className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-black/75 px-2 py-1.5 backdrop-blur-sm transition-transform group-hover:translate-y-0"
-    >
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-black/75 px-2 py-1.5 backdrop-blur-sm transition-transform group-hover:translate-y-0">
       <div className="truncate text-xs font-medium leading-tight text-white">{title}</div>
       {subtitle && <div className="text-[10px] text-white/70">{subtitle}</div>}
       {!subtitle && pageCount != null && <div className="text-[10px] text-white/70">{pageCount} pages</div>}
@@ -1002,7 +1065,11 @@ function BookContextMenu({
   const curSys = effectiveSystem(book);
 
   return (
-    <div ref={ref} style={{ ...style, backgroundColor: 'hsl(var(--popover))' }} className="min-w-[160px] rounded-md border border-border py-1 shadow-lg">
+    <div
+      ref={ref}
+      style={{ ...style, backgroundColor: 'hsl(var(--popover))' }}
+      className="min-w-[160px] rounded-md border border-border py-1 shadow-lg"
+    >
       <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Category</div>
       {CTX_CATEGORIES.map((cat) => (
         <button
@@ -1013,7 +1080,10 @@ function BookContextMenu({
             curCat === cat && 'text-foreground font-medium',
             curCat !== cat && 'text-muted-foreground',
           )}
-          onClick={() => { onUpdateMeta(book.id, { aiCategory: cat }); onClose(); }}
+          onClick={() => {
+            onUpdateMeta(book.id, { aiCategory: cat });
+            onClose();
+          }}
         >
           <Check className={cn('h-3 w-3', curCat === cat ? 'opacity-100' : 'opacity-0')} />
           {cat}
@@ -1030,7 +1100,10 @@ function BookContextMenu({
             curSys === sys && 'text-foreground font-medium',
             curSys !== sys && 'text-muted-foreground',
           )}
-          onClick={() => { onUpdateMeta(book.id, { aiSystem: sys }); onClose(); }}
+          onClick={() => {
+            onUpdateMeta(book.id, { aiSystem: sys });
+            onClose();
+          }}
         >
           <Check className={cn('h-3 w-3', curSys === sys ? 'opacity-100' : 'opacity-0')} />
           {sys}

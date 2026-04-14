@@ -84,7 +84,10 @@ export async function classifyBook(args: {
   }
 
   // Strip markdown code fences if present.
-  const raw = textBlock.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const raw = textBlock.text
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
 
   let parsed: unknown;
   try {

@@ -477,7 +477,10 @@ export interface ElectronAPI {
   booksGetCoverUrl(id: number): Promise<string>;
 
   /** Update AI metadata fields for a single book (manual reclassification). */
-  booksUpdateMeta(args: { id: number; fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null } }): Promise<Book | null>;
+  booksUpdateMeta(args: {
+    id: number;
+    fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null };
+  }): Promise<Book | null>;
 
   /** Classify all unclassified books (or all if reclassify=true) using AI.
    *  Progress streams via onBookClassifyProgress. */

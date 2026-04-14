@@ -124,9 +124,7 @@ export class BookDb {
 
   /** Single row by id, or null if unknown. */
   getById(id: number): Book | null {
-    const row = this.db
-      .prepare(`SELECT ${BookDb.LIST_COLS} FROM books WHERE id = ?`)
-      .get(id) as BookRow | undefined;
+    const row = this.db.prepare(`SELECT ${BookDb.LIST_COLS} FROM books WHERE id = ?`).get(id) as BookRow | undefined;
     return row ? rowToBook(row) : null;
   }
 
@@ -163,7 +161,9 @@ export class BookDb {
     total: number;
   } {
     const existing = this.db
-      .prepare('SELECT id, path, mtime, cover_blob, page_count, ingested_at, ai_system, ai_category, ai_subcategory, ai_title, ai_publisher, ai_classified_at FROM books')
+      .prepare(
+        'SELECT id, path, mtime, cover_blob, page_count, ingested_at, ai_system, ai_category, ai_subcategory, ai_title, ai_publisher, ai_classified_at FROM books',
+      )
       .all() as Array<{
       id: number;
       path: string;
@@ -244,9 +244,15 @@ export class BookDb {
           const donor = orphansWithMetadata.get(key);
           if (donor) {
             transferMetadata.run(
-              donor.cover_blob, donor.page_count, donor.ingested_at,
-              donor.ai_system, donor.ai_category, donor.ai_subcategory,
-              donor.ai_title, donor.ai_publisher, donor.ai_classified_at,
+              donor.cover_blob,
+              donor.page_count,
+              donor.ingested_at,
+              donor.ai_system,
+              donor.ai_category,
+              donor.ai_subcategory,
+              donor.ai_title,
+              donor.ai_publisher,
+              donor.ai_classified_at,
               newPath,
             );
             orphansWithMetadata.delete(key);
@@ -286,13 +292,28 @@ export class BookDb {
   }
 
   /** Update individual AI metadata fields for a book. */
-  updateMeta(id: number, fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null }): Book | null {
+  updateMeta(
+    id: number,
+    fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null },
+  ): Book | null {
     const sets: string[] = [];
     const vals: unknown[] = [];
-    if (fields.aiSystem !== undefined) { sets.push('ai_system = ?'); vals.push(fields.aiSystem); }
-    if (fields.aiCategory !== undefined) { sets.push('ai_category = ?'); vals.push(fields.aiCategory); }
-    if (fields.aiSubcategory !== undefined) { sets.push('ai_subcategory = ?'); vals.push(fields.aiSubcategory); }
-    if (fields.aiPublisher !== undefined) { sets.push('ai_publisher = ?'); vals.push(fields.aiPublisher); }
+    if (fields.aiSystem !== undefined) {
+      sets.push('ai_system = ?');
+      vals.push(fields.aiSystem);
+    }
+    if (fields.aiCategory !== undefined) {
+      sets.push('ai_category = ?');
+      vals.push(fields.aiCategory);
+    }
+    if (fields.aiSubcategory !== undefined) {
+      sets.push('ai_subcategory = ?');
+      vals.push(fields.aiSubcategory);
+    }
+    if (fields.aiPublisher !== undefined) {
+      sets.push('ai_publisher = ?');
+      vals.push(fields.aiPublisher);
+    }
     if (sets.length === 0) return this.getById(id);
     vals.push(id);
     this.db.prepare(`UPDATE books SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
@@ -308,9 +329,11 @@ export class BookDb {
 
   /** All ingested books (for reclassify-all). */
   listClassifiable(): Array<{ id: number; path: string; cover_blob: Buffer }> {
-    return this.db
-      .prepare('SELECT id, path, cover_blob FROM books WHERE cover_blob IS NOT NULL')
-      .all() as Array<{ id: number; path: string; cover_blob: Buffer }>;
+    return this.db.prepare('SELECT id, path, cover_blob FROM books WHERE cover_blob IS NOT NULL').all() as Array<{
+      id: number;
+      path: string;
+      cover_blob: Buffer;
+    }>;
   }
 
   /** Migrate cover PNGs from disk files into the database. Called once at

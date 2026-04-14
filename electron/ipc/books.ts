@@ -69,7 +69,13 @@ export function registerBookHandlers(
 
   ipcMain.handle(
     'booksUpdateMeta',
-    async (_e, args: { id: number; fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null } }): Promise<Book | null> => {
+    async (
+      _e,
+      args: {
+        id: number;
+        fields: { aiSystem?: string; aiCategory?: string; aiSubcategory?: string | null; aiPublisher?: string | null };
+      },
+    ): Promise<Book | null> => {
       return requireBookDb().updateMeta(args.id, args.fields);
     },
   );
@@ -85,44 +91,39 @@ export function registerBookHandlers(
 
   const CLASSIFY_CONCURRENCY = 10;
 
-  ipcMain.handle(
-    'booksClassify',
-    async (_e, args: { apiKey: string; reclassify?: boolean }): Promise<void> => {
-      const b = requireBookDb();
-      const books = args.reclassify ? b.listClassifiable() : b.listUnclassified();
-      const total = books.length;
-      classifyAbort = false;
-      let completed = 0;
-      let idx = 0;
+  ipcMain.handle('booksClassify', async (_e, args: { apiKey: string; reclassify?: boolean }): Promise<void> => {
+    const b = requireBookDb();
+    const books = args.reclassify ? b.listClassifiable() : b.listUnclassified();
+    const total = books.length;
+    classifyAbort = false;
+    let completed = 0;
+    let idx = 0;
 
-      // Worker function — each grabs the next unprocessed book until done.
-      const worker = async (): Promise<void> => {
-        while (idx < books.length && !classifyAbort) {
-          const book = books[idx++]!;
-          const fileName = basename(book.path);
-          try {
-            const classification = await classifyBook({
-              apiKey: args.apiKey,
-              coverBlob: book.cover_blob,
-              fileName,
-            });
-            b.saveClassification(book.id, classification);
-          } catch (err) {
-            console.error(`Classification failed for ${fileName}:`, err);
-            sendProgress({ type: 'error', bookId: book.id, bookTitle: fileName, error: (err as Error).message });
-          }
-          completed++;
-          sendProgress({ type: 'progress', bookId: book.id, bookTitle: fileName, current: completed, total });
+    // Worker function — each grabs the next unprocessed book until done.
+    const worker = async (): Promise<void> => {
+      while (idx < books.length && !classifyAbort) {
+        const book = books[idx++]!;
+        const fileName = basename(book.path);
+        try {
+          const classification = await classifyBook({
+            apiKey: args.apiKey,
+            coverBlob: book.cover_blob,
+            fileName,
+          });
+          b.saveClassification(book.id, classification);
+        } catch (err) {
+          console.error(`Classification failed for ${fileName}:`, err);
+          sendProgress({ type: 'error', bookId: book.id, bookTitle: fileName, error: (err as Error).message });
         }
-      };
+        completed++;
+        sendProgress({ type: 'progress', bookId: book.id, bookTitle: fileName, current: completed, total });
+      }
+    };
 
-      await Promise.all(
-        Array.from({ length: Math.min(CLASSIFY_CONCURRENCY, total) }, () => worker()),
-      );
+    await Promise.all(Array.from({ length: Math.min(CLASSIFY_CONCURRENCY, total) }, () => worker()));
 
-      sendProgress({ type: 'done', current: total, total });
-    },
-  );
+    sendProgress({ type: 'done', current: total, total });
+  });
 
   ipcMain.handle('booksClassifyCancel', (): void => {
     classifyAbort = true;
