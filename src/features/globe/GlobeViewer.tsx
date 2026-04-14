@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { api } from '@/lib/api';
 import type { GlobePin } from '@shared/types';
-import { ensureDefaultImage, resolvePinIcon, getIconBody } from './globe-icons';
+import { ensureDefaultImage, ensureIconImage, resolvePinIcon, getIconBody } from './globe-icons';
 import { IconPicker } from './IconPicker';
 
 const PMTILES_URL = 'pmtiles://https://map.pathfinderwiki.com/golarion.pmtiles';
@@ -407,6 +407,16 @@ export function GlobeViewer() {
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    // When MapLibre encounters an icon-image that isn't loaded yet, load
+    // it on demand. addImage() triggers a re-render automatically.
+    map.on('styleimagemissing', (e: { id: string }) => {
+      if (e.id === 'gi-default') {
+        ensureDefaultImage(map);
+      } else if (e.id.startsWith('gi-')) {
+        ensureIconImage(map, e.id.slice(3));
+      }
+    });
 
     map.on('load', () => {
       ensureDefaultImage(map);
