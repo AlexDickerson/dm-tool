@@ -1,6 +1,7 @@
 // Fetch a single AoN entry by its URL path for hover previews.
 
 import type { AonPreviewData } from '../shared/types.js';
+import { stripHtml } from './util.js';
 
 const AON_URL = 'https://elasticsearch.aonprd.com/aon/_search';
 
@@ -33,23 +34,6 @@ interface AonSource {
   intelligence?: number;
   wisdom?: number;
   charisma?: number;
-}
-
-function stripHtml(html: string): string {
-  let text = html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(p|div|li|ul|ol|h[1-6]|tr|td|th|table|blockquote)[\s>]/gi, '\n');
-  // Loop to handle nested/malformed tags like <scr<script>ipt>
-  let prev: string;
-  do {
-    prev = text;
-    text = text.replace(/<[^>]+>/g, '');
-  } while (text !== prev);
-  const entities: Record<string, string> = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
-  return text
-    .replace(/&(?:nbsp|amp|lt|gt);/g, (m) => entities[m])
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 /**

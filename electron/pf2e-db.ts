@@ -3,6 +3,7 @@
 // hitting the AoN Elasticsearch endpoint.
 
 import Database from 'better-sqlite3';
+import { tryParseJson } from './util.js';
 
 let db: Database.Database | null = null;
 
@@ -68,14 +69,6 @@ function cleanDescription(html: string | null): string {
     .trim();
 }
 
-function tryParseJson<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
 
 // --- Monster queries --------------------------------------------------------
 

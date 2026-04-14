@@ -2,32 +2,7 @@
 // RPG Stack Exchange. Used by the chat assistant's searchCommunity tool
 // to find discussions, rulings interpretations, and GM advice.
 
-/** Strip HTML tags for Stack Exchange bodies. */
-function stripHtml(html: string): string {
-  let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/?(p|div|li|ul|ol|h[1-6]|pre|code|blockquote)[\s>]/gi, '\n');
-  let prev: string;
-  do {
-    prev = text;
-    text = text.replace(/<[^>]+>/g, '');
-  } while (text !== prev);
-  const entities: Record<string, string> = {
-    '&nbsp;': ' ',
-    '&amp;': '&',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&quot;': '"',
-    '&#39;': "'",
-  };
-  return text
-    .replace(/&(?:nbsp|amp|lt|gt|quot|#39);/g, (m) => entities[m])
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function truncate(text: string, max = 800): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max) + '…';
-}
+import { stripHtml, truncate } from './util.js';
 
 // ---------------------------------------------------------------------------
 // Reddit via their public search JSON endpoint
@@ -59,7 +34,7 @@ async function searchReddit(query: string): Promise<string[]> {
     const posts: RedditPost[] = (data?.data?.children ?? []).map((c: { data: RedditPost }) => c.data);
 
     return posts.map((p) => {
-      const body = p.selftext ? truncate(p.selftext) : '(link post — no body text)';
+      const body = p.selftext ? truncate(p.selftext, 800) : '(link post — no body text)';
       return [
         `[Reddit] ${p.title}`,
         `Score: ${p.score} | Comments: ${p.num_comments}`,
@@ -108,7 +83,7 @@ async function searchStackExchange(query: string): Promise<string[]> {
     const data = (await res.json()) as SEResponse;
 
     return (data.items ?? []).map((q) => {
-      const body = q.body_markdown ? truncate(q.body_markdown) : truncate(stripHtml(q.title));
+      const body = q.body_markdown ? truncate(q.body_markdown, 800) : truncate(stripHtml(q.title), 800);
       return [
         `[RPG Stack Exchange] ${stripHtml(q.title)}`,
         `Score: ${q.score} | Answers: ${q.answer_count}`,
