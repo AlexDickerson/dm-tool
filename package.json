@@ -1,6 +1,6 @@
 {
   "name": "dm-tool",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "DM toolbox for prepping and running TTRPG sessions. MVP: map browser backed by the dnd-map-tagger index.",
   "private": true,
   "type": "module",

@@ -13,7 +13,22 @@ export const STORAGE_KEYS = {
   chatModel: 'dmtool.chatModel',
   readerZoom: 'dmtool.reader.zoom',
   readerScrollPrefix: 'dmtool.reader.scroll.',
+  toolUrls: 'dmtool.toolUrls',
+  toolFavicons: 'dmtool.toolFavicons',
 } as const;
+
+// --- External tool iframes ---------------------------------------------------
+
+export interface ToolEntry {
+  id: string;
+  label: string;
+  url: string;
+}
+
+export const DEFAULT_TOOLS: ToolEntry[] = [
+  { id: 'names', label: 'Name Generator', url: 'https://www.fantasynamegenerators.com/' },
+  { id: 'aon', label: 'Archives of Nethys', url: 'https://2e.aonprd.com/' },
+];
 
 // --- UI scale ----------------------------------------------------------------
 

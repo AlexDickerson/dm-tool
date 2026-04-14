@@ -11,7 +11,7 @@
 // Failures during startup show an error dialog and quit rather than
 // leaving the user staring at a blank window.
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, net } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, net, session } from 'electron';
 import { dirname, join, normalize, sep, resolve as resolvePath } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { existsSync } from 'node:fs';
@@ -420,6 +420,35 @@ async function startup(): Promise<void> {
       symbolColor: OVERLAY_SYMBOL_COLOR,
       height: clamped,
     });
+  });
+
+  // Strip X-Frame-Options and frame-ancestors from remote responses so
+  // external sites can be embedded in iframes within the app. These
+  // headers exist to prevent clickjacking on the open web — irrelevant
+  // for a local Electron app where we control the embedding context.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const headers = { ...details.responseHeaders };
+
+    // Delete X-Frame-Options (case-insensitive key match)
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'x-frame-options') {
+        delete headers[key];
+      }
+    }
+
+    // Strip frame-ancestors from Content-Security-Policy
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'content-security-policy') {
+        const values = headers[key];
+        if (values) {
+          headers[key] = values.map((v) =>
+            v.replace(/frame-ancestors\s+[^;]+(;|$)/gi, ''),
+          );
+        }
+      }
+    }
+
+    callback({ responseHeaders: headers });
   });
 
   createWindow();
