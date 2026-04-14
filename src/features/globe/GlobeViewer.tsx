@@ -17,7 +17,7 @@ function pinsToGeoJson(pins: GlobePin[], map: maplibregl.Map): GeoJSON.FeatureCo
     features: pins.map((p) => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
-      properties: { id: p.id, label: p.label, icon: resolvePinIcon(map, p.icon) },
+      properties: { id: p.id, label: p.label, icon: resolvePinIcon(map, p.icon), placedZoom: p.zoom },
     })),
   };
 }
@@ -373,7 +373,8 @@ export function GlobeViewer() {
 
   const addPin = useCallback(
     (lng: number, lat: number) => {
-      const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '', icon: selectedIconRef.current };
+      const currentZoom = mapRef.current?.getZoom() ?? 2;
+      const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '', icon: selectedIconRef.current, zoom: currentZoom };
       api.globePinsUpsert(pin);
       setPins((prev) => {
         const next = [...prev, pin];
@@ -421,7 +422,8 @@ export function GlobeViewer() {
         source: PIN_SOURCE,
         layout: {
           'icon-image': ['get', 'icon'],
-          'icon-size': 0.75,
+          'icon-size': ['min', 0.75, ['*', 0.75, ['^', 2, ['-', ['zoom'], ['get', 'placedZoom']]]]] as
+            maplibregl.ExpressionSpecification,
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'icon-pitch-alignment': 'map',

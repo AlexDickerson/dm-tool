@@ -393,6 +393,8 @@ export interface GlobePin {
   label: string;
   /** game-icons.net icon name (e.g. "crossed-swords"). Empty string = default dot. */
   icon: string;
+  /** Zoom level at which the pin was placed. Icons shrink when zoomed out past this. */
+  zoom: number;
 }
 
 export interface ElectronAPI {

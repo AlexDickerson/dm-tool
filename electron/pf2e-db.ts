@@ -24,28 +24,29 @@ function migratePf2eDb(): void {
       lng   REAL NOT NULL,
       lat   REAL NOT NULL,
       label TEXT NOT NULL DEFAULT '',
-      icon  TEXT NOT NULL DEFAULT ''
+      icon  TEXT NOT NULL DEFAULT '',
+      zoom  REAL NOT NULL DEFAULT 2
     )
   `);
-  // Add icon column if migrating from earlier schema.
+  // Add columns if migrating from earlier schema.
   const cols = db.prepare("SELECT name FROM pragma_table_info('globe_pins')").all() as { name: string }[];
-  if (!cols.find((c) => c.name === 'icon')) {
-    db.exec("ALTER TABLE globe_pins ADD COLUMN icon TEXT NOT NULL DEFAULT ''");
-  }
+  const has = (name: string) => cols.some((c) => c.name === name);
+  if (!has('icon')) db.exec("ALTER TABLE globe_pins ADD COLUMN icon TEXT NOT NULL DEFAULT ''");
+  if (!has('zoom')) db.exec("ALTER TABLE globe_pins ADD COLUMN zoom REAL NOT NULL DEFAULT 2");
 }
 
 // --- Globe pins CRUD --------------------------------------------------------
 
 export function listGlobePins(): GlobePin[] {
-  return requireDb().prepare('SELECT id, lng, lat, label, icon FROM globe_pins').all() as GlobePin[];
+  return requireDb().prepare('SELECT id, lng, lat, label, icon, zoom FROM globe_pins').all() as GlobePin[];
 }
 
 export function upsertGlobePin(pin: GlobePin): void {
   requireDb()
     .prepare(
-      'INSERT INTO globe_pins (id, lng, lat, label, icon) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET lng=excluded.lng, lat=excluded.lat, label=excluded.label, icon=excluded.icon',
+      'INSERT INTO globe_pins (id, lng, lat, label, icon, zoom) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET lng=excluded.lng, lat=excluded.lat, label=excluded.label, icon=excluded.icon, zoom=excluded.zoom',
     )
-    .run(pin.id, pin.lng, pin.lat, pin.label, pin.icon);
+    .run(pin.id, pin.lng, pin.lat, pin.label, pin.icon, pin.zoom);
 }
 
 export function deleteGlobePin(id: string): void {
