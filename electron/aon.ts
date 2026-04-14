@@ -1,9 +1,8 @@
 // Archives of Nethys lookup via their public Elasticsearch endpoint.
 // Used by the chat assistant's tools to fetch authoritative PF2e content.
 
+import { AON_BASE_URL, AON_ELASTICSEARCH_URL } from './constants.js';
 import { stripHtml, truncate } from './util.js';
-
-const AON_URL = 'https://elasticsearch.aonprd.com/aon/_search';
 
 interface AonHit {
   name: string;
@@ -22,7 +21,7 @@ function formatHits(hits: AonHit[], label: string): string {
       return [
         `--- ${label} Result ${i + 1}: ${h.name} (${h.category}) ---`,
         `Source: ${sources}`,
-        `URL: https://2e.aonprd.com${h.url}`,
+        `URL: ${AON_BASE_URL}${h.url}`,
         '',
         body,
       ].join('\n');
@@ -51,7 +50,7 @@ async function queryAoN(
         }
       : { multi_match: { query, fields: ['name^3', 'text'] } };
 
-    const res = await fetch(AON_URL, {
+    const res = await fetch(AON_ELASTICSEARCH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(10_000),

@@ -4,6 +4,7 @@
 
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { MCP_PROTOCOL_VERSION } from './constants.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -96,7 +97,7 @@ async function initSession(url: string): Promise<McpSession> {
       id: 1,
       method: 'initialize',
       params: {
-        protocolVersion: '2025-03-26',
+        protocolVersion: MCP_PROTOCOL_VERSION,
         capabilities: {},
         clientInfo: { name: 'dm-tool', version: '1.0' },
       },

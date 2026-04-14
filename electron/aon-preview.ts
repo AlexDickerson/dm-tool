@@ -1,9 +1,8 @@
 // Fetch a single AoN entry by its URL path for hover previews.
 
 import type { AonPreviewData } from '../shared/types.js';
+import { AON_ELASTICSEARCH_URL } from './constants.js';
 import { stripHtml } from './util.js';
-
-const AON_URL = 'https://elasticsearch.aonprd.com/aon/_search';
 
 interface AonSource {
   name: string;
@@ -42,7 +41,7 @@ interface AonSource {
  */
 export async function fetchAonPreview(urlPath: string): Promise<AonPreviewData | null> {
   try {
-    const res = await fetch(AON_URL, {
+    const res = await fetch(AON_ELASTICSEARCH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: AbortSignal.timeout(8_000),

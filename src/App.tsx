@@ -33,48 +33,19 @@ import { Slider } from './components/ui/slider';
 import { Label } from './components/ui/label';
 import { Input } from './components/ui/input';
 import type { ConfigPaths } from '../shared/types';
-
-// UI scale knob — wired through to the root font-size in CSS so every
-// rem-based Tailwind utility responds. Stored in localStorage so the
-// preference survives restarts. The native window-control overlay strip
-// (managed by Electron, not CSS) is also resized via IPC so the OS
-// min/max/close buttons stay flush with the React header.
-const UI_SCALE_KEY = 'dmtool.uiScale';
-const UI_DEFAULT = 18;
-const UI_MIN = 14;
-const UI_MAX = 24;
-// Header is `h-12` = 3rem; the native overlay must match that in pixels.
-const HEADER_REMS = 3;
-
-// Thumbnail size knob — multiplier applied to ThumbnailGrid's base
-// THUMB_WIDTH/HEIGHT constants. Independent of UI_SCALE because the user
-// often wants chrome small and thumbs big (or vice versa).
-const THUMB_SCALE_KEY = 'dmtool.thumbScale';
-const THUMB_DEFAULT = 1;
-const THUMB_MIN = 0.7;
-const THUMB_MAX = 2;
-
-// Body font preference — sans-serif (default) or serif.
-const FONT_KEY = 'dmtool.fontFamily';
-type FontFamily = 'sans-serif' | 'serif';
-const FONT_SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif";
-const FONT_SERIF = "'Crimson Pro', 'Palatino Linotype', Georgia, serif";
-
-// Color theme — maps to [data-theme] attribute on <html>.
-const THEME_KEY = 'dmtool.theme';
-type ThemeId = 'ember' | 'arcane' | 'verdant' | 'frost' | 'parchment';
-const THEME_DEFAULT: ThemeId = 'ember';
-const THEMES: Array<{ id: ThemeId; label: string; swatch: string }> = [
-  { id: 'ember', label: 'Ember', swatch: 'hsl(32 95% 52%)' },
-  { id: 'arcane', label: 'Arcane', swatch: 'hsl(265 85% 60%)' },
-  { id: 'verdant', label: 'Verdant', swatch: 'hsl(145 70% 45%)' },
-  { id: 'frost', label: 'Frost', swatch: 'hsl(210 80% 55%)' },
-  { id: 'parchment', label: 'Parchment', swatch: 'hsl(25 85% 40%)' },
-];
-
-// Anthropic API key — used by the encounter-hook regenerator in the
-const MODEL_KEY = 'dmtool.chatModel';
-const MODEL_DEFAULT = 'claude-sonnet-4-6';
+import {
+  STORAGE_KEYS,
+  UI_SCALE,
+  HEADER_REMS,
+  THUMB_SCALE,
+  FONT_STACKS,
+  THEMES,
+  THEME_DEFAULT,
+  DEFAULT_CHAT_MODEL,
+  CHAT_MODELS,
+  type FontFamily,
+  type ThemeId,
+} from './lib/constants';
 
 function loadString(key: string): string {
   try {
@@ -116,14 +87,20 @@ function MainApp() {
   // Bumped when pack mapping is imported via Settings so MapBrowser
   // knows to re-fetch. Passed as a prop — MapBrowser watches it.
   const [packMappingVersion, setPackMappingVersion] = useState(0);
-  const [uiScale, setUiScale] = useState<number>(() => loadNumber(UI_SCALE_KEY, UI_DEFAULT, UI_MIN, UI_MAX));
+  const [uiScale, setUiScale] = useState<number>(() =>
+    loadNumber(STORAGE_KEYS.uiScale, UI_SCALE.default, UI_SCALE.min, UI_SCALE.max),
+  );
   const [thumbScale, setThumbScale] = useState<number>(() =>
-    loadNumber(THUMB_SCALE_KEY, THUMB_DEFAULT, THUMB_MIN, THUMB_MAX),
+    loadNumber(STORAGE_KEYS.thumbScale, THUMB_SCALE.default, THUMB_SCALE.min, THUMB_SCALE.max),
   );
   const [anthropicApiKey, setAnthropicApiKey] = useState<string>('');
-  const [chatModel, setChatModel] = useState<string>(() => loadString(MODEL_KEY) || MODEL_DEFAULT);
-  const [fontFamily, setFontFamily] = useState<FontFamily>(() => (loadString(FONT_KEY) as FontFamily) || 'sans-serif');
-  const [theme, setTheme] = useState<ThemeId>(() => (loadString(THEME_KEY) as ThemeId) || THEME_DEFAULT);
+  const [chatModel, setChatModel] = useState<string>(() => loadString(STORAGE_KEYS.chatModel) || DEFAULT_CHAT_MODEL);
+  const [fontFamily, setFontFamily] = useState<FontFamily>(
+    () => (loadString(STORAGE_KEYS.fontFamily) as FontFamily) || 'sans-serif',
+  );
+  const [theme, setTheme] = useState<ThemeId>(
+    () => (loadString(STORAGE_KEYS.theme) as ThemeId) || THEME_DEFAULT,
+  );
   const [chatOpen, setChatOpen] = useState(false);
   const [keywords, setKeywords] = useState('');
 
@@ -140,7 +117,7 @@ function MainApp() {
   useEffect(() => {
     document.documentElement.style.fontSize = `${uiScale}px`;
     try {
-      localStorage.setItem(UI_SCALE_KEY, String(uiScale));
+      localStorage.setItem(STORAGE_KEYS.uiScale, String(uiScale));
     } catch {
       // Storage may be unavailable in some embedded contexts; non-fatal.
     }
@@ -158,7 +135,7 @@ function MainApp() {
   // changes.
   useEffect(() => {
     try {
-      localStorage.setItem(THUMB_SCALE_KEY, String(thumbScale));
+      localStorage.setItem(STORAGE_KEYS.thumbScale, String(thumbScale));
     } catch {
       // non-fatal
     }
@@ -181,16 +158,16 @@ function MainApp() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(MODEL_KEY, chatModel);
+      localStorage.setItem(STORAGE_KEYS.chatModel, chatModel);
     } catch {
       // non-fatal
     }
   }, [chatModel]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--font-body', fontFamily === 'serif' ? FONT_SERIF : FONT_SANS);
+    document.documentElement.style.setProperty('--font-body', FONT_STACKS[fontFamily]);
     try {
-      localStorage.setItem(FONT_KEY, fontFamily);
+      localStorage.setItem(STORAGE_KEYS.fontFamily, fontFamily);
     } catch {
       // non-fatal
     }
@@ -203,7 +180,7 @@ function MainApp() {
       document.documentElement.setAttribute('data-theme', theme);
     }
     try {
-      localStorage.setItem(THEME_KEY, theme);
+      localStorage.setItem(STORAGE_KEYS.theme, theme);
     } catch {
       // non-fatal
     }
@@ -555,8 +532,8 @@ function SettingsDialog({
             </div>
             <Slider
               id="ui-scale"
-              min={UI_MIN}
-              max={UI_MAX}
+              min={UI_SCALE.min}
+              max={UI_SCALE.max}
               step={1}
               value={[uiScale]}
               onValueChange={(v) => onUiScaleChange(v[0] ?? uiScale)}
@@ -577,7 +554,7 @@ function SettingsDialog({
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border bg-background hover:bg-accent',
                   )}
-                  style={{ fontFamily: f === 'serif' ? FONT_SERIF : FONT_SANS }}
+                  style={{ fontFamily: FONT_STACKS[f] }}
                 >
                   {f === 'sans-serif' ? 'Sans-Serif' : 'Serif'}
                 </button>
@@ -730,8 +707,8 @@ function SettingsDialog({
                     </div>
                     <Slider
                       id="thumb-scale"
-                      min={THUMB_MIN}
-                      max={THUMB_MAX}
+                      min={THUMB_SCALE.min}
+                      max={THUMB_SCALE.max}
                       step={0.05}
                       value={[thumbScale]}
                       onValueChange={(v) => onThumbScaleChange(v[0] ?? thumbScale)}
@@ -790,9 +767,11 @@ function SettingsDialog({
               onChange={(e) => onChatModelChange(e.target.value)}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <option value="claude-haiku-4-5-20251001">Haiku 4.5 — fast, cheap</option>
-              <option value="claude-sonnet-4-6">Sonnet 4.6 — balanced</option>
-              <option value="claude-opus-4-6">Opus 4.6 — smartest, slowest</option>
+              {CHAT_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
             </select>
             <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
               Model used by the chat assistant. Higher tiers are smarter but cost more per message.

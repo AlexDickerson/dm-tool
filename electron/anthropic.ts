@@ -12,13 +12,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import type { MapDetail } from '../shared/types.js';
-
-// Per the system prompt: default to the latest Sonnet for app-building.
-// Sonnet 4.6 has vision and is plenty for this prompt.
-const ANTHROPIC_MODEL = 'claude-sonnet-4-6';
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
-const MAX_TOKENS = 1024;
+import {
+  DEFAULT_MODEL,
+  ANTHROPIC_API_URL,
+  ANTHROPIC_API_VERSION,
+  ENCOUNTER_HOOK_MAX_TOKENS,
+  THUMBNAIL_SUFFIX,
+} from './constants.js';
 
 type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 
@@ -57,7 +57,7 @@ function loadImageAsBase64(filePath: string): {
 /** Resolve the on-disk path of the pre-generated thumbnail for a map.
  *  Falls back to the original full-size image if no thumbnail exists. */
 function resolveImagePath(libraryPath: string, fileName: string): string {
-  const thumb = join(libraryPath, `${fileName}.thumb.jpg`);
+  const thumb = join(libraryPath, `${fileName}${THUMBNAIL_SUFFIX}`);
   if (existsSync(thumb)) return thumb;
   return join(libraryPath, fileName);
 }
@@ -153,8 +153,8 @@ export async function generateEncounterHooks(args: {
   const prompt = buildPrompt(detail);
 
   const body = {
-    model: ANTHROPIC_MODEL,
-    max_tokens: MAX_TOKENS,
+    model: DEFAULT_MODEL,
+    max_tokens: ENCOUNTER_HOOK_MAX_TOKENS,
     messages: [
       {
         role: 'user',
@@ -176,12 +176,12 @@ export async function generateEncounterHooks(args: {
     ],
   };
 
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetch(ANTHROPIC_API_URL, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_VERSION,
+      'anthropic-version': ANTHROPIC_API_VERSION,
     },
     body: JSON.stringify(body),
   });

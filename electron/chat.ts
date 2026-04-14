@@ -2,6 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, generateText, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
 import type { ChatChunk, ChatMessage, ChatModel } from '../shared/types.js';
+import { DEFAULT_MODEL, CHAT_STEP_LIMIT } from './constants.js';
 import {
   searchAoN,
   searchMonster as searchMonsterAoN,
@@ -169,7 +170,7 @@ const lookupSpell = tool({
 export async function streamChat({
   apiKey,
   messages,
-  model = 'claude-sonnet-4-6',
+  model = DEFAULT_MODEL,
   onChunk,
 }: {
   apiKey: string;
@@ -192,7 +193,7 @@ export async function streamChat({
     system: SYSTEM_PROMPT,
     messages: mapped,
     tools: { lookupRule, searchDiscussions, lookupMonster, lookupItem, lookupFeat, lookupSpell },
-    stopWhen: stepCountIs(3),
+    stopWhen: stepCountIs(CHAT_STEP_LIMIT),
   });
 
   // Surface which tools were called for UI feedback.
