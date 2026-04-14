@@ -1,14 +1,17 @@
 // pdfjs-dist setup — centralizes the worker-source configuration so every
 // consumer (BookReader, cover ingest) imports from here instead of
-// duplicating the `new URL()` magic.
+// duplicating the worker URL wiring.
 //
-// The workerSrc is set via Vite's `new URL(..., import.meta.url)` pattern,
-// which tells the Vite bundler to copy the worker file into the build
-// output and rewrite the URL at compile time. This means the worker loads
-// from the bundled asset — not from a CDN or network URL.
+// The `?url` import suffix tells Vite to resolve the module through its
+// dependency pipeline and return a servable URL. This avoids the `@fs/`
+// route that `new URL(...)` produces, which can be blocked by Vite's
+// `server.fs.allow` when running from a git worktree.
 
 import * as pdfjsLib from 'pdfjs-dist';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — Vite handles the ?url suffix at build time
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 export { pdfjsLib };
