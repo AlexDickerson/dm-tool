@@ -351,6 +351,7 @@ export interface ConfigPaths {
   autoWallBinPath: string;
   pf2eDbPath: string;
   foundryMcpUrl: string;
+  obsidianVaultPath: string;
 }
 
 export interface PickPathArgs {
@@ -386,6 +387,8 @@ export interface TaggerResult {
  *  renderer's global types. */
 // --- Globe pins --------------------------------------------------------------
 
+export type GlobePinKind = 'note' | 'mission';
+
 export interface GlobePin {
   id: string;
   lng: number;
@@ -395,6 +398,52 @@ export interface GlobePin {
   icon: string;
   /** Zoom level at which the pin was placed. Icons shrink when zoomed out past this. */
   zoom: number;
+  /** Relative path to the Obsidian note within the vault (e.g. "Golarion/My Pin a1b2c3d4.md"). Empty = no note yet. */
+  note: string;
+  /** Pin kind: generic note (opens Obsidian on dbl-click) or mission (opens in-universe briefing). */
+  kind: GlobePinKind;
+}
+
+// --- Mission briefing data (parsed from Obsidian frontmatter) ----------------
+
+export type MissionThreatLevel = 'Trivial' | 'Low' | 'Moderate' | 'Severe' | 'Extreme';
+export type MissionStatus = 'Available' | 'Active' | 'Completed' | 'Failed';
+
+export interface MissionObjective {
+  id: string;
+  text: string;
+  isPrimary: boolean;
+  completed: boolean;
+}
+
+export interface MissionThreat {
+  id: string;
+  name: string;
+  level: number;
+  type?: string;
+}
+
+export interface MissionReward {
+  gold?: number;
+  xp?: number;
+  items?: string[];
+}
+
+export interface MissionData {
+  name: string;
+  threatLevel: MissionThreatLevel;
+  status: MissionStatus;
+  recommendedLevel: string;
+  estimatedSessions: string;
+  location: string;
+  questGiver: { name: string; title: string };
+  briefing: string[];
+  objectives: MissionObjective[];
+  threats: MissionThreat[];
+  rewards: MissionReward;
+  dmNotes: string;
+  datePosted: string;
+  sourceBook?: string;
 }
 
 export interface ElectronAPI {
@@ -608,4 +657,14 @@ export interface ElectronAPI {
   globePinsUpsert(pin: GlobePin): Promise<void>;
   /** Delete a globe pin by id. */
   globePinsDelete(id: string): Promise<void>;
+  /** Open (or create) the Obsidian note for a globe pin. Returns false if no vault configured. */
+  globePinOpenNote(pin: GlobePin): Promise<boolean>;
+  /** Load the mission briefing data for a mission pin by parsing its Obsidian note frontmatter. */
+  globePinGetMission(pin: GlobePin): Promise<MissionData | null>;
+  /** Associate a pin with an existing Obsidian note via native file picker.
+   *  Stamps the pin id into the note's frontmatter so rename-resilient
+   *  lookup continues to work, then updates the pin's stored note path.
+   *  Returns the updated pin, or null if the user cancelled or the chosen
+   *  file is outside the vault. */
+  globePinLinkNote(pin: GlobePin): Promise<GlobePin | null>;
 }

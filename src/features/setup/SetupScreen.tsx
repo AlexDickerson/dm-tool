@@ -19,6 +19,7 @@ const EMPTY_PATHS: ConfigPaths = {
   autoWallBinPath: '',
   pf2eDbPath: '',
   foundryMcpUrl: '',
+  obsidianVaultPath: '',
 };
 
 export function SetupScreen() {

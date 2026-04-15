@@ -20,6 +20,7 @@ import type {
   Facets,
   FinalizeIngestArgs,
   GlobePin,
+  MissionData,
   ItemBrowserDetail,
   ItemBrowserRow,
   ItemFacets,
@@ -134,6 +135,9 @@ const api: ElectronAPI = {
   globePinsList: (): Promise<GlobePin[]> => ipcRenderer.invoke('globePinsList'),
   globePinsUpsert: (pin: GlobePin): Promise<void> => ipcRenderer.invoke('globePinsUpsert', pin),
   globePinsDelete: (id: string): Promise<void> => ipcRenderer.invoke('globePinsDelete', id),
+  globePinOpenNote: (pin: GlobePin): Promise<boolean> => ipcRenderer.invoke('globePinOpenNote', pin),
+  globePinGetMission: (pin: GlobePin): Promise<MissionData | null> => ipcRenderer.invoke('globePinGetMission', pin),
+  globePinLinkNote: (pin: GlobePin): Promise<GlobePin | null> => ipcRenderer.invoke('globePinLinkNote', pin),
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),

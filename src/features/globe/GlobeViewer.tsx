@@ -3,21 +3,33 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { api } from '@/lib/api';
-import type { GlobePin } from '@shared/types';
+import type { GlobePin, GlobePinKind, MissionData } from '@shared/types';
 import { ensureDefaultImage, ensureIconImage, resolvePinIcon, getIconBody } from './globe-icons';
 import { IconPicker } from './IconPicker';
+import { MissionBriefing } from './MissionBriefing';
 
 const PMTILES_URL = 'pmtiles://https://map.pathfinderwiki.com/golarion.pmtiles';
 const PIN_SOURCE = 'globe-pins';
 const PIN_LAYER = 'globe-pins-symbol';
 
+function pinDisplaySize(currentZoom: number, placedZoom: number): number {
+  return Math.min(0.75, 0.75 * Math.pow(2, currentZoom - placedZoom));
+}
+
 function pinsToGeoJson(pins: GlobePin[], map: maplibregl.Map): GeoJSON.FeatureCollection {
+  const zoom = map.getZoom();
   return {
     type: 'FeatureCollection',
     features: pins.map((p) => ({
       type: 'Feature' as const,
       geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
-      properties: { id: p.id, label: p.label, icon: resolvePinIcon(map, p.icon), placedZoom: p.zoom },
+      properties: {
+        id: p.id,
+        label: p.label,
+        icon: resolvePinIcon(map, p.icon),
+        placedZoom: p.zoom,
+        displaySize: pinDisplaySize(zoom, p.zoom),
+      },
     })),
   };
 }
@@ -335,12 +347,22 @@ export function GlobeViewer() {
   const [pins, setPins] = useState<GlobePin[]>([]);
   const [selectedIcon, setSelectedIcon] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pinKind, setPinKind] = useState<GlobePinKind>('note');
+  const [activeMission, setActiveMission] = useState<MissionData | null>(null);
+  const [activeMissionPin, setActiveMissionPin] = useState<GlobePin | null>(null);
+  const [missionRefreshing, setMissionRefreshing] = useState(false);
+  const [missionLinking, setMissionLinking] = useState(false);
   const dragIdRef = useRef<string | null>(null);
   const selectedIconRef = useRef(selectedIcon);
+  const pinKindRef = useRef(pinKind);
 
   useEffect(() => {
     selectedIconRef.current = selectedIcon;
   }, [selectedIcon]);
+
+  useEffect(() => {
+    pinKindRef.current = pinKind;
+  }, [pinKind]);
 
   // Keep the ref in sync so map event handlers always see current pins.
   useEffect(() => {
@@ -374,7 +396,16 @@ export function GlobeViewer() {
   const addPin = useCallback(
     (lng: number, lat: number) => {
       const currentZoom = mapRef.current?.getZoom() ?? 2;
-      const pin: GlobePin = { id: crypto.randomUUID(), lng, lat, label: '', icon: selectedIconRef.current, zoom: currentZoom };
+      const pin: GlobePin = {
+        id: crypto.randomUUID(),
+        lng,
+        lat,
+        label: '',
+        icon: selectedIconRef.current,
+        zoom: currentZoom,
+        note: '',
+        kind: pinKindRef.current,
+      };
       api.globePinsUpsert(pin);
       setPins((prev) => {
         const next = [...prev, pin];
@@ -432,12 +463,16 @@ export function GlobeViewer() {
         source: PIN_SOURCE,
         layout: {
           'icon-image': ['get', 'icon'],
-          'icon-size': ['min', 0.75, ['*', 0.75, ['^', 2, ['-', ['zoom'], ['get', 'placedZoom']]]]] as
-            maplibregl.ExpressionSpecification,
+          'icon-size': ['get', 'displaySize'] as maplibregl.ExpressionSpecification,
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'icon-pitch-alignment': 'map',
         },
+      });
+
+      // Recompute icon sizes continuously during zoom
+      map.on('zoom', () => {
+        syncSource(pinsRef.current);
       });
 
       // Pointer cursor on hover
@@ -446,6 +481,30 @@ export function GlobeViewer() {
       });
       map.on('mouseleave', PIN_LAYER, () => {
         if (!dragIdRef.current) map.getCanvas().style.cursor = '';
+      });
+
+      // Double-click on pin: note pins open Obsidian, mission pins open the in-universe briefing
+      map.on('dblclick', PIN_LAYER, (e) => {
+        e.preventDefault(); // prevent zoom on double-click
+        const pinId = e.features?.[0]?.properties?.id as string | undefined;
+        if (!pinId) return;
+        const pin = pinsRef.current.find((p) => p.id === pinId);
+        if (!pin) return;
+
+        if (pin.kind === 'mission') {
+          api.globePinGetMission(pin).then((mission) => {
+            if (mission) {
+              setActiveMission(mission);
+              setActiveMissionPin(pin);
+            }
+            // Refresh pins so any newly-cached note path is reflected
+            api.globePinsList().then(setPins);
+          });
+        } else {
+          api.globePinOpenNote(pin).then(() => {
+            api.globePinsList().then(setPins);
+          });
+        }
       });
 
       // Right-click: place new pin, or remove existing one
@@ -509,6 +568,7 @@ export function GlobeViewer() {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
       {/* Active icon indicator */}
       <button
         type="button"
@@ -518,9 +578,11 @@ export function GlobeViewer() {
         style={{ width: 40, height: 40 }}
       >
         {selectedBody ? (
-          <span dangerouslySetInnerHTML={{
-            __html: `<svg viewBox="0 0 512 512" fill="currentColor" width="22" height="22">${selectedBody}</svg>`,
-          }} />
+          <span
+            dangerouslySetInnerHTML={{
+              __html: `<svg viewBox="0 0 512 512" fill="currentColor" width="22" height="22">${selectedBody}</svg>`,
+            }}
+          />
         ) : (
           <span
             style={{
@@ -533,11 +595,73 @@ export function GlobeViewer() {
           />
         )}
       </button>
+
+      {/* Pin kind toggle — determines what kind of pin is placed on right-click */}
+      <div
+        className="absolute left-3 z-10 flex overflow-hidden rounded-lg border border-border bg-background/90 shadow-md backdrop-blur-sm"
+        style={{ top: 52, height: 32 }}
+      >
+        <button
+          type="button"
+          onClick={() => setPinKind('note')}
+          className={`px-3 text-xs transition-colors ${
+            pinKind === 'note' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50'
+          }`}
+          title="Note pins open the linked Obsidian note on double-click"
+        >
+          Note
+        </button>
+        <button
+          type="button"
+          onClick={() => setPinKind('mission')}
+          className={`px-3 text-xs transition-colors ${
+            pinKind === 'mission' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50'
+          }`}
+          title="Mission pins open an in-universe briefing parchment on double-click"
+        >
+          Mission
+        </button>
+      </div>
+
       {pickerOpen && (
-        <IconPicker
-          selected={selectedIcon}
-          onSelect={setSelectedIcon}
-          onClose={() => setPickerOpen(false)}
+        <IconPicker selected={selectedIcon} onSelect={setSelectedIcon} onClose={() => setPickerOpen(false)} />
+      )}
+
+      {activeMission && (
+        <MissionBriefing
+          mission={activeMission}
+          refreshing={missionRefreshing}
+          linking={missionLinking}
+          onClose={() => {
+            setActiveMission(null);
+            setActiveMissionPin(null);
+          }}
+          onRefresh={async () => {
+            if (!activeMissionPin) return;
+            setMissionRefreshing(true);
+            try {
+              const fresh = await api.globePinGetMission(activeMissionPin);
+              if (fresh) setActiveMission(fresh);
+            } finally {
+              setMissionRefreshing(false);
+            }
+          }}
+          onLinkNote={async () => {
+            if (!activeMissionPin) return;
+            setMissionLinking(true);
+            try {
+              const updated = await api.globePinLinkNote(activeMissionPin);
+              if (updated) {
+                setActiveMissionPin(updated);
+                const fresh = await api.globePinGetMission(updated);
+                if (fresh) setActiveMission(fresh);
+                const list = await api.globePinsList();
+                setPins(list);
+              }
+            } finally {
+              setMissionLinking(false);
+            }
+          }}
         />
       )}
     </div>

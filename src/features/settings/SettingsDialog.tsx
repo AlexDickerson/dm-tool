@@ -319,6 +319,13 @@ export function SettingsDialog({
                         mode="file"
                         filters={[{ name: 'SQLite', extensions: ['sqlite', 'sqlite3', 'db'] }]}
                       />
+                      <PathField
+                        label="Obsidian Vault"
+                        description="Obsidian vault folder. Globe pins will create notes in a Golarion/ subfolder."
+                        value={configPaths.obsidianVaultPath}
+                        onChange={setPath('obsidianVaultPath')}
+                        mode="directory"
+                      />
                     </div>
                   </div>
 

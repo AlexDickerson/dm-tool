@@ -63,6 +63,7 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
       autoWallBinPath: cfg.autoWallBinPath ?? '',
       pf2eDbPath: cfg.pf2eDbPath ?? '',
       foundryMcpUrl: cfg.foundryMcpUrl ?? '',
+      obsidianVaultPath: cfg.obsidianVaultPath ?? '',
     }),
   );
 
@@ -96,6 +97,7 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
     if (paths.autoWallBinPath?.trim()) config.autoWallBinPath = paths.autoWallBinPath;
     if (paths.pf2eDbPath?.trim()) config.pf2eDbPath = paths.pf2eDbPath;
     if (paths.foundryMcpUrl?.trim()) config.foundryMcpUrl = paths.foundryMcpUrl;
+    if (paths.obsidianVaultPath?.trim()) config.obsidianVaultPath = paths.obsidianVaultPath;
 
     const outPath = resolveConfigPath();
     await writeFile(outPath, JSON.stringify(config, null, 2), 'utf-8');

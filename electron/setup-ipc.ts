@@ -24,6 +24,7 @@ export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserW
       autoWallBinPath: '',
       pf2eDbPath: '',
       foundryMcpUrl: '',
+      obsidianVaultPath: '',
     }),
   );
 
