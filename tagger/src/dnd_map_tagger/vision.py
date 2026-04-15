@@ -142,8 +142,10 @@ def _sniff_media_type(image_path: Path) -> str:
 # Stay well under that to leave headroom for the rest of the JSON body.
 _MAX_RAW_BYTES = 3_500_000
 # Anthropic recommends images within ~1.15 megapixels and ~1568px on the
-# longest edge for best accuracy. Larger is wasted tokens at best and
-# silently downscaled server-side at worst, so do it client-side.
+# longest edge for best accuracy. The API also hard-rejects any image
+# whose either dimension exceeds 8000 px with a 400 BadRequestError, so
+# we must downscale client-side — a heavily compressed JPEG can be under
+# the byte cap yet still blow past the pixel cap.
 _MAX_EDGE_PX = 1568
 
 
@@ -152,17 +154,29 @@ def _prepare_image_payload(image_path: Path) -> tuple[str, str]:
     re-encoding in memory if the original would exceed Anthropic's payload
     cap. The file on disk is never modified.
 
-    Small images pass through untouched (no re-encoding, no quality loss).
-    Oversized images are opened with Pillow, downscaled so the longest
-    edge is at most _MAX_EDGE_PX, and re-encoded as high-quality JPEG.
+    Small images (under both the byte cap *and* the pixel-edge cap) pass
+    through untouched (no re-encoding, no quality loss). Oversized images
+    — in bytes, pixels, or both — are opened with Pillow, downscaled so
+    the longest edge is at most _MAX_EDGE_PX, and re-encoded as high-
+    quality JPEG.
     """
     raw_bytes = image_path.read_bytes()
     media_type = _sniff_media_type(image_path)
 
     if len(raw_bytes) <= _MAX_RAW_BYTES:
-        # Fits under the cap — preserve the original bytes verbatim so we
-        # don't lose any fidelity (especially for PNGs with alpha).
-        return media_type, base64.standard_b64encode(raw_bytes).decode("ascii")
+        # Under the byte cap — still need to check pixel dimensions. The
+        # API rejects images whose either side exceeds 8000 px outright,
+        # so a small-bytes / large-pixels file would 400 without this check.
+        try:
+            with Image.open(image_path) as im:
+                longest = max(im.size)
+        except Exception as e:
+            raise VisionError(f"Could not read image dimensions for {image_path.name}: {e}")
+        if longest <= _MAX_EDGE_PX:
+            # Under both caps — preserve the original bytes verbatim so
+            # we don't lose any fidelity (especially for PNGs with alpha).
+            return media_type, base64.standard_b64encode(raw_bytes).decode("ascii")
+        # else: fall through to the downscale branch below
 
     # Oversized path: open, downscale, re-encode as JPEG.
     try:

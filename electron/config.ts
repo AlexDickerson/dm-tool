@@ -16,17 +16,33 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { app } from 'electron';
 
-/** Resolve the bundled map-tagger.exe path. In production it lives in the
- *  app's resources directory (via extraResources); in dev it's built locally
- *  under tagger/dist/. Returns undefined if neither exists. */
+/** Resolve the bundled map-tagger.exe path.
+ *
+ *  - Packaged: extraResources puts the frozen PyInstaller exe at
+ *    `<resources>/map-tagger.exe`.
+ *  - Dev: prefer `tagger/.venv/Scripts/map-tagger.exe`, the editable-install
+ *    shim created as a side effect of `pip install -e .` in build.bat. It's
+ *    a ~100 KB wrapper that loads Python source at runtime, so edits under
+ *    `tagger/src/` are picked up on the next spawn with no rebuild. The
+ *    67 MB frozen `tagger/dist/map-tagger.exe` is kept as a fallback for
+ *    people who built with `pyinstaller` but wiped the venv.
+ *
+ *  Returns undefined if nothing matches.
+ */
 function resolveBundledTagger(): string | undefined {
-  // Production: extraResources puts it at <resources>/map-tagger.exe
-  const prodPath = join(process.resourcesPath, 'map-tagger.exe');
-  if (existsSync(prodPath)) return prodPath;
+  if (app.isPackaged) {
+    const prodPath = join(process.resourcesPath, 'map-tagger.exe');
+    if (existsSync(prodPath)) return prodPath;
+    return undefined;
+  }
 
-  // Dev: tagger/dist/map-tagger.exe relative to project root
-  const devPath = join(app.isPackaged ? app.getAppPath() : process.cwd(), 'tagger', 'dist', 'map-tagger.exe');
-  if (existsSync(devPath)) return devPath;
+  const projectRoot = process.cwd();
+
+  const shim = join(projectRoot, 'tagger', '.venv', 'Scripts', 'map-tagger.exe');
+  if (existsSync(shim)) return shim;
+
+  const frozen = join(projectRoot, 'tagger', 'dist', 'map-tagger.exe');
+  if (existsSync(frozen)) return frozen;
 
   return undefined;
 }
