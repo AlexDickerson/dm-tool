@@ -17,9 +17,9 @@ const DEFAULT_PUBLIC_URL = 'http://server.ad:30002';
  *  Windows/macOS and collapse whitespace. */
 function safeFileName(raw: string): string {
   // Strip characters illegal in Windows/macOS filenames and control chars
-  // eslint-disable-next-line no-control-regex
   return (
     raw
+      // eslint-disable-next-line no-control-regex
       .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')
       .replace(/\s+/g, ' ')
       .trim() || 'Untitled'
