@@ -10,7 +10,9 @@ import { ensureDefaultImage, ensureIconImage, resolvePinIcon } from './globe-ico
 import { MissionBriefing } from './MissionBriefing';
 import type { ExportData, GlobePin, MissionData } from './types';
 
-const PMTILES_URL = 'pmtiles://https://map.pathfinderwiki.com/golarion.pmtiles';
+// Tile URLs go through the nginx reverse proxy at /map/ to avoid CORS issues
+// (map.pathfinderwiki.com doesn't send Access-Control-Allow-Origin headers).
+const PMTILES_URL = `pmtiles://${window.location.origin}/map/golarion.pmtiles`;
 const PIN_SOURCE = 'globe-pins';
 const PIN_LAYER = 'globe-pins-symbol';
 
@@ -81,8 +83,8 @@ const mapStyle: maplibregl.StyleSpecification = {
         '<a href="https://paizo.com/licenses/communityuse">Paizo CUP</a>, <a href="https://github.com/pf-wikis/mapping#acknowledgments">Acknowledgments</a>',
     },
   },
-  sprite: 'https://map.pathfinderwiki.com/sprites/sprites',
-  glyphs: 'https://map.pathfinderwiki.com/fonts/{fontstack}/{range}.pbf',
+  sprite: '/map/sprites/sprites',
+  glyphs: '/map/fonts/{fontstack}/{range}.pbf',
   transition: { duration: 300, delay: 0 },
   sky: { 'atmosphere-blend': 0.5 },
   layers: [
