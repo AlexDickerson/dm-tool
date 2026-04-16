@@ -670,4 +670,39 @@ export interface ElectronAPI {
   /** Export all pins + parsed mission data to a JSON file via save dialog.
    *  The output file is designed for the player-map static site. */
   globeExportPlayerData(): Promise<boolean>;
+  /** Run the full player-map deploy pipeline: export pins + missions,
+   *  (re)build the player-map SPA if source is newer than dist, SCP the
+   *  artifacts to the configured host, and ensure the docker container is
+   *  running. Progress streams via onGlobeDeployProgress. */
+  globeDeployPlayer(): Promise<GlobeDeployResult>;
+  /** Subscribe to deploy progress events. Returns an unsubscribe fn. */
+  onGlobeDeployProgress(callback: (p: GlobeDeployProgress) => void): () => void;
+}
+
+// --- Player-map deploy -------------------------------------------------------
+
+/** Named stages of the deploy pipeline, surfaced to the UI so the button
+ *  can label itself ("Building...", "Uploading...", etc). */
+export type GlobeDeployStage =
+  | 'export'
+  | 'write'
+  | 'install'
+  | 'build'
+  | 'mkdir'
+  | 'scp'
+  | 'docker'
+  | 'done';
+
+export interface GlobeDeployProgress {
+  stage: GlobeDeployStage;
+  /** Human-readable one-liner for the UI. */
+  message: string;
+}
+
+export interface GlobeDeployResult {
+  ok: boolean;
+  /** Error message to surface to the user. Only present when ok === false. */
+  error?: string;
+  /** The URL players should visit. Only present when ok === true. */
+  url?: string;
 }

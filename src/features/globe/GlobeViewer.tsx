@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { api } from '@/lib/api';
-import type { GlobePin, GlobePinKind, MissionData } from '@shared/types';
+import type { GlobeDeployProgress, GlobePin, GlobePinKind, MissionData } from '@shared/types';
 import { ensureDefaultImage, ensureIconImage, resolvePinIcon, getIconBody } from './globe-icons';
 import { IconPicker } from './IconPicker';
 import { MissionBriefing } from './MissionBriefing';
@@ -352,6 +352,10 @@ export function GlobeViewer() {
   const [activeMissionPin, setActiveMissionPin] = useState<GlobePin | null>(null);
   const [missionRefreshing, setMissionRefreshing] = useState(false);
   const [missionLinking, setMissionLinking] = useState(false);
+  /** null = idle; otherwise the current deploy stage message shown on the button. */
+  const [deployStatus, setDeployStatus] = useState<string | null>(null);
+  /** Post-deploy toast — success green or error red, auto-dismisses. */
+  const [deployToast, setDeployToast] = useState<{ ok: boolean; message: string } | null>(null);
   const dragIdRef = useRef<string | null>(null);
   const selectedIconRef = useRef(selectedIcon);
   const pinKindRef = useRef(pinKind);
@@ -372,6 +376,38 @@ export function GlobeViewer() {
   // Load pins from the database on mount.
   useEffect(() => {
     api.globePinsList().then(setPins);
+  }, []);
+
+  // Stream deploy progress into the button label while a deploy is running.
+  useEffect(() => {
+    const unsub = api.onGlobeDeployProgress((p: GlobeDeployProgress) => {
+      setDeployStatus(p.message);
+    });
+    return unsub;
+  }, []);
+
+  // Auto-dismiss the post-deploy toast after a few seconds.
+  useEffect(() => {
+    if (!deployToast) return;
+    const t = setTimeout(() => setDeployToast(null), deployToast.ok ? 4500 : 9000);
+    return () => clearTimeout(t);
+  }, [deployToast]);
+
+  const handleDeploy = useCallback(async () => {
+    setDeployStatus('Starting...');
+    setDeployToast(null);
+    try {
+      const result = await api.globeDeployPlayer();
+      if (result.ok) {
+        setDeployToast({ ok: true, message: `Deployed — players can visit ${result.url ?? 'the map'}` });
+      } else {
+        setDeployToast({ ok: false, message: result.error ?? 'Deploy failed for unknown reason' });
+      }
+    } catch (e) {
+      setDeployToast({ ok: false, message: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setDeployStatus(null);
+    }
   }, []);
 
   const syncSource = useCallback((updated: GlobePin[]) => {
@@ -623,16 +659,45 @@ export function GlobeViewer() {
         </button>
       </div>
 
-      {/* Export button for player-facing map */}
+      {/* Deploy: runs the full export → build → SCP → docker compose pipeline
+          for the player-facing map. Label reflects the current stage; button
+          is disabled while a deploy is in flight. */}
       <button
         type="button"
-        onClick={() => void api.globeExportPlayerData()}
-        className="absolute left-3 z-10 flex items-center justify-center rounded-lg border border-border bg-background/90 px-3 text-xs text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-        style={{ top: 92, height: 32 }}
-        title="Export pins + missions to data.json for the player-facing globe"
+        onClick={() => void handleDeploy()}
+        disabled={deployStatus !== null}
+        className="absolute left-3 z-10 flex items-center justify-center rounded-lg border border-border bg-background/90 px-3 text-xs text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-wait disabled:opacity-70 disabled:hover:bg-background/90 disabled:hover:text-muted-foreground"
+        style={{ top: 92, height: 32, minWidth: 76 }}
+        title="Export pins + build player-map + push to server + restart container"
       >
-        Export
+        {deployStatus ?? 'Deploy'}
       </button>
+
+      {/* Post-deploy toast — green on success, red on failure. */}
+      {deployToast && (
+        <div
+          className={`absolute right-3 z-20 max-w-md rounded-lg border px-4 py-2 text-xs shadow-lg backdrop-blur-sm ${
+            deployToast.ok
+              ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-100'
+              : 'border-red-500/50 bg-red-500/15 text-red-100'
+          }`}
+          style={{ top: 52 }}
+          role="status"
+        >
+          <div className="flex items-start gap-2">
+            <span className="font-medium">{deployToast.ok ? '✓' : '✗'}</span>
+            <span className="whitespace-pre-wrap break-words">{deployToast.message}</span>
+            <button
+              type="button"
+              onClick={() => setDeployToast(null)}
+              className="ml-2 shrink-0 opacity-70 hover:opacity-100"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {pickerOpen && (
         <IconPicker selected={selectedIcon} onSelect={setSelectedIcon} onClose={() => setPickerOpen(false)} />

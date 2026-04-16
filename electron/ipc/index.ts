@@ -36,5 +36,5 @@ export function registerIpcHandlers(
   registerFoundryHandlers(db, cfg);
   registerPackGroupingHandlers(db);
   registerConfigHandlers(db, cfg);
-  registerGlobeHandlers(cfg);
+  registerGlobeHandlers(cfg, getMainWindow);
 }
