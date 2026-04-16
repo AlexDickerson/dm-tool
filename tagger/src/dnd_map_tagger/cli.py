@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json as _json
 import logging
+import sys as _sys
 from pathlib import Path
 from typing import Optional
 
@@ -70,10 +71,11 @@ def ingest(
         "--concurrency",
         "-j",
         min=1,
-        max=32,
+        max=1000,
         help="Number of parallel vision-call workers. Default 4 is safe on the "
              "Anthropic entry-level tier (~50 RPM). Bump higher if your account "
-             "has headroom. Use -j 1 for fully serial processing.",
+             "has headroom. Use -j 1 for fully serial processing. The true "
+             "ceiling is your Anthropic TPM budget, not this cap.",
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Use mock tagger, skip API spend"),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
@@ -149,6 +151,18 @@ def _ingest_from_source_cmd(
     """Helper for the `--source` branch of `ingest`. Prints per-file progress
     and a final summary."""
     def on_progress(done: int, total: int, src_path: Path, meta) -> None:
+        # Machine-readable progress marker for UI consumers (dm-tool parses
+        # this to drive its progress bar). Format is deliberately terse and
+        # stable:
+        #   ##PROGRESS {done}/{total} {OK|FAIL} {filename}
+        # Filename is the last whitespace-delimited token and may contain
+        # spaces if a source file has them — consumers should parse from the
+        # right. Emit before the pretty line and flush so the UI ticks even
+        # if rich buffers its own output.
+        status = "FAIL" if meta is None else "OK"
+        _sys.stdout.write(f"##PROGRESS {done}/{total} {status} {src_path.name}\n")
+        _sys.stdout.flush()
+
         if meta is None:
             console.print(f"  [{done}/{total}] [red]quarantined[/red] {src_path.name}")
         else:
