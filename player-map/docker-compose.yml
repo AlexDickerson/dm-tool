@@ -1,0 +1,12 @@
+services:
+  player-map:
+    build: .
+    container_name: player-map
+    restart: unless-stopped
+    ports:
+      - '30002:80'
+    volumes:
+      # Mount the exported pin data so you can update it without rebuilding.
+      # Place data.json next to this compose file and it overrides the
+      # baked-in empty placeholder.
+      - ./data.json:/usr/share/nginx/html/data.json:ro

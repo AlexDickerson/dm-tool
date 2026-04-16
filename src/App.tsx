@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Backpack, BookOpen, Map, MessageSquare, Search, Skull, Swords, Wrench } from 'lucide-react';
+import { Backpack, BookOpen, Globe, Map, MessageSquare, Search, Skull, Swords, Wrench } from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
 import { MonsterBrowser } from './features/monsters/MonsterBrowser';
 import { ToolsBrowser } from './features/tools/ToolsBrowser';
+import { GlobeViewer } from './features/globe/GlobeViewer';
 import { ChatDrawer } from './features/chat/ChatDrawer';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { SettingsDialog } from './features/settings/SettingsDialog';
@@ -44,7 +45,7 @@ function loadNumber(key: string, fallback: number, min: number, max: number): nu
   }
 }
 
-type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items' | 'tools';
+type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items' | 'tools' | 'globe';
 
 export default function App() {
   const [appMode, setAppMode] = useState<'loading' | 'normal' | 'setup'>('loading');
@@ -222,10 +223,11 @@ function MainApp() {
             label="Monsters"
           />
           <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')} icon={Backpack} label="Items" />
+          <NavTab active={activeTab === 'globe'} onClick={() => setActiveTab('globe')} icon={Globe} label="Globe" />
           <NavTab active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={Wrench} label="Tools" />
         </nav>
         {/* Search bar — shared across all tabs */}
-        {activeTab !== 'tools' && (
+        {activeTab !== 'tools' && activeTab !== 'globe' && (
           <div
             className="relative mx-2 flex max-w-md flex-1 items-center"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -306,6 +308,7 @@ function MainApp() {
           {activeTab === 'combat' && <CombatPlaceholder />}
           {activeTab === 'monsters' && <MonsterBrowser keywords={keywords} />}
           {activeTab === 'items' && <ItemBrowser keywords={keywords} />}
+          {activeTab === 'globe' && <GlobeViewer />}
           {activeTab === 'tools' && (
             <ToolsBrowser
               tools={toolUrls}

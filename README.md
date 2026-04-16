@@ -8,6 +8,7 @@ A desktop toolbox for prepping and running tabletop RPG sessions, built with Ele
 - **Pack Grouping** — AI-driven variant clustering groups map files into packs (e.g. day/night/rain variants of the same scene). Export a prompt, send it to Claude, and import the JSON mapping back. Includes manual merge for cleanup.
 - **Book Catalog** — Scan a local PDF library with AI-powered classification (system, category, publisher). Browse via a System → Category → Publisher sidebar, read PDFs inline with cached cover thumbnails, and keep multiple books open in a persistent tab bar that survives restarts.
 - **Tools Browser** — Embed external web tools (Archives of Nethys, name generators, map generators, etc.) as iframes in a tabbed sidebar. Configurable URL list and favicon-only mode in settings. The AI chat can read the active tool page for context-aware assistance.
+- **Globe** — Interactive Golarion world map (MapLibre + PMTiles) with draggable pins. Two pin kinds: generic notes (double-click to open the linked Obsidian note) and mission posts (double-click to show an in-universe parchment briefing parsed from the note's YAML frontmatter). Pins are searchable by icon (game-icons.net), rename-resilient via `pin-id` frontmatter stamping, and can be re-linked to pre-existing notes.
 - **AI Chat** — Built-in chat assistant with PF2e rules knowledge. General mode streams answers directly; `/rule` prefix activates two-pass adversarial review for high-accuracy rules lookups via Archives of Nethys and community discussions.
 
 ## Setup
@@ -25,12 +26,14 @@ A desktop toolbox for prepping and running tabletop RPG sessions, built with Ele
      "libraryPath": "/path/to/your/map/library",
      "indexDbPath": "/path/to/index.sqlite",
      "booksPath": "/path/to/your/pdf/library", // optional
+     "obsidianVaultPath": "/path/to/obsidian/vault", // optional
    }
    ```
 
    - `libraryPath` — directory containing your battlemap image files
    - `indexDbPath` — SQLite database produced by dnd-map-tagger
    - `booksPath` — root of your PDF library (omit to disable the book catalog)
+   - `obsidianVaultPath` — vault folder for globe pin notes (omit to disable globe→Obsidian linking)
 
 3. Run in development mode:
 

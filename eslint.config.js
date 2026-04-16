@@ -4,7 +4,7 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
-    ignores: ['node_modules/', 'out/', 'dist/', 'tagger/', 'resources/', '.claude/', '*.js', '*.cjs'],
+    ignores: ['node_modules/', 'out/', 'dist/', 'tagger/', 'resources/', '.claude/', 'player-map/', '*.js', '*.cjs'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

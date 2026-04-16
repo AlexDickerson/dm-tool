@@ -70,6 +70,19 @@ export interface DmToolConfig {
   /** URL of the foundry-mcp server (e.g. "http://server.ad:8765").
    *  Optional — if missing, the "Push to Foundry" button is hidden. */
   foundryMcpUrl?: string;
+  /** Absolute path to an Obsidian vault folder. Optional — if set, globe
+   *  pins can be linked to Obsidian notes for rich annotation. */
+  obsidianVaultPath?: string;
+  /** SSH target (user@host) for the player-map deploy button. Optional —
+   *  defaults to "alex@server.ad". ssh/scp must work without a password
+   *  prompt (key-based auth). */
+  playerMapDeployHost?: string;
+  /** Remote directory on the deploy host. Optional — defaults to
+   *  "~/player-map". The dir is created if missing. */
+  playerMapDeployPath?: string;
+  /** URL players should visit to see the map. Shown in the "Deploy
+   *  complete" toast. Optional — defaults to "http://server.ad:30002". */
+  playerMapPublicUrl?: string;
 }
 
 /** The config file is looked up in this order:
@@ -215,6 +228,26 @@ export function loadConfig(): DmToolConfig {
     foundryMcpUrl = cfg.foundryMcpUrl.replace(/\/+$/, '');
   }
 
+  let obsidianVaultPath: string | undefined;
+  if (cfg.obsidianVaultPath && typeof cfg.obsidianVaultPath === 'string' && cfg.obsidianVaultPath.trim().length > 0) {
+    obsidianVaultPath = resolve(cfg.obsidianVaultPath);
+  }
+
+  // Player-map deploy: host/path/url are all optional with sensible
+  // defaults. Trim + coerce; leave undefined if empty string.
+  const playerMapDeployHost =
+    cfg.playerMapDeployHost && typeof cfg.playerMapDeployHost === 'string' && cfg.playerMapDeployHost.trim().length > 0
+      ? cfg.playerMapDeployHost.trim()
+      : undefined;
+  const playerMapDeployPath =
+    cfg.playerMapDeployPath && typeof cfg.playerMapDeployPath === 'string' && cfg.playerMapDeployPath.trim().length > 0
+      ? cfg.playerMapDeployPath.trim()
+      : undefined;
+  const playerMapPublicUrl =
+    cfg.playerMapPublicUrl && typeof cfg.playerMapPublicUrl === 'string' && cfg.playerMapPublicUrl.trim().length > 0
+      ? cfg.playerMapPublicUrl.trim()
+      : undefined;
+
   return {
     libraryPath,
     indexDbPath,
@@ -225,5 +258,9 @@ export function loadConfig(): DmToolConfig {
     autoWallBinPath,
     pf2eDbPath,
     foundryMcpUrl,
+    obsidianVaultPath,
+    playerMapDeployHost,
+    playerMapDeployPath,
+    playerMapPublicUrl,
   };
 }

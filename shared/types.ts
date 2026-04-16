@@ -351,6 +351,7 @@ export interface ConfigPaths {
   autoWallBinPath: string;
   pf2eDbPath: string;
   foundryMcpUrl: string;
+  obsidianVaultPath: string;
 }
 
 export interface PickPathArgs {
@@ -384,6 +385,89 @@ export interface TaggerResult {
  *  function here must have a corresponding handler registered in ipc.ts
  *  and a corresponding type declaration on `window.electronAPI` in the
  *  renderer's global types. */
+// --- Globe pins --------------------------------------------------------------
+
+export type GlobePinKind = 'note' | 'mission';
+
+export interface GlobePin {
+  id: string;
+  lng: number;
+  lat: number;
+  label: string;
+  /** game-icons.net icon name (e.g. "crossed-swords"). Empty string = default dot. */
+  icon: string;
+  /** Zoom level at which the pin was placed. Icons shrink when zoomed out past this. */
+  zoom: number;
+  /** Relative path to the Obsidian note within the vault (e.g. "Golarion/My Pin a1b2c3d4.md"). Empty = no note yet. */
+  note: string;
+  /** Pin kind: generic note (opens Obsidian on dbl-click) or mission (opens in-universe briefing). */
+  kind: GlobePinKind;
+  /** Pre-parsed mission data, present only on mission pins in the exported
+   *  data.json consumed by the player-map. DB-stored pins never carry
+   *  this — missions are re-parsed on demand on the DM side. */
+  mission?: MissionData;
+}
+
+/** Shape of the data.json file the DM tool writes out and the player-map
+ *  consumes as its static data source. */
+export interface ExportData {
+  exportedAt: string;
+  pins: GlobePin[];
+}
+
+// --- Mission briefing data (parsed from Obsidian frontmatter) ----------------
+
+export type MissionThreatLevel = 'Trivial' | 'Low' | 'Moderate' | 'Severe' | 'Extreme';
+export type MissionStatus = 'Available' | 'Assigned' | 'Active' | 'Completed' | 'Failed';
+
+export interface MissionObjective {
+  id: string;
+  text: string;
+  /** Primary objectives are mandatory; secondary are optional.
+   *  Frontmatter accepts either `primary: true` or `required: true`. */
+  isPrimary: boolean;
+  completed: boolean;
+}
+
+export interface MissionThreat {
+  id: string;
+  name: string;
+  /** Numeric level, or a string like "—" when not applicable (e.g. for
+   *  environmental hazards). Stored verbatim — the UI just displays it. */
+  level: number | string;
+  type?: string;
+}
+
+export interface MissionReward {
+  gold?: number;
+  xp?: number;
+  items?: string[];
+}
+
+export interface MissionData {
+  name: string;
+  threatLevel: MissionThreatLevel;
+  status: MissionStatus;
+  recommendedLevel: string;
+  estimatedSessions: string;
+  location: string;
+  questGiver: { name: string; title: string };
+  briefing: string[];
+  objectives: MissionObjective[];
+  threats: MissionThreat[];
+  rewards: MissionReward;
+  dmNotes: string;
+  datePosted: string;
+  sourceBook?: string;
+  /** Organizational branch issuing the posting (e.g. a faction arm). */
+  arm?: string;
+  /** Free-form description of the party/parties handling the mission. */
+  assignedTo?: string;
+  /** The target/prize of the mission — typically a named artifact. May
+   *  contain Obsidian-style `[[wikilinks]]`. */
+  artifact?: string;
+}
+
 export interface ElectronAPI {
   // -----------------------------------------------------------------------
   // Secure storage (OS keychain-backed via Electron safeStorage)
@@ -584,4 +668,55 @@ export interface ElectronAPI {
   monstersFacets(): Promise<MonsterFacets>;
   /** Full stat block for a single monster by name. */
   monstersGetDetail(name: string): Promise<MonsterDetail | null>;
+
+  // -----------------------------------------------------------------------
+  // Globe pins
+  // -----------------------------------------------------------------------
+
+  /** All saved globe pins. */
+  globePinsList(): Promise<GlobePin[]>;
+  /** Create or update a globe pin (upsert by id). */
+  globePinsUpsert(pin: GlobePin): Promise<void>;
+  /** Delete a globe pin by id. */
+  globePinsDelete(id: string): Promise<void>;
+  /** Open (or create) the Obsidian note for a globe pin. Returns false if no vault configured. */
+  globePinOpenNote(pin: GlobePin): Promise<boolean>;
+  /** Load the mission briefing data for a mission pin by parsing its Obsidian note frontmatter. */
+  globePinGetMission(pin: GlobePin): Promise<MissionData | null>;
+  /** Associate a pin with an existing Obsidian note via native file picker.
+   *  Stamps the pin id into the note's frontmatter so rename-resilient
+   *  lookup continues to work, then updates the pin's stored note path.
+   *  Returns the updated pin, or null if the user cancelled or the chosen
+   *  file is outside the vault. */
+  globePinLinkNote(pin: GlobePin): Promise<GlobePin | null>;
+  /** Export all pins + parsed mission data to a JSON file via save dialog.
+   *  The output file is designed for the player-map static site. */
+  globeExportPlayerData(): Promise<boolean>;
+  /** Run the full player-map deploy pipeline: export pins + missions,
+   *  (re)build the player-map SPA if source is newer than dist, SCP the
+   *  artifacts to the configured host, and ensure the docker container is
+   *  running. Progress streams via onGlobeDeployProgress. */
+  globeDeployPlayer(): Promise<GlobeDeployResult>;
+  /** Subscribe to deploy progress events. Returns an unsubscribe fn. */
+  onGlobeDeployProgress(callback: (p: GlobeDeployProgress) => void): () => void;
+}
+
+// --- Player-map deploy -------------------------------------------------------
+
+/** Named stages of the deploy pipeline, surfaced to the UI so the button
+ *  can label itself ("Building...", "Uploading...", etc). */
+export type GlobeDeployStage = 'export' | 'write' | 'install' | 'build' | 'mkdir' | 'scp' | 'docker' | 'done';
+
+export interface GlobeDeployProgress {
+  stage: GlobeDeployStage;
+  /** Human-readable one-liner for the UI. */
+  message: string;
+}
+
+export interface GlobeDeployResult {
+  ok: boolean;
+  /** Error message to surface to the user. Only present when ok === false. */
+  error?: string;
+  /** The URL players should visit. Only present when ok === true. */
+  url?: string;
 }

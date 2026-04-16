@@ -19,6 +19,10 @@ import type {
   ElectronAPI,
   Facets,
   FinalizeIngestArgs,
+  GlobePin,
+  GlobeDeployProgress,
+  GlobeDeployResult,
+  MissionData,
   ItemBrowserDetail,
   ItemBrowserRow,
   ItemFacets,
@@ -128,6 +132,21 @@ const api: ElectronAPI = {
     ipcRenderer.invoke('monstersSearch', params),
   monstersFacets: (): Promise<MonsterFacets> => ipcRenderer.invoke('monstersFacets'),
   monstersGetDetail: (name: string): Promise<MonsterDetail | null> => ipcRenderer.invoke('monstersGetDetail', name),
+
+  // Globe pins
+  globePinsList: (): Promise<GlobePin[]> => ipcRenderer.invoke('globePinsList'),
+  globePinsUpsert: (pin: GlobePin): Promise<void> => ipcRenderer.invoke('globePinsUpsert', pin),
+  globePinsDelete: (id: string): Promise<void> => ipcRenderer.invoke('globePinsDelete', id),
+  globePinOpenNote: (pin: GlobePin): Promise<boolean> => ipcRenderer.invoke('globePinOpenNote', pin),
+  globePinGetMission: (pin: GlobePin): Promise<MissionData | null> => ipcRenderer.invoke('globePinGetMission', pin),
+  globePinLinkNote: (pin: GlobePin): Promise<GlobePin | null> => ipcRenderer.invoke('globePinLinkNote', pin),
+  globeExportPlayerData: (): Promise<boolean> => ipcRenderer.invoke('globeExportPlayerData'),
+  globeDeployPlayer: (): Promise<GlobeDeployResult> => ipcRenderer.invoke('globeDeployPlayer'),
+  onGlobeDeployProgress: (callback: (p: GlobeDeployProgress) => void): (() => void) => {
+    const handler = (_event: unknown, p: GlobeDeployProgress) => callback(p);
+    ipcRenderer.on('globe-deploy-progress', handler);
+    return () => ipcRenderer.removeListener('globe-deploy-progress', handler);
+  },
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),

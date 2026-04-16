@@ -18,6 +18,7 @@ import { registerAutoWallHandlers } from './auto-wall.js';
 import { registerFoundryHandlers } from './foundry.js';
 import { registerPackGroupingHandlers } from './pack-grouping.js';
 import { registerConfigHandlers } from './config.js';
+import { registerGlobeHandlers } from './globe.js';
 
 export function registerIpcHandlers(
   db: MapDb,
@@ -35,4 +36,5 @@ export function registerIpcHandlers(
   registerFoundryHandlers(db, cfg);
   registerPackGroupingHandlers(db);
   registerConfigHandlers(db, cfg);
+  registerGlobeHandlers(cfg, getMainWindow);
 }
