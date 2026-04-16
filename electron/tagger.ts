@@ -114,6 +114,11 @@ export function runTagger(
       // Force Rich to not use fancy formatting in piped output.
       NO_COLOR: '1',
       TERM: 'dumb',
+      // Force Python's stdio to UTF-8 — the default on Windows is cp1252,
+      // which can't encode characters rich uses in its output (e.g. `←`,
+      // `✓`, en-dashes). Without this the tagger crashes with a
+      // UnicodeEncodeError the first time it tries to print a success line.
+      PYTHONIOENCODING: 'utf-8',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
