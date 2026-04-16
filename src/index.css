@@ -340,6 +340,19 @@
     }
   }
 
+  /* Indeterminate progress bar — the fill sweeps left-to-right forever.
+   * Used by the <Progress value={null}/> state (e.g. while the tagger is
+   * walking a source folder pre-ingest and we don't yet have a per-file
+   * counter). */
+  @keyframes dmtool-progress-indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+
   /* Markdown inside assistant chat bubbles. Scoped to .chat-markdown so
    * these styles don't leak into the rest of the app. */
   .chat-markdown p {
