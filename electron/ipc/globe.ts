@@ -225,4 +225,66 @@ export function registerGlobeHandlers(cfg: DmToolConfig): void {
     upsertGlobePin(pin);
     return pin;
   });
+
+  /** Export all pins (with parsed mission data) to a JSON file chosen by
+   *  the user. The exported file is designed to be dropped into the
+   *  player-map static site as data.json. */
+  ipcMain.handle('globeExportPlayerData', async (): Promise<boolean> => {
+    const pins = listGlobePins();
+
+    // Build export payload with inline mission data for mission pins.
+    const exportPins = await Promise.all(
+      pins.map(async (pin) => {
+        const out: Record<string, unknown> = {
+          id: pin.id,
+          lng: pin.lng,
+          lat: pin.lat,
+          label: pin.label,
+          icon: pin.icon,
+          zoom: pin.zoom,
+          kind: pin.kind,
+        };
+
+        if (pin.kind === 'mission' && cfg.obsidianVaultPath) {
+          // Resolve note file and parse mission data inline.
+          let filePath: string | null = null;
+          if (pin.note) {
+            const cached = join(cfg.obsidianVaultPath, pin.note);
+            if (existsSync(cached)) filePath = cached;
+          }
+          if (!filePath) {
+            const notesDir = join(cfg.obsidianVaultPath, 'Golarion');
+            filePath = findNoteByPinId(notesDir, pin.id);
+          }
+          if (filePath) {
+            try {
+              const raw = await readFile(filePath, 'utf-8');
+              const mission = parseMissionNote(raw, pin.label || 'Mission');
+              // Strip dmNotes from the export — players shouldn't see those.
+              const { dmNotes: _, ...playerSafe } = mission;
+              out.mission = playerSafe;
+            } catch {
+              /* note unreadable — skip mission data */
+            }
+          }
+        }
+
+        return out;
+      }),
+    );
+
+    const result = await dialog.showSaveDialog({
+      title: 'Export Player Map Data',
+      defaultPath: 'data.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return false;
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      pins: exportPins,
+    };
+    await writeFile(result.filePath, JSON.stringify(payload, null, 2), 'utf-8');
+    return true;
+  });
 }

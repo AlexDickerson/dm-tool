@@ -1,0 +1,22 @@
+# Deploy-ready compose file — uses the pre-built dist/ directly with nginx.
+# No multi-stage build needed; just SCP this directory to the server.
+#
+# Usage:
+#   scp -r player-map alex@server.ad:~/player-map
+#   ssh alex@server.ad "cd ~/player-map && docker compose -f deploy-compose.yml up -d"
+#
+# To update pin data:
+#   scp data.json alex@server.ad:~/player-map/data.json
+#   (the container bind-mounts it, so no restart needed)
+
+services:
+  player-map:
+    image: nginx:alpine
+    container_name: player-map
+    restart: unless-stopped
+    ports:
+      - "30002:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      # Override data.json with the DM-exported version (if present)
+      - ./data.json:/usr/share/nginx/html/data.json:ro

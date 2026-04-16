@@ -138,6 +138,7 @@ const api: ElectronAPI = {
   globePinOpenNote: (pin: GlobePin): Promise<boolean> => ipcRenderer.invoke('globePinOpenNote', pin),
   globePinGetMission: (pin: GlobePin): Promise<MissionData | null> => ipcRenderer.invoke('globePinGetMission', pin),
   globePinLinkNote: (pin: GlobePin): Promise<GlobePin | null> => ipcRenderer.invoke('globePinLinkNote', pin),
+  globeExportPlayerData: (): Promise<boolean> => ipcRenderer.invoke('globeExportPlayerData'),
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),

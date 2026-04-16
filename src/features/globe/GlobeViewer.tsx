@@ -623,6 +623,17 @@ export function GlobeViewer() {
         </button>
       </div>
 
+      {/* Export button for player-facing map */}
+      <button
+        type="button"
+        onClick={() => void api.globeExportPlayerData()}
+        className="absolute left-3 z-10 flex items-center justify-center rounded-lg border border-border bg-background/90 px-3 text-xs text-muted-foreground shadow-md backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+        style={{ top: 92, height: 32 }}
+        title="Export pins + missions to data.json for the player-facing globe"
+      >
+        Export
+      </button>
+
       {pickerOpen && (
         <IconPicker selected={selectedIcon} onSelect={setSelectedIcon} onClose={() => setPickerOpen(false)} />
       )}

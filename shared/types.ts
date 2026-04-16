@@ -667,4 +667,7 @@ export interface ElectronAPI {
    *  Returns the updated pin, or null if the user cancelled or the chosen
    *  file is outside the vault. */
   globePinLinkNote(pin: GlobePin): Promise<GlobePin | null>;
+  /** Export all pins + parsed mission data to a JSON file via save dialog.
+   *  The output file is designed for the player-map static site. */
+  globeExportPlayerData(): Promise<boolean>;
 }
