@@ -384,11 +384,21 @@ export function registerGlobeHandlers(
 
 /** Spawn a child process and resolve when it exits 0, reject otherwise.
  *  stdout/stderr are captured and attached to the error on failure so the
- *  caller can surface them to the user. */
+ *  caller can surface them to the user.
+ *
+ *  On Windows `shell: true` is required for .cmd shims like npm.cmd (PATHEXT
+ *  resolution happens in cmd.exe, not in Node's spawn). But it MUST be off
+ *  for real .exe calls like ssh/scp — otherwise cmd.exe parses shell
+ *  operators like `&&` that appear inside a remote-command arg, causing the
+ *  remote command to split and the tail half to run locally. We gate
+ *  `shell` on the command name. */
 function runCmd(cmd: string, args: string[], cwd?: string): Promise<void> {
+  const isWin = process.platform === 'win32';
+  const isCmdShim = /^(npm|npx|yarn|pnpm)$/i.test(cmd);
+  const shell = isWin && isCmdShim;
+
   return new Promise((resolve, reject) => {
-    // shell: true on Windows so .cmd shims (npm.cmd) and PATH lookup work.
-    const child = spawn(cmd, args, { cwd, shell: process.platform === 'win32' });
+    const child = spawn(cmd, args, { cwd, shell });
     let stderr = '';
     child.stdout.on('data', () => {
       /* consume; progress is reported at the handler level, not per-line */
