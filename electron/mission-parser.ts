@@ -168,7 +168,7 @@ function asStrArr(v: YamlValue | undefined): string[] {
 }
 
 const THREAT_LEVELS: MissionThreatLevel[] = ['Trivial', 'Low', 'Moderate', 'Severe', 'Extreme'];
-const STATUSES: MissionStatus[] = ['Available', 'Active', 'Completed', 'Failed'];
+const STATUSES: MissionStatus[] = ['Available', 'Assigned', 'Active', 'Completed', 'Failed'];
 
 function coerceThreatLevel(v: YamlValue | undefined): MissionThreatLevel {
   const s = asStr(v).toLowerCase();
@@ -183,8 +183,9 @@ function coerceStatus(v: YamlValue | undefined): MissionStatus {
 }
 
 /** Parse objectives from frontmatter.
- *  Supports two formats:
- *    1. List of objects: [{ text: "...", primary: true }, ...]
+ *  Supports:
+ *    1. List of objects: [{ text, primary }] or [{ text, required }]
+ *       `primary` and `required` are aliases — both mean "must-do".
  *    2. List of strings with "* " prefix for primary:
  *       ["* Reach the outpost", "Rescue survivors"]
  */
@@ -198,10 +199,15 @@ function coerceObjectives(v: YamlValue | undefined): MissionObjective[] {
     }
     // Object form
     const obj = item as Record<string, Scalar>;
+    const isPrimary =
+      obj.primary === true ||
+      obj.primary === 'true' ||
+      obj.required === true ||
+      obj.required === 'true';
     return {
       id: String(idx + 1),
       text: asStr(obj.text),
-      isPrimary: obj.primary === true || obj.primary === 'true',
+      isPrimary,
       completed: obj.completed === true || obj.completed === 'true',
     };
   });
@@ -210,24 +216,30 @@ function coerceObjectives(v: YamlValue | undefined): MissionObjective[] {
 /** Parse threats.
  *  Supports:
  *    1. Pipe-separated string: "Nabasu | 8 | Demon"
- *    2. Objects: { name: "Nabasu", level: 8, type: "Demon" } */
+ *    2. Objects: { name: "Nabasu", level: 8, type: "Demon" }
+ *
+ *  Level can be numeric or a string placeholder like "—" (common for
+ *  environmental hazards that don't map to a creature CR). The parsed
+ *  value is stored verbatim and the UI just displays it. */
 function coerceThreats(v: YamlValue | undefined): MissionThreat[] {
   if (!Array.isArray(v)) return [];
   return v.map((item, idx): MissionThreat => {
     if (typeof item === 'string') {
       const parts = item.split('|').map((p) => p.trim());
+      const numLevel = asNum(parts[1]);
       return {
         id: String(idx + 1),
         name: parts[0] ?? '',
-        level: Number(parts[1]) || 1,
+        level: numLevel ?? (parts[1] || 1),
         type: parts[2] || undefined,
       };
     }
     const obj = item as Record<string, Scalar>;
+    const numLevel = asNum(obj.level);
     return {
       id: String(idx + 1),
       name: asStr(obj.name),
-      level: asNum(obj.level) ?? 1,
+      level: numLevel !== undefined ? numLevel : obj.level !== undefined ? asStr(obj.level) : 1,
       type: obj.type ? asStr(obj.type) : undefined,
     };
   });
@@ -255,6 +267,12 @@ export function parseMissionNote(raw: string, fallbackName: string): MissionData
   if (xp !== undefined) rewards.xp = xp;
   if (items.length > 0) rewards.items = items;
 
+  // Optional "about the mission" fields from the richer note format.
+  // Absent → undefined so the briefing UI can hide them conditionally.
+  const arm = meta.arm ? asStr(meta.arm) : undefined;
+  const assignedTo = meta['assigned-to'] ? asStr(meta['assigned-to']) : undefined;
+  const artifact = meta.artifact ? asStr(meta.artifact) : undefined;
+
   return {
     name: asStr(meta.name, fallbackName),
     threatLevel: coerceThreatLevel(meta['threat-level']),
@@ -273,6 +291,9 @@ export function parseMissionNote(raw: string, fallbackName: string): MissionData
     dmNotes: asStr(meta['dm-notes']),
     datePosted: asStr(meta['date-posted']),
     sourceBook: meta['source-book'] ? asStr(meta['source-book']) : undefined,
+    arm,
+    assignedTo,
+    artifact,
   };
 }
 
@@ -284,8 +305,10 @@ export function missionNoteTemplate(pinId: string, label: string, lat: number, l
     `pin-id: ${pinId}`,
     'kind: mission',
     `name: ${JSON.stringify(name)}`,
-    'threat-level: Moderate',
     'status: Available',
+    'assigned-to: ""',
+    'arm: ""',
+    'threat-level: Moderate',
     'recommended-level: "5"',
     'estimated-sessions: "1-2"',
     `location: ${JSON.stringify(`${lat.toFixed(3)}, ${lng.toFixed(3)}`)}`,
@@ -293,15 +316,19 @@ export function missionNoteTemplate(pinId: string, label: string, lat: number, l
     'quest-giver-title: ""',
     'date-posted: ""',
     'source-book: ""',
+    'artifact: ""',
     'gold: 0',
     'xp: 0',
-    'items:',
-    '  - ',
+    'items: []',
     'objectives:',
-    '  - "* Primary objective (prefix with * for required)"',
-    '  - Secondary optional objective',
+    '  - text: Primary objective goes here.',
+    '    required: true',
+    '  - text: Optional secondary objective.',
+    '    required: false',
     'threats:',
-    '  - "Threat Name | 5 | Type"',
+    '  - name: Threat Name',
+    '    level: 5',
+    '    type: creature',
     'dm-notes: |',
     '  GM-only notes here.',
     '---',

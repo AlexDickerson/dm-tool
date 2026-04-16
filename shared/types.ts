@@ -407,11 +407,13 @@ export interface GlobePin {
 // --- Mission briefing data (parsed from Obsidian frontmatter) ----------------
 
 export type MissionThreatLevel = 'Trivial' | 'Low' | 'Moderate' | 'Severe' | 'Extreme';
-export type MissionStatus = 'Available' | 'Active' | 'Completed' | 'Failed';
+export type MissionStatus = 'Available' | 'Assigned' | 'Active' | 'Completed' | 'Failed';
 
 export interface MissionObjective {
   id: string;
   text: string;
+  /** Primary objectives are mandatory; secondary are optional.
+   *  Frontmatter accepts either `primary: true` or `required: true`. */
   isPrimary: boolean;
   completed: boolean;
 }
@@ -419,7 +421,9 @@ export interface MissionObjective {
 export interface MissionThreat {
   id: string;
   name: string;
-  level: number;
+  /** Numeric level, or a string like "—" when not applicable (e.g. for
+   *  environmental hazards). Stored verbatim — the UI just displays it. */
+  level: number | string;
   type?: string;
 }
 
@@ -444,6 +448,13 @@ export interface MissionData {
   dmNotes: string;
   datePosted: string;
   sourceBook?: string;
+  /** Organizational branch issuing the posting (e.g. a faction arm). */
+  arm?: string;
+  /** Free-form description of the party/parties handling the mission. */
+  assignedTo?: string;
+  /** The target/prize of the mission — typically a named artifact. May
+   *  contain Obsidian-style `[[wikilinks]]`. */
+  artifact?: string;
 }
 
 export interface ElectronAPI {

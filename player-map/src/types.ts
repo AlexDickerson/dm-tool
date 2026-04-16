@@ -3,7 +3,7 @@
 
 export type GlobePinKind = 'note' | 'mission';
 export type MissionThreatLevel = 'Trivial' | 'Low' | 'Moderate' | 'Severe' | 'Extreme';
-export type MissionStatus = 'Available' | 'Active' | 'Completed' | 'Failed';
+export type MissionStatus = 'Available' | 'Assigned' | 'Active' | 'Completed' | 'Failed';
 
 export interface GlobePin {
   id: string;
@@ -27,7 +27,8 @@ export interface MissionObjective {
 export interface MissionThreat {
   id: string;
   name: string;
-  level: number;
+  /** Numeric level, or a string like "—" when the threat has no creature CR. */
+  level: number | string;
   type?: string;
 }
 
@@ -52,6 +53,12 @@ export interface MissionData {
   dmNotes: string;
   datePosted: string;
   sourceBook?: string;
+  /** Organizational branch issuing the posting. */
+  arm?: string;
+  /** Free-form description of the party/parties handling the mission. */
+  assignedTo?: string;
+  /** The target/prize of the mission (may contain Obsidian `[[wikilinks]]`). */
+  artifact?: string;
 }
 
 /** Shape of the exported data.json produced by the DM tool. */

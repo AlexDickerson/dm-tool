@@ -5,7 +5,8 @@
 // Derived from a v0-generated mission-parchment component. Adapted to the
 // dm-tool codebase: `@/lib/utils` import path, type imports from shared/types.
 
-import type { MissionData, MissionThreatLevel } from '@shared/types';
+import { Fragment, type ReactNode } from 'react';
+import type { MissionData, MissionStatus, MissionThreatLevel } from '@shared/types';
 import { cn } from '@/lib/utils';
 
 // Threat level descriptions for in-universe feel
@@ -16,6 +17,42 @@ const threatDescriptions: Record<MissionThreatLevel, string> = {
   Severe: 'Grave Peril',
   Extreme: 'Mortal Danger',
 };
+
+// Status stamp colors — tinted red inks on aged parchment.
+const statusStampStyle: Record<MissionStatus, { color: string; label: string } | null> = {
+  Available: null, // no stamp on open postings
+  Assigned: { color: '#7a2020', label: 'Assigned' },
+  Active: { color: '#7a2020', label: 'Active' },
+  Completed: { color: '#2f5a2f', label: 'Completed' },
+  Failed: { color: '#5a1a1a', label: 'Failed' },
+};
+
+/** Render a short string with two pieces of in-line formatting:
+ *    - `[[Display]]` or `[[Target|Display]]` → italic span (proper noun)
+ *    - `**bold**` → <strong>
+ *  Nothing else — this isn't a full markdown renderer, just enough to
+ *  keep the parchment readable when notes use Obsidian wikilinks. */
+function formatInline(text: string): ReactNode {
+  // Split preserving tokens. Wikilinks first so the `|` in them isn't
+  // confused with anything else; then bold. Unmatched ** are left alone.
+  const tokens = text.split(/(\[\[[^\]]+\]\]|\*\*[^*\n]+\*\*)/g);
+  return tokens.map((t, i) => {
+    const wl = /^\[\[([^\]]+)\]\]$/.exec(t);
+    if (wl) {
+      const body = wl[1];
+      const pipe = body.indexOf('|');
+      const label = pipe >= 0 ? body.slice(pipe + 1) : body;
+      return (
+        <em key={i} style={{ color: '#4a3525' }}>
+          {label}
+        </em>
+      );
+    }
+    const b = /^\*\*([^*\n]+)\*\*$/.exec(t);
+    if (b) return <strong key={i}>{b[1]}</strong>;
+    return <Fragment key={i}>{t}</Fragment>;
+  });
+}
 
 function toRoman(num: number): string {
   const romans: [number, string][] = [
@@ -80,6 +117,34 @@ function WavyDivider() {
         strokeDasharray="2 4"
       />
     </svg>
+  );
+}
+
+/** One labelled cell in the mission-details grid. Keeps the label style
+ *  consistent and lets individual rows opt in to spanning both columns. */
+function DetailField({
+  label,
+  children,
+  span = false,
+  italic = true,
+}: {
+  label: string;
+  children: ReactNode;
+  span?: boolean;
+  italic?: boolean;
+}) {
+  return (
+    <div className={span ? 'col-span-2' : undefined}>
+      <span
+        className="mb-1 block text-[10px] uppercase"
+        style={{ color: '#7a6a55', opacity: 0.7, letterSpacing: '0.05em' }}
+      >
+        {label}
+      </span>
+      <span className={italic ? 'italic' : undefined} style={{ color: '#4a3a2a' }}>
+        {children}
+      </span>
+    </div>
   );
 }
 
@@ -225,7 +290,7 @@ export function MissionBriefing({
           {/* Content */}
           <div className="relative" style={{ padding: '40px 48px' }}>
             {/* Header */}
-            <header className="mb-8 text-center">
+            <header className="relative mb-8 text-center">
               <p
                 className="mb-4 text-[10px] uppercase"
                 style={{ color: '#6b5a45', opacity: 0.6, letterSpacing: '0.4em' }}
@@ -253,6 +318,31 @@ export function MissionBriefing({
                   {threatDescriptions[mission.threatLevel]}
                 </span>
               </p>
+
+              {/* Status stamp — skewed red ink in the upper-right for any
+                  status other than Available (which is the default "open
+                  posting" state and doesn't need a badge). */}
+              {statusStampStyle[mission.status] && (
+                <div
+                  className="pointer-events-none absolute"
+                  style={{
+                    top: -8,
+                    right: -8,
+                    transform: 'rotate(-8deg)',
+                    color: statusStampStyle[mission.status]!.color,
+                    border: `2px solid ${statusStampStyle[mission.status]!.color}`,
+                    padding: '4px 12px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    opacity: 0.55,
+                    fontFamily: "'Courier New', monospace",
+                  }}
+                >
+                  {statusStampStyle[mission.status]!.label}
+                </div>
+              )}
             </header>
 
             {/* Mission details box */}
@@ -265,46 +355,29 @@ export function MissionBriefing({
             >
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {mission.recommendedLevel && (
-                  <div>
-                    <span
-                      className="mb-1 block text-[10px] uppercase"
-                      style={{ color: '#7a6a55', opacity: 0.7, letterSpacing: '0.05em' }}
-                    >
-                      Experience Required
-                    </span>
-                    <span className="italic" style={{ color: '#4a3a2a' }}>
-                      Adventurers of the {mission.recommendedLevel}th circle
-                    </span>
-                  </div>
+                  <DetailField label="Experience Required">
+                    Adventurers of the {mission.recommendedLevel}th circle
+                  </DetailField>
                 )}
                 {mission.location && (
-                  <div>
-                    <span
-                      className="mb-1 block text-[10px] uppercase"
-                      style={{ color: '#7a6a55', opacity: 0.7, letterSpacing: '0.05em' }}
-                    >
-                      Theatre of Operations
-                    </span>
-                    <span className="italic" style={{ color: '#4a3a2a' }}>
-                      {mission.location}
-                    </span>
-                  </div>
+                  <DetailField label="Theatre of Operations">{mission.location}</DetailField>
+                )}
+                {mission.arm && <DetailField label="Issuing Arm">{mission.arm}</DetailField>}
+                {mission.assignedTo && (
+                  <DetailField label="Consigned To">{mission.assignedTo}</DetailField>
+                )}
+                {mission.artifact && (
+                  <DetailField label="Objective Artifact" span>
+                    {formatInline(mission.artifact)}
+                  </DetailField>
                 )}
                 {mission.questGiver.name && (
-                  <div className="col-span-2">
-                    <span
-                      className="mb-1 block text-[10px] uppercase"
-                      style={{ color: '#7a6a55', opacity: 0.7, letterSpacing: '0.05em' }}
-                    >
-                      Commissioned By
-                    </span>
-                    <span style={{ color: '#4a3a2a' }}>
-                      <span className="italic">{mission.questGiver.name}</span>
-                      {mission.questGiver.title && (
-                        <span style={{ opacity: 0.7 }}>, {mission.questGiver.title}</span>
-                      )}
-                    </span>
-                  </div>
+                  <DetailField label="Commissioned By" span italic={false}>
+                    <span className="italic">{mission.questGiver.name}</span>
+                    {mission.questGiver.title && (
+                      <span style={{ opacity: 0.7 }}>, {mission.questGiver.title}</span>
+                    )}
+                  </DetailField>
                 )}
               </div>
             </div>
@@ -320,7 +393,7 @@ export function MissionBriefing({
                       className="first-letter:float-left first-letter:mr-1 first-letter:text-2xl first-letter:font-bold first-letter:leading-none"
                       style={{ textIndent: index === 0 ? '0' : '1.5em' }}
                     >
-                      {paragraph}
+                      {formatInline(paragraph)}
                     </p>
                   ))}
                 </div>
@@ -352,7 +425,7 @@ export function MissionBriefing({
                             >
                               {toRoman(index + 1)}.
                             </span>
-                            <span>{obj.text}</span>
+                            <span>{formatInline(obj.text)}</span>
                           </li>
                         ))}
                       </ol>
@@ -371,7 +444,7 @@ export function MissionBriefing({
                         {secondaryObjectives.map((obj) => (
                           <li key={obj.id} className="flex gap-3 pl-8 italic">
                             <span style={{ opacity: 0.5 }}>—</span>
-                            <span>{obj.text}</span>
+                            <span>{formatInline(obj.text)}</span>
                           </li>
                         ))}
                       </ul>
@@ -398,7 +471,7 @@ export function MissionBriefing({
                     {mission.threats.map((threat) => (
                       <li key={threat.id} className="flex items-baseline justify-between px-4">
                         <span>
-                          {threat.name}
+                          {formatInline(threat.name)}
                           {threat.type && (
                             <span className="text-sm italic" style={{ opacity: 0.6 }}>
                               {' '}
@@ -407,7 +480,10 @@ export function MissionBriefing({
                           )}
                         </span>
                         <span className="text-sm" style={{ color: '#5a4a35', opacity: 0.7 }}>
-                          Level {threat.level}
+                          {/* Numeric level gets "Level" prefix; string placeholders
+                              like "—" are shown verbatim since they represent
+                              non-combat hazards without a CR. */}
+                          {typeof threat.level === 'number' ? `Level ${threat.level}` : threat.level}
                         </span>
                       </li>
                     ))}
