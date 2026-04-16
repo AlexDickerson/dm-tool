@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import type { GlobeDeployProgress, GlobePin, GlobePinKind, MissionData } from '@shared/types';
 import { ensureDefaultImage, ensureIconImage, resolvePinIcon, getIconBody } from './globe-icons';
 import { IconPicker } from './IconPicker';
-import { MissionBriefing } from './MissionBriefing';
+import { MissionBriefing } from '../../../player-map/src/MissionBriefing';
 
 const PMTILES_URL = 'pmtiles://https://map.pathfinderwiki.com/golarion.pmtiles';
 const PIN_SOURCE = 'globe-pins';
@@ -349,9 +349,6 @@ export function GlobeViewer() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pinKind, setPinKind] = useState<GlobePinKind>('note');
   const [activeMission, setActiveMission] = useState<MissionData | null>(null);
-  const [activeMissionPin, setActiveMissionPin] = useState<GlobePin | null>(null);
-  const [missionRefreshing, setMissionRefreshing] = useState(false);
-  const [missionLinking, setMissionLinking] = useState(false);
   /** null = idle; otherwise the current deploy stage message shown on the button. */
   const [deployStatus, setDeployStatus] = useState<string | null>(null);
   /** Post-deploy toast — success green or error red, auto-dismisses. */
@@ -529,10 +526,7 @@ export function GlobeViewer() {
 
         if (pin.kind === 'mission') {
           api.globePinGetMission(pin).then((mission) => {
-            if (mission) {
-              setActiveMission(mission);
-              setActiveMissionPin(pin);
-            }
+            if (mission) setActiveMission(mission);
             // Refresh pins so any newly-cached note path is reflected
             api.globePinsList().then(setPins);
           });
@@ -704,41 +698,7 @@ export function GlobeViewer() {
       )}
 
       {activeMission && (
-        <MissionBriefing
-          mission={activeMission}
-          refreshing={missionRefreshing}
-          linking={missionLinking}
-          onClose={() => {
-            setActiveMission(null);
-            setActiveMissionPin(null);
-          }}
-          onRefresh={async () => {
-            if (!activeMissionPin) return;
-            setMissionRefreshing(true);
-            try {
-              const fresh = await api.globePinGetMission(activeMissionPin);
-              if (fresh) setActiveMission(fresh);
-            } finally {
-              setMissionRefreshing(false);
-            }
-          }}
-          onLinkNote={async () => {
-            if (!activeMissionPin) return;
-            setMissionLinking(true);
-            try {
-              const updated = await api.globePinLinkNote(activeMissionPin);
-              if (updated) {
-                setActiveMissionPin(updated);
-                const fresh = await api.globePinGetMission(updated);
-                if (fresh) setActiveMission(fresh);
-                const list = await api.globePinsList();
-                setPins(list);
-              }
-            } finally {
-              setMissionLinking(false);
-            }
-          }}
-        />
+        <MissionBriefing mission={activeMission} onClose={() => setActiveMission(null)} />
       )}
     </div>
   );

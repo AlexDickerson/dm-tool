@@ -402,6 +402,17 @@ export interface GlobePin {
   note: string;
   /** Pin kind: generic note (opens Obsidian on dbl-click) or mission (opens in-universe briefing). */
   kind: GlobePinKind;
+  /** Pre-parsed mission data, present only on mission pins in the exported
+   *  data.json consumed by the player-map. DB-stored pins never carry
+   *  this — missions are re-parsed on demand on the DM side. */
+  mission?: MissionData;
+}
+
+/** Shape of the data.json file the DM tool writes out and the player-map
+ *  consumes as its static data source. */
+export interface ExportData {
+  exportedAt: string;
+  pins: GlobePin[];
 }
 
 // --- Mission briefing data (parsed from Obsidian frontmatter) ----------------

@@ -8,7 +8,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { ensureDefaultImage, ensureIconImage, resolvePinIcon } from './globe-icons';
 import { MissionBriefing } from './MissionBriefing';
-import type { ExportData, GlobePin, MissionData } from './types';
+import type { ExportData, GlobePin, MissionData } from '@shared/types';
 
 // Tile URLs go through the nginx reverse proxy at /map/ to avoid CORS issues
 // (map.pathfinderwiki.com doesn't send Access-Control-Allow-Origin headers).

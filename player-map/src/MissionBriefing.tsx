@@ -2,7 +2,7 @@
 // Stripped from dm-tool's MissionBriefing — no refresh/link/editing controls.
 
 import { Fragment, type ReactNode } from 'react';
-import type { MissionData, MissionStatus, MissionThreatLevel } from './types';
+import type { MissionData, MissionStatus, MissionThreatLevel } from '@shared/types';
 
 const threatDescriptions: Record<MissionThreatLevel, string> = {
   Trivial: 'Minor Concern',

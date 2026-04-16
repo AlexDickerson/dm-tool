@@ -93,17 +93,21 @@ export function registerGlobeHandlers(
   /** Collect every pin and, for mission pins with an Obsidian vault
    *  configured, inline the parsed MissionData (minus dmNotes — players
    *  don't get to see those). Shared by the Export and Deploy flows. */
-  async function buildExportPayload(): Promise<{ exportedAt: string; pins: Record<string, unknown>[] }> {
+  async function buildExportPayload(): Promise<{ exportedAt: string; pins: GlobePin[] }> {
     const pins = listGlobePins();
     const exportPins = await Promise.all(
-      pins.map(async (pin) => {
-        const out: Record<string, unknown> = {
+      pins.map(async (pin): Promise<GlobePin> => {
+        // Strip `note` — the player-map never opens Obsidian files, and the
+        // vault-relative path leaks DM filesystem structure. Replaced with
+        // an empty string to satisfy the shared type.
+        const out: GlobePin = {
           id: pin.id,
           lng: pin.lng,
           lat: pin.lat,
           label: pin.label,
           icon: pin.icon,
           zoom: pin.zoom,
+          note: '',
           kind: pin.kind,
         };
 
@@ -121,8 +125,8 @@ export function registerGlobeHandlers(
             try {
               const raw = await readFile(filePath, 'utf-8');
               const mission = parseMissionNote(raw, pin.label || 'Mission');
-              const { dmNotes: _, ...playerSafe } = mission;
-              out.mission = playerSafe;
+              const { dmNotes: _dmNotes, ...playerSafe } = mission;
+              out.mission = playerSafe as MissionData;
             } catch {
               /* note unreadable — skip mission data */
             }
