@@ -27,3 +27,6 @@ tagger/*.spec
 
 # Auto-Wall binary (downloaded during CI or locally)
 auto-wall-bin/
+
+# Runtime export from the globe Deploy pipeline
+player-map/data.json

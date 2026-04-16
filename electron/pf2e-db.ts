@@ -32,7 +32,7 @@ function migratePf2eDb(): void {
   const cols = db.prepare("SELECT name FROM pragma_table_info('globe_pins')").all() as { name: string }[];
   const has = (name: string) => cols.some((c) => c.name === name);
   if (!has('icon')) db.exec("ALTER TABLE globe_pins ADD COLUMN icon TEXT NOT NULL DEFAULT ''");
-  if (!has('zoom')) db.exec("ALTER TABLE globe_pins ADD COLUMN zoom REAL NOT NULL DEFAULT 2");
+  if (!has('zoom')) db.exec('ALTER TABLE globe_pins ADD COLUMN zoom REAL NOT NULL DEFAULT 2');
   if (!has('note')) db.exec("ALTER TABLE globe_pins ADD COLUMN note TEXT NOT NULL DEFAULT ''");
   if (!has('kind')) db.exec("ALTER TABLE globe_pins ADD COLUMN kind TEXT NOT NULL DEFAULT 'note'");
 }

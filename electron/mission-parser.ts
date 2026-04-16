@@ -200,10 +200,7 @@ function coerceObjectives(v: YamlValue | undefined): MissionObjective[] {
     // Object form
     const obj = item as Record<string, Scalar>;
     const isPrimary =
-      obj.primary === true ||
-      obj.primary === 'true' ||
-      obj.required === true ||
-      obj.required === 'true';
+      obj.primary === true || obj.primary === 'true' || obj.required === true || obj.required === 'true';
     return {
       id: String(idx + 1),
       text: asStr(obj.text),

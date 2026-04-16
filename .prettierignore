@@ -5,3 +5,4 @@ tagger/
 resources/
 .claude/
 package-lock.json
+player-map/data.json

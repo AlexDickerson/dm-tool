@@ -705,15 +705,7 @@ export interface ElectronAPI {
 
 /** Named stages of the deploy pipeline, surfaced to the UI so the button
  *  can label itself ("Building...", "Uploading...", etc). */
-export type GlobeDeployStage =
-  | 'export'
-  | 'write'
-  | 'install'
-  | 'build'
-  | 'mkdir'
-  | 'scp'
-  | 'docker'
-  | 'done';
+export type GlobeDeployStage = 'export' | 'write' | 'install' | 'build' | 'mkdir' | 'scp' | 'docker' | 'done';
 
 export interface GlobeDeployProgress {
   stage: GlobeDeployStage;

@@ -18,7 +18,12 @@ const DEFAULT_PUBLIC_URL = 'http://server.ad:30002';
 function safeFileName(raw: string): string {
   // Strip characters illegal in Windows/macOS filenames and control chars
   // eslint-disable-next-line no-control-regex
-  return raw.replace(/[<>:"/\\|?*\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
+  return (
+    raw
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim() || 'Untitled'
+  );
 }
 
 /** Recursively scan .md files under a directory for one whose YAML
@@ -84,10 +89,7 @@ function stampPinId(raw: string, pinId: string, kind: 'note' | 'mission'): strin
   return `---\n${updated.join('\n')}\n---\n${body.startsWith('\n') ? '' : '\n'}${body}`;
 }
 
-export function registerGlobeHandlers(
-  cfg: DmToolConfig,
-  getMainWindow: () => Electron.BrowserWindow | null,
-): void {
+export function registerGlobeHandlers(cfg: DmToolConfig, getMainWindow: () => Electron.BrowserWindow | null): void {
   const hasPf2eDb = (): boolean => !!cfg.pf2eDbPath;
 
   /** Collect every pin and, for mission pins with an Obsidian vault

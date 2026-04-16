@@ -72,7 +72,11 @@ function DetailField({
 
 function toRoman(num: number): string {
   const romans: [number, string][] = [
-    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I'],
   ];
   let result = '';
   for (const [value, symbol] of romans) {
@@ -90,9 +94,11 @@ function WaxSeal() {
       <div
         className="relative flex items-center justify-center rounded-full"
         style={{
-          width: 64, height: 64,
+          width: 64,
+          height: 64,
           background: '#7a2020',
-          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.4), inset 0 -1px 2px rgba(255,200,200,0.1), 2px 3px 6px rgba(0,0,0,0.3)',
+          boxShadow:
+            'inset 0 2px 4px rgba(0,0,0,0.4), inset 0 -1px 2px rgba(255,200,200,0.1), 2px 3px 6px rgba(0,0,0,0.3)',
         }}
       >
         <div
@@ -113,7 +119,14 @@ function WaxSeal() {
 function WavyDivider() {
   return (
     <svg className="my-6 w-full" style={{ height: 16, opacity: 0.25 }} viewBox="0 0 300 16" preserveAspectRatio="none">
-      <path d="M0,8 Q25,5 50,8 T100,8 T150,8 T200,8 T250,8 T300,8" fill="none" stroke="#5c4020" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="2 4" />
+      <path
+        d="M0,8 Q25,5 50,8 T100,8 T150,8 T200,8 T250,8 T300,8"
+        fill="none"
+        stroke="#5c4020"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeDasharray="2 4"
+      />
     </svg>
   );
 }
@@ -124,7 +137,14 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
       <h2 className="mb-2 text-xs uppercase" style={{ color: '#5c4530', opacity: 0.7, letterSpacing: '0.25em' }}>
         {children}
       </h2>
-      <div className="mx-auto" style={{ width: 96, height: 1, background: 'linear-gradient(90deg, transparent, rgba(139,115,85,0.5), transparent)' }} />
+      <div
+        className="mx-auto"
+        style={{
+          width: 96,
+          height: 1,
+          background: 'linear-gradient(90deg, transparent, rgba(139,115,85,0.5), transparent)',
+        }}
+      />
     </div>
   );
 }
@@ -171,7 +191,8 @@ export function MissionBriefing({ mission, onClose }: Props) {
             className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E")`,
-              opacity: 0.15, mixBlendMode: 'multiply',
+              opacity: 0.15,
+              mixBlendMode: 'multiply',
             }}
           />
 
@@ -195,21 +216,44 @@ export function MissionBriefing({ mission, onClose }: Props) {
           />
 
           {/* Fold lines */}
-          <div className="pointer-events-none absolute left-0 right-0" style={{ top: '33%', height: 1, background: 'linear-gradient(90deg, transparent 5%, rgba(80,50,20,0.08) 50%, transparent 95%)' }} />
-          <div className="pointer-events-none absolute left-0 right-0" style={{ top: '66%', height: 1, background: 'linear-gradient(90deg, transparent 5%, rgba(80,50,20,0.06) 50%, transparent 95%)' }} />
+          <div
+            className="pointer-events-none absolute left-0 right-0"
+            style={{
+              top: '33%',
+              height: 1,
+              background: 'linear-gradient(90deg, transparent 5%, rgba(80,50,20,0.08) 50%, transparent 95%)',
+            }}
+          />
+          <div
+            className="pointer-events-none absolute left-0 right-0"
+            style={{
+              top: '66%',
+              height: 1,
+              background: 'linear-gradient(90deg, transparent 5%, rgba(80,50,20,0.06) 50%, transparent 95%)',
+            }}
+          />
 
           {/* Content */}
           <div className="relative" style={{ padding: '40px 48px' }}>
             {/* Header */}
             <header className="relative mb-8 text-center">
-              <p className="mb-4 text-[10px] uppercase" style={{ color: '#6b5a45', opacity: 0.6, letterSpacing: '0.4em' }}>
+              <p
+                className="mb-4 text-[10px] uppercase"
+                style={{ color: '#6b5a45', opacity: 0.6, letterSpacing: '0.4em' }}
+              >
                 Mission Briefing
               </p>
               <h1 className="mb-3 text-2xl font-semibold tracking-wide" style={{ color: '#3d2e1f' }}>
                 {mission.name}
               </h1>
               <svg className="mx-auto mb-4" style={{ width: 192, height: 8, opacity: 0.35 }} viewBox="0 0 200 8">
-                <path d="M10,5 Q30,3 50,5 T90,4 T130,5 T170,4 T190,5" fill="none" stroke="#5c4020" strokeWidth="1.5" strokeLinecap="round" />
+                <path
+                  d="M10,5 Q30,3 50,5 T90,4 T130,5 T170,4 T190,5"
+                  fill="none"
+                  stroke="#5c4020"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
               </svg>
               <p className="text-sm italic" style={{ color: '#5a4a3a' }}>
                 Threat Assessment:{' '}
@@ -244,20 +288,19 @@ export function MissionBriefing({ mission, onClose }: Props) {
             </header>
 
             {/* Mission details box */}
-            <div className="relative mb-8 p-4" style={{ backgroundColor: 'rgba(100,70,40,0.04)', borderLeft: '2px solid rgba(100,70,40,0.15)' }}>
+            <div
+              className="relative mb-8 p-4"
+              style={{ backgroundColor: 'rgba(100,70,40,0.04)', borderLeft: '2px solid rgba(100,70,40,0.15)' }}
+            >
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {mission.recommendedLevel && (
                   <DetailField label="Experience Required">
                     Adventurers of the {mission.recommendedLevel}th circle
                   </DetailField>
                 )}
-                {mission.location && (
-                  <DetailField label="Theatre of Operations">{mission.location}</DetailField>
-                )}
+                {mission.location && <DetailField label="Theatre of Operations">{mission.location}</DetailField>}
                 {mission.arm && <DetailField label="Issuing Arm">{mission.arm}</DetailField>}
-                {mission.assignedTo && (
-                  <DetailField label="Consigned To">{mission.assignedTo}</DetailField>
-                )}
+                {mission.assignedTo && <DetailField label="Consigned To">{mission.assignedTo}</DetailField>}
                 {mission.artifact && (
                   <DetailField label="Objective Artifact" span>
                     {formatInline(mission.artifact)}
@@ -266,9 +309,7 @@ export function MissionBriefing({ mission, onClose }: Props) {
                 {mission.questGiver.name && (
                   <DetailField label="Commissioned By" span italic={false}>
                     <span className="italic">{mission.questGiver.name}</span>
-                    {mission.questGiver.title && (
-                      <span style={{ opacity: 0.7 }}>, {mission.questGiver.title}</span>
-                    )}
+                    {mission.questGiver.title && <span style={{ opacity: 0.7 }}>, {mission.questGiver.title}</span>}
                   </DetailField>
                 )}
               </div>
@@ -280,7 +321,11 @@ export function MissionBriefing({ mission, onClose }: Props) {
                 <SectionHeader>The Situation</SectionHeader>
                 <div className="space-y-4 leading-relaxed" style={{ color: '#3a2e22', fontSize: 15 }}>
                   {mission.briefing.map((paragraph, index) => (
-                    <p key={index} className="first-letter:float-left first-letter:mr-1 first-letter:text-2xl first-letter:font-bold first-letter:leading-none" style={{ textIndent: index === 0 ? '0' : '1.5em' }}>
+                    <p
+                      key={index}
+                      className="first-letter:float-left first-letter:mr-1 first-letter:text-2xl first-letter:font-bold first-letter:leading-none"
+                      style={{ textIndent: index === 0 ? '0' : '1.5em' }}
+                    >
                       {formatInline(paragraph)}
                     </p>
                   ))}
@@ -297,7 +342,10 @@ export function MissionBriefing({ mission, onClose }: Props) {
                   <SectionHeader>Your Orders</SectionHeader>
                   {primaryObjectives.length > 0 && (
                     <div className="mb-5">
-                      <h3 className="mb-3 text-center text-[10px] uppercase" style={{ color: '#6b5a45', opacity: 0.6, letterSpacing: '0.05em' }}>
+                      <h3
+                        className="mb-3 text-center text-[10px] uppercase"
+                        style={{ color: '#6b5a45', opacity: 0.6, letterSpacing: '0.05em' }}
+                      >
                         Mandated Directives
                       </h3>
                       <ol className="space-y-2" style={{ color: '#3a2e22' }}>
@@ -314,7 +362,10 @@ export function MissionBriefing({ mission, onClose }: Props) {
                   )}
                   {secondaryObjectives.length > 0 && (
                     <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(100,70,40,0.12)' }}>
-                      <h3 className="mb-3 text-center text-[10px] uppercase" style={{ color: '#6b5a45', opacity: 0.6, letterSpacing: '0.05em' }}>
+                      <h3
+                        className="mb-3 text-center text-[10px] uppercase"
+                        style={{ color: '#6b5a45', opacity: 0.6, letterSpacing: '0.05em' }}
+                      >
                         Supplementary Tasks
                       </h3>
                       <ul className="space-y-2" style={{ color: '#4a3e30', opacity: 0.85, fontSize: 15 }}>
@@ -346,7 +397,10 @@ export function MissionBriefing({ mission, onClose }: Props) {
                         <span>
                           {formatInline(threat.name)}
                           {threat.type && (
-                            <span className="text-sm italic" style={{ opacity: 0.6 }}> ({threat.type})</span>
+                            <span className="text-sm italic" style={{ opacity: 0.6 }}>
+                              {' '}
+                              ({threat.type})
+                            </span>
                           )}
                         </span>
                         <span className="text-sm" style={{ color: '#5a4a35', opacity: 0.7 }}>
@@ -376,7 +430,9 @@ export function MissionBriefing({ mission, onClose }: Props) {
                   )}
                   {mission.rewards.items && mission.rewards.items.length > 0 && (
                     <div className="mt-3">
-                      <p className="mb-2" style={{ opacity: 0.6 }}>Additional Provisions:</p>
+                      <p className="mb-2" style={{ opacity: 0.6 }}>
+                        Additional Provisions:
+                      </p>
                       <ul className="space-y-1 italic">
                         {mission.rewards.items.map((item, index) => (
                           <li key={index}>{item}</li>
@@ -396,7 +452,10 @@ export function MissionBriefing({ mission, onClose }: Props) {
               </div>
               <div className="flex flex-col items-center">
                 <WaxSeal />
-                <p className="mt-2 text-[10px] uppercase" style={{ color: '#6b5a45', opacity: 0.5, letterSpacing: '0.05em' }}>
+                <p
+                  className="mt-2 text-[10px] uppercase"
+                  style={{ color: '#6b5a45', opacity: 0.5, letterSpacing: '0.05em' }}
+                >
                   Official Seal
                 </p>
               </div>

@@ -118,15 +118,7 @@ const mapStyle: maplibregl.StyleSpecification = {
       type: 'line',
       filter: ['==', ['get', 'borderType'], 1],
       paint: {
-        'line-color': [
-          'interpolate',
-          ['exponential', 2],
-          ['zoom'],
-          4,
-          colors.regionBorders,
-          5,
-          colors.nationBorders,
-        ],
+        'line-color': ['interpolate', ['exponential', 2], ['zoom'], 4, colors.regionBorders, 5, colors.nationBorders],
         'line-width': ['interpolate', ['exponential', 2], ['zoom'], 4, 3, 5, 2],
       },
       layout: { 'line-cap': 'round' },
@@ -559,9 +551,7 @@ export function GlobeViewer() {
       map.on('mousemove', (e) => {
         const id = dragIdRef.current;
         if (!id) return;
-        const updated = pinsRef.current.map((p) =>
-          p.id === id ? { ...p, lng: e.lngLat.lng, lat: e.lngLat.lat } : p,
-        );
+        const updated = pinsRef.current.map((p) => (p.id === id ? { ...p, lng: e.lngLat.lng, lat: e.lngLat.lat } : p));
         pinsRef.current = updated;
         syncSource(updated);
       });
@@ -697,9 +687,7 @@ export function GlobeViewer() {
         <IconPicker selected={selectedIcon} onSelect={setSelectedIcon} onClose={() => setPickerOpen(false)} />
       )}
 
-      {activeMission && (
-        <MissionBriefing mission={activeMission} onClose={() => setActiveMission(null)} />
-      )}
+      {activeMission && <MissionBriefing mission={activeMission} onClose={() => setActiveMission(null)} />}
     </div>
   );
 }
