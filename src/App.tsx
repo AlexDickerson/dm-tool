@@ -1,5 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { Backpack, BookOpen, Globe, Map, MessageSquare, Package, Search, Skull, Swords, Trophy, Wrench } from 'lucide-react';
+import {
+  Backpack,
+  BookOpen,
+  Globe,
+  Map,
+  MessageSquare,
+  Package,
+  Search,
+  Skull,
+  Swords,
+  Trophy,
+  Wrench,
+} from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
@@ -173,12 +185,7 @@ function MainApp() {
             icon={Package}
             label="Inventory"
           />
-          <NavTab
-            active={activeTab === 'aurus'}
-            onClick={() => setActiveTab('aurus')}
-            icon={Trophy}
-            label="Aurus"
-          />
+          <NavTab active={activeTab === 'aurus'} onClick={() => setActiveTab('aurus')} icon={Trophy} label="Aurus" />
           <NavTab active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={Wrench} label="Tools" />
         </nav>
         {/* Search bar — shared across all tabs */}

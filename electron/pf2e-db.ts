@@ -76,9 +76,9 @@ export function deleteGlobePin(id: string): void {
 // --- Party inventory CRUD ---------------------------------------------------
 
 export function listInventory(): PartyInventoryItem[] {
-  const rows = requireDb()
-    .prepare('SELECT data FROM party_inventory ORDER BY updated_at DESC')
-    .all() as { data: string }[];
+  const rows = requireDb().prepare('SELECT data FROM party_inventory ORDER BY updated_at DESC').all() as {
+    data: string;
+  }[];
   return rows.map((r) => JSON.parse(r.data) as PartyInventoryItem);
 }
 

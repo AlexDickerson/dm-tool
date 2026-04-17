@@ -11,13 +11,7 @@ interface InventorySnapshot {
   updatedAt: string;
 }
 
-const CATEGORY_ORDER: PartyInventoryItem['category'][] = [
-  'consumable',
-  'equipment',
-  'quest',
-  'treasure',
-  'other',
-];
+const CATEGORY_ORDER: PartyInventoryItem['category'][] = ['consumable', 'equipment', 'quest', 'treasure', 'other'];
 
 const CATEGORY_LABELS: Record<PartyInventoryItem['category'], string> = {
   consumable: 'Consumables',
@@ -54,14 +48,8 @@ export function Inventory() {
     return map;
   }, [data]);
 
-  const totalBulk = useMemo(
-    () => (data?.items ?? []).reduce((sum, i) => sum + (i.bulk ?? 0) * i.qty, 0),
-    [data],
-  );
-  const totalValue = useMemo(
-    () => (data?.items ?? []).reduce((sum, i) => sum + (i.valueCp ?? 0) * i.qty, 0),
-    [data],
-  );
+  const totalBulk = useMemo(() => (data?.items ?? []).reduce((sum, i) => sum + (i.bulk ?? 0) * i.qty, 0), [data]);
+  const totalValue = useMemo(() => (data?.items ?? []).reduce((sum, i) => sum + (i.valueCp ?? 0) * i.qty, 0), [data]);
 
   const stale = status === 'disconnected' || (lastUpdated !== null && Date.now() - lastUpdated > 60_000);
 
@@ -169,7 +157,8 @@ export function Inventory() {
 
 function ConnectionIndicator({ status, stale }: { status: string; stale: boolean }) {
   const color = status === 'connected' ? (stale ? '#d19a3a' : '#4ade80') : '#ef4444';
-  const label = status === 'connected' ? (stale ? 'Stale' : 'Live') : status === 'connecting' ? 'Connecting…' : 'Offline';
+  const label =
+    status === 'connected' ? (stale ? 'Stale' : 'Live') : status === 'connecting' ? 'Connecting…' : 'Offline';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9a9a9a' }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, display: 'inline-block' }} />

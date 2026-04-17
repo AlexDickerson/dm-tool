@@ -129,7 +129,8 @@ export function Leaderboard() {
 
 function ConnectionIndicator({ status, stale }: { status: string; stale: boolean }) {
   const color = status === 'connected' ? (stale ? '#d19a3a' : '#4ade80') : '#ef4444';
-  const label = status === 'connected' ? (stale ? 'Stale' : 'Live') : status === 'connecting' ? 'Connecting…' : 'Offline';
+  const label =
+    status === 'connected' ? (stale ? 'Stale' : 'Live') : status === 'connecting' ? 'Connecting…' : 'Offline';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9a9a9a' }}>
       <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, display: 'inline-block' }} />
