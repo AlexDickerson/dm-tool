@@ -348,6 +348,9 @@ export function GlobeViewer() {
   const [deployStatus, setDeployStatus] = useState<string | null>(null);
   /** Post-deploy toast — success green or error red, auto-dismisses. */
   const [deployToast, setDeployToast] = useState<{ ok: boolean; message: string } | null>(null);
+  /** null = not yet checked; true/false = vault configured or not. Used to warn
+   *  the user that pin notes and mission briefings won't work until it's set. */
+  const [vaultConfigured, setVaultConfigured] = useState<boolean | null>(null);
   const dragIdRef = useRef<string | null>(null);
   /** Tracks whether the pin was dragged (mouse moved) vs just clicked in place. */
   const dragMovedRef = useRef(false);
@@ -378,6 +381,17 @@ export function GlobeViewer() {
       .then(setPins)
       .catch((err) => {
         console.error('Failed to load globe pins:', err);
+      });
+  }, []);
+
+  // Check whether the Obsidian vault is configured. Without it, note pins can't
+  // open and mission briefings can't parse frontmatter, so we show a warning.
+  useEffect(() => {
+    api
+      .getConfig()
+      .then((c) => setVaultConfigured(!!c.obsidianVaultPath))
+      .catch((err) => {
+        console.error('Failed to read config:', err);
       });
   }, []);
 
@@ -702,6 +716,18 @@ export function GlobeViewer() {
       >
         {deployStatus ?? 'Deploy'}
       </button>
+
+      {/* Obsidian vault warning — persistent while unset. Pin notes and mission
+          briefings depend on the vault, so without it the globe is view-only. */}
+      {vaultConfigured === false && (
+        <div
+          className="absolute left-1/2 top-3 z-10 flex max-w-xl -translate-x-1/2 items-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/15 px-4 py-2 text-xs text-amber-100 shadow-md backdrop-blur-sm"
+          role="status"
+        >
+          <span aria-hidden>⚠</span>
+          <span>Obsidian vault not configured — note pins and mission briefings won't open. Set it in Settings.</span>
+        </div>
+      )}
 
       {/* Post-deploy toast — green on success, red on failure. */}
       {deployToast && (
