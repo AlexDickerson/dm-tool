@@ -44,14 +44,14 @@ A desktop toolbox for prepping and running tabletop RPG sessions, built with Ele
 
 ## Scripts
 
-| Command                 | Description                                             |
-| ----------------------- | ------------------------------------------------------- |
-| `npm run dev`           | Start the app in dev mode with hot reload               |
-| `npm run build`         | Build for production                                    |
-| `npm run start`         | Preview the production build                            |
-| `npm run typecheck`     | Run TypeScript type checking                            |
-| `npm run test`          | Run the Vitest unit-test suite once                     |
-| `npm run test:watch`    | Run tests in watch mode                                 |
+| Command                 | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `npm run dev`           | Start the app in dev mode with hot reload                |
+| `npm run build`         | Build for production                                     |
+| `npm run start`         | Preview the production build                             |
+| `npm run typecheck`     | Run TypeScript type checking                             |
+| `npm run test`          | Run the Vitest unit-test suite once                      |
+| `npm run test:watch`    | Run tests in watch mode                                  |
 | `npm run test:coverage` | Run tests with v8 coverage (HTML report under coverage/) |
 
 ## Tech Stack

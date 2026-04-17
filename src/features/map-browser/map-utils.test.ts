@@ -90,11 +90,7 @@ describe('findGridCounterpart', () => {
     // the one that shares more tokens (also "day").
     const dayGridless = mkMap({ fileName: 'castle_day.jpg', gridVisible: 'gridless' });
     const nightGridless = mkMap({ fileName: 'castle_night.jpg', gridVisible: 'gridless' });
-    const variants = [
-      mkMap({ fileName: 'castle_day_grid.jpg', gridVisible: 'gridded' }),
-      dayGridless,
-      nightGridless,
-    ];
+    const variants = [mkMap({ fileName: 'castle_day_grid.jpg', gridVisible: 'gridded' }), dayGridless, nightGridless];
     expect(findGridCounterpart({ fileName: 'castle_day_grid.jpg', gridVisible: 'gridded' }, variants)).toBe(
       dayGridless,
     );

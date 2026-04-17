@@ -23,13 +23,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['electron/**/*.ts', 'shared/**/*.ts', 'src/**/*.{ts,tsx}'],
-      exclude: [
-        '**/*.test.{ts,tsx}',
-        'electron/main.ts',
-        'electron/preload.ts',
-        'src/main.tsx',
-        'src/vite-env.d.ts',
-      ],
+      exclude: ['**/*.test.{ts,tsx}', 'electron/main.ts', 'electron/preload.ts', 'src/main.tsx', 'src/vite-env.d.ts'],
     },
   },
 });

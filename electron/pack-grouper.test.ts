@@ -200,10 +200,11 @@ describe('getCachedPackMapping', () => {
 
 describe('mergePacks', () => {
   it('reassigns every file under any source pack to the target pack', () => {
-    parseAndCacheMapping(
-      JSON.stringify({ 'a.jpg': 'Pack A', 'b.jpg': 'Pack B', 'c.jpg': 'Pack C' }),
-      ['a.jpg', 'b.jpg', 'c.jpg'],
-    );
+    parseAndCacheMapping(JSON.stringify({ 'a.jpg': 'Pack A', 'b.jpg': 'Pack B', 'c.jpg': 'Pack C' }), [
+      'a.jpg',
+      'b.jpg',
+      'c.jpg',
+    ]);
     const result = mergePacks(['Pack A', 'Pack B'], 'Pack AB', ['a.jpg', 'b.jpg', 'c.jpg']);
     expect(result).toEqual({
       'a.jpg': 'Pack AB',
@@ -213,10 +214,7 @@ describe('mergePacks', () => {
   });
 
   it('leaves unrelated packs untouched', () => {
-    parseAndCacheMapping(
-      JSON.stringify({ 'a.jpg': 'Alpha', 'b.jpg': 'Beta' }),
-      ['a.jpg', 'b.jpg'],
-    );
+    parseAndCacheMapping(JSON.stringify({ 'a.jpg': 'Alpha', 'b.jpg': 'Beta' }), ['a.jpg', 'b.jpg']);
     const result = mergePacks(['Alpha'], 'AlphaRenamed', ['a.jpg', 'b.jpg']);
     expect(result).toEqual({ 'a.jpg': 'AlphaRenamed', 'b.jpg': 'Beta' });
   });

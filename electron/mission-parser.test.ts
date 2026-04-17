@@ -82,7 +82,13 @@ describe('parseYaml', () => {
 
   it('parses a list of objects (continuation lines indented under the same item)', () => {
     const out = parseYaml(
-      ['objectives:', '  - text: Reach the gate', '    primary: true', '  - text: Rescue survivors', '    primary: false'].join('\n'),
+      [
+        'objectives:',
+        '  - text: Reach the gate',
+        '    primary: true',
+        '  - text: Rescue survivors',
+        '    primary: false',
+      ].join('\n'),
     );
     expect(out.objectives).toEqual([
       { text: 'Reach the gate', primary: true },
@@ -189,7 +195,9 @@ describe('parseMissionNote', () => {
   });
 
   it('parses objectives from the string-list form with "* " prefix for primary', () => {
-    const raw = ['---', 'name: X', 'objectives:', '  - "* Reach the outpost"', '  - Rescue survivors', '---'].join('\n');
+    const raw = ['---', 'name: X', 'objectives:', '  - "* Reach the outpost"', '  - Rescue survivors', '---'].join(
+      '\n',
+    );
     const objs = parseMissionNote(raw, 'fb').objectives;
     expect(objs).toEqual([
       { id: '1', text: 'Reach the outpost', isPrimary: true, completed: false },
