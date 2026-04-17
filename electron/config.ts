@@ -74,9 +74,11 @@ export interface DmToolConfig {
    *  sidecar. The tagger creates this if it doesn't exist. */
   quarantinePath: string;
   /** Absolute path to the map-tagger CLI executable. Optional — if not
-   *  set, the app uses the bundled exe from extraResources (production)
-   *  or tagger/dist/ (dev). */
-  taggerBinPath: string;
+   *  set, the app falls back to the bundled exe (extraResources in
+   *  production, tagger/.venv or tagger/dist in dev). If nothing is
+   *  available, map ingestion is disabled — the rest of the app still
+   *  works off the pre-tagged library. */
+  taggerBinPath?: string;
   /** Absolute path to the Auto-Wall executable. Optional — if missing,
    *  the "Launch Auto-Wall" button is hidden in the detail pane. */
   autoWallBinPath?: string;
@@ -182,19 +184,20 @@ export function loadConfig(): DmToolConfig {
   const quarantinePath = resolve(cfg.quarantinePath);
 
   // taggerBinPath: use config value if provided, otherwise fall back to
-  // the bundled exe (extraResources in production, tagger/dist/ in dev).
-  let taggerBinPath: string;
+  // the bundled exe (extraResources in production, tagger/.venv or
+  // tagger/dist in dev). Missing or non-existent is non-fatal — map
+  // ingestion just gets disabled and the rest of the app stays usable.
+  let taggerBinPath: string | undefined;
   if (cfg.taggerBinPath && typeof cfg.taggerBinPath === 'string' && cfg.taggerBinPath.trim().length > 0) {
-    taggerBinPath = resolve(cfg.taggerBinPath);
-  } else {
-    const bundled = resolveBundledTagger();
-    if (!bundled) {
-      throw new Error(
-        `dm-tool: no taggerBinPath in config.json and no bundled map-tagger.exe found. ` +
-          `Either set taggerBinPath or run "npm run build:tagger" to build the bundled exe.`,
-      );
+    const configured = resolve(cfg.taggerBinPath);
+    if (existsSync(configured)) {
+      taggerBinPath = configured;
+    } else {
+      console.warn(`dm-tool: configured taggerBinPath does not exist: ${configured}. Trying bundled binary.`);
     }
-    taggerBinPath = bundled;
+  }
+  if (!taggerBinPath) {
+    taggerBinPath = resolveBundledTagger();
   }
 
   if (!existsSync(libraryPath)) {
@@ -202,12 +205,6 @@ export function loadConfig(): DmToolConfig {
   }
   if (!existsSync(indexDbPath)) {
     throw new Error(`dm-tool: configured indexDbPath does not exist: ${indexDbPath}. Run the map-tagger ingest first.`);
-  }
-  if (!existsSync(taggerBinPath)) {
-    throw new Error(
-      `dm-tool: configured taggerBinPath does not exist: ${taggerBinPath}. ` +
-        `Run "npm run build:tagger" or set taggerBinPath in config.json.`,
-    );
   }
 
   // booksPath is optional — if set, we resolve and lightly validate, but

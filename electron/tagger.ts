@@ -11,6 +11,7 @@ import { writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
 import type { DmToolConfig } from './config.js';
+import { DEFAULT_MODEL } from './constants.js';
 
 export interface TaggerOptions {
   sourcePath: string;
@@ -49,7 +50,7 @@ index_db   = '${cfg.indexDbPath.replace(/\\/g, '\\\\')}'
 
 [anthropic]
 # API key passed via ANTHROPIC_API_KEY env var, not written to disk.
-model = 'claude-sonnet-4-6'
+model = '${DEFAULT_MODEL}'
 max_output_tokens = 1500
 
 [eagle]
@@ -86,6 +87,9 @@ export function runTagger(
   opts: TaggerOptions,
   onProgress: (p: TaggerProgress) => void,
 ): Promise<TaggerResult> {
+  if (!cfg.taggerBinPath) {
+    throw new Error('Map tagger not configured — set taggerBinPath in config.json or install the bundled binary');
+  }
   if (activeProcess) {
     throw new Error('A tagger process is already running');
   }

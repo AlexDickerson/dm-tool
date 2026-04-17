@@ -58,7 +58,7 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
       indexDbPath: cfg.indexDbPath,
       inboxPath: cfg.inboxPath,
       quarantinePath: cfg.quarantinePath,
-      taggerBinPath: cfg.taggerBinPath,
+      taggerBinPath: cfg.taggerBinPath ?? '',
       booksPath: cfg.booksPath ?? '',
       autoWallBinPath: cfg.autoWallBinPath ?? '',
       pf2eDbPath: cfg.pf2eDbPath ?? '',

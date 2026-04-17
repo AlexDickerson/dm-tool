@@ -1,93 +1,18 @@
 import { ipcMain, shell, dialog, app } from 'electron';
 import { join, relative } from 'node:path';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import type { DmToolConfig } from '../config.js';
 import { listGlobePins, upsertGlobePin, deleteGlobePin } from '../pf2e-db.js';
 import type { GlobePin, GlobeDeployProgress, GlobeDeployResult, MissionData } from '../../shared/types.js';
-import { missionNoteTemplate, parseMissionNote, splitFrontmatter } from '../mission-parser.js';
+import { missionNoteTemplate, parseMissionNote } from '../mission-parser.js';
+import { findNoteByPinId, safeFileName, stampPinId } from '../mission-notes.js';
 
 /** Defaults for config fields the user rarely overrides. */
 const DEFAULT_DEPLOY_HOST = 'alex@server.ad';
 const DEFAULT_DEPLOY_PATH = '~/player-map';
 const DEFAULT_PUBLIC_URL = 'http://server.ad:30002';
-
-/** Sanitise a string for use as a filename — strip characters illegal on
- *  Windows/macOS and collapse whitespace. */
-function safeFileName(raw: string): string {
-  // Strip characters illegal in Windows/macOS filenames and control chars
-  return (
-    raw
-      // eslint-disable-next-line no-control-regex
-      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim() || 'Untitled'
-  );
-}
-
-/** Recursively scan .md files under a directory for one whose YAML
- *  frontmatter contains `pin-id: <id>`. Skips hidden directories (.obsidian,
- *  .git, etc). Returns the absolute path if found, or null. */
-function findNoteByPinId(root: string, pinId: string): string | null {
-  if (!existsSync(root)) return null;
-  const needle = `pin-id: ${pinId}`;
-  const stack: string[] = [root];
-  while (stack.length > 0) {
-    const dir = stack.pop()!;
-    let entries: string[];
-    try {
-      entries = readdirSync(dir);
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      if (entry.startsWith('.')) continue; // skip .obsidian, .git, etc
-      const fp = join(dir, entry);
-      let st;
-      try {
-        st = statSync(fp);
-      } catch {
-        continue;
-      }
-      if (st.isDirectory()) {
-        stack.push(fp);
-      } else if (entry.endsWith('.md')) {
-        try {
-          const head = readFileSync(fp, { encoding: 'utf-8', flag: 'r' }).slice(0, 512);
-          if (head.includes(needle)) return fp;
-        } catch {
-          /* unreadable — skip */
-        }
-      }
-    }
-  }
-  return null;
-}
-
-/** Ensure a note's YAML frontmatter contains `pin-id: <id>`. If the file
- *  has no frontmatter, prepend one. If it already has frontmatter, add or
- *  replace the `pin-id` line. Returns the updated content. */
-function stampPinId(raw: string, pinId: string, kind: 'note' | 'mission'): string {
-  const [fm, body] = splitFrontmatter(raw);
-  if (fm === null) {
-    // No frontmatter — prepend one
-    return `---\npin-id: ${pinId}\nkind: ${kind}\n---\n\n${raw}`;
-  }
-
-  const lines = fm.split(/\r?\n/);
-  let hasPinId = false;
-  const updated = lines.map((line) => {
-    if (/^pin-id\s*:/.test(line)) {
-      hasPinId = true;
-      return `pin-id: ${pinId}`;
-    }
-    return line;
-  });
-  if (!hasPinId) updated.unshift(`pin-id: ${pinId}`);
-
-  return `---\n${updated.join('\n')}\n---\n${body.startsWith('\n') ? '' : '\n'}${body}`;
-}
 
 export function registerGlobeHandlers(cfg: DmToolConfig, getMainWindow: () => Electron.BrowserWindow | null): void {
   const hasPf2eDb = (): boolean => !!cfg.pf2eDbPath;

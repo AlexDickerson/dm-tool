@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { readNumber, writeString } from '@/lib/storage-utils';
 
 interface ResizableSidebarProps {
   /** localStorage key for persisting width. */
@@ -16,29 +17,14 @@ export function ResizableSidebar({
   maxWidth = 400,
   children,
 }: ResizableSidebarProps) {
-  const [width, setWidth] = useState(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const n = Number(saved);
-        if (Number.isFinite(n)) return Math.max(minWidth, Math.min(maxWidth, n));
-      }
-    } catch {
-      // non-fatal
-    }
-    return defaultWidth;
-  });
+  const [width, setWidth] = useState(() => readNumber(storageKey, defaultWidth, minWidth, maxWidth));
 
   const dragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, String(width));
-    } catch {
-      // non-fatal
-    }
+    writeString(storageKey, String(width));
   }, [storageKey, width]);
 
   const onPointerDown = useCallback(

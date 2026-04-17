@@ -13,6 +13,8 @@ export const STORAGE_KEYS = {
   chatModel: 'dmtool.chatModel',
   readerZoom: 'dmtool.reader.zoom',
   readerScrollPrefix: 'dmtool.reader.scroll.',
+  bookTabs: 'dmtool.bookbrowser.tabs',
+  bookActiveTab: 'dmtool.bookbrowser.activeTab',
   toolUrls: 'dmtool.toolUrls',
   toolFavicons: 'dmtool.toolFavicons',
 } as const;
