@@ -743,6 +743,8 @@ export interface PartyInventoryItem {
   /** Link to the Archives of Nethys entry, if known. */
   aonUrl?: string;
   note?: string;
+  /** Who's carrying this — character name, "Party" for shared, or undefined. */
+  carriedBy?: string;
   createdAt: string;
   updatedAt: string;
 }

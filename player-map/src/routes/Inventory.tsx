@@ -119,6 +119,20 @@ export function Inventory() {
                     >
                       <div>
                         <span style={{ fontSize: 15 }}>{item.name}</span>
+                        {item.carriedBy && (
+                          <span
+                            style={{
+                              marginLeft: 10,
+                              fontSize: 11,
+                              color: '#e4a547',
+                              backgroundColor: 'rgba(228, 165, 71, 0.1)',
+                              padding: '1px 6px',
+                              borderRadius: 3,
+                            }}
+                          >
+                            {item.carriedBy}
+                          </span>
+                        )}
                         {item.aonUrl && (
                           <a
                             href={item.aonUrl}

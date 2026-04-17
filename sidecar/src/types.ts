@@ -12,6 +12,7 @@ export interface PartyInventoryItem {
   valueCp?: number;
   aonUrl?: string;
   note?: string;
+  carriedBy?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -22,6 +22,7 @@ function blankItem(): PartyInventoryItem {
     valueCp: undefined,
     aonUrl: undefined,
     note: undefined,
+    carriedBy: undefined,
     createdAt: now,
     updatedAt: now,
   };
@@ -96,6 +97,7 @@ export function InventoryTab() {
               <th style={{ padding: '8px 12px', fontWeight: 500 }}>Name</th>
               <th style={{ padding: '8px 12px', fontWeight: 500, width: 70 }}>Qty</th>
               <th style={{ padding: '8px 12px', fontWeight: 500, width: 120 }}>Category</th>
+              <th style={{ padding: '8px 12px', fontWeight: 500, width: 120 }}>Carried by</th>
               <th style={{ padding: '8px 12px', fontWeight: 500, width: 90 }}>Bulk</th>
               <th style={{ padding: '8px 12px', fontWeight: 500, width: 110 }}>Value</th>
               <th style={{ padding: '8px 12px', width: 60 }} aria-label="Actions"></th>
@@ -104,7 +106,7 @@ export function InventoryTab() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: 'hsl(var(--muted-foreground))' }}>
+                <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: 'hsl(var(--muted-foreground))' }}>
                   No items yet. Click &ldquo;Add item&rdquo; to get started.
                 </td>
               </tr>
@@ -133,6 +135,7 @@ export function InventoryTab() {
                   </td>
                   <td style={{ padding: '8px 12px' }}>{i.qty}</td>
                   <td style={{ padding: '8px 12px' }}>{i.category}</td>
+                  <td style={{ padding: '8px 12px' }}>{i.carriedBy ?? '—'}</td>
                   <td style={{ padding: '8px 12px' }}>{i.bulk ?? '—'}</td>
                   <td style={{ padding: '8px 12px' }}>{i.valueCp ? formatCp(i.valueCp) : '—'}</td>
                   <td style={{ padding: '8px 12px' }}>
@@ -277,6 +280,23 @@ function ItemEditor({
             value={item.aonUrl ?? ''}
             onChange={(e) => onChange({ ...item, aonUrl: e.target.value || undefined })}
           />
+        </div>
+        <div>
+          <Label htmlFor="item-carriedby">Carried by</Label>
+          <Input
+            id="item-carriedby"
+            list="party-members"
+            placeholder="e.g. Sal, Party"
+            value={item.carriedBy ?? ''}
+            onChange={(e) => onChange({ ...item, carriedBy: e.target.value || undefined })}
+          />
+          <datalist id="party-members">
+            <option value="Sal" />
+            <option value="Broccoli" />
+            <option value="Jackstone" />
+            <option value="Lutharion" />
+            <option value="Party" />
+          </datalist>
         </div>
         <div>
           <Label htmlFor="item-note">Note</Label>
