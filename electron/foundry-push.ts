@@ -1,6 +1,8 @@
 // Push a map scene to Foundry VTT via the foundry-mcp Streamable HTTP endpoint.
 //
-// Orchestrates: initialize session → upload image → create scene with walls.
+// Orchestrates: initialize session → upload image → create scene. When uvttData
+// is provided, walls + doors are generated from it; otherwise a plain scene is
+// created sized to the image.
 
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -31,7 +33,12 @@ export interface PushSceneOptions {
   foundryMcpUrl: string;
   name: string;
   imagePath: string;
-  uvttData: UvttData;
+  /** When provided, the scene is created with walls + doors derived from the
+   *  .uvtt. When omitted, a plain scene is created — requires imageDimensions. */
+  uvttData?: UvttData;
+  /** Required when uvttData is not provided. Used as the scene's pixel
+   *  width/height so the background image fills the canvas. */
+  imageDimensions?: { width: number; height: number };
   gridDistance?: number;
   gridUnits?: string;
 }
@@ -154,7 +161,15 @@ async function callTool(
 // Public API
 // ---------------------------------------------------------------------------
 
+/** Default pixels per grid square when synthesizing an empty uvtt blob. Foundry's
+ *  default is 100 px = 5 ft per square, matching our fallback grid settings. */
+const DEFAULT_PIXELS_PER_GRID = 100;
+
 export async function pushSceneToFoundry(opts: PushSceneOptions): Promise<PushSceneResult> {
+  if (!opts.uvttData && !opts.imageDimensions) {
+    throw new Error('pushSceneToFoundry: imageDimensions is required when uvttData is not provided');
+  }
+
   const session = await initSession(opts.foundryMcpUrl);
 
   // 1. Upload the map image
@@ -167,11 +182,27 @@ export async function pushSceneToFoundry(opts: PushSceneOptions): Promise<PushSc
     data: imageData,
   });
 
-  // 2. Create the scene with walls from .uvtt
+  // 2. Create the scene. We always go through `create_scene_from_uvtt` even for
+  //    wall-less maps, because foundry-mcp's plain `create_scene` handler only
+  //    sets `scene.background.src` — which Foundry v14 ignores in favor of
+  //    `levels[0].background.src`. The uvtt handler sets the Level correctly, so
+  //    the image actually renders. When we don't have a real .uvtt file we
+  //    synthesize a minimal blob sized to the image with no walls or portals.
+  const uvttData: UvttData = opts.uvttData ?? {
+    resolution: {
+      pixels_per_grid: DEFAULT_PIXELS_PER_GRID,
+      map_size: {
+        x: opts.imageDimensions!.width / DEFAULT_PIXELS_PER_GRID,
+        y: opts.imageDimensions!.height / DEFAULT_PIXELS_PER_GRID,
+      },
+    },
+    line_of_sight: [],
+  };
+
   const result = await callTool(session, 'create_scene_from_uvtt', {
     name: opts.name,
     img: uploadPath,
-    uvtt: opts.uvttData,
+    uvtt: uvttData,
     gridDistance: opts.gridDistance ?? 5,
     gridUnits: opts.gridUnits ?? 'ft',
     activate: true,

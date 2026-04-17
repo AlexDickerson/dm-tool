@@ -152,9 +152,12 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 interface Props {
   mission: MissionData;
   onClose: () => void;
+  /** Extra action buttons rendered next to Close (used by the DM view for
+   *  Link Note / Refresh controls that the player view doesn't need). */
+  actions?: ReactNode;
 }
 
-export function MissionBriefing({ mission, onClose }: Props) {
+export function MissionBriefing({ mission, onClose, actions }: Props) {
   const primaryObjectives = mission.objectives.filter((o) => o.isPrimary);
   const secondaryObjectives = mission.objectives.filter((o) => !o.isPrimary);
 
@@ -165,8 +168,9 @@ export function MissionBriefing({ mission, onClose }: Props) {
       onClick={onClose}
     >
       <div className="mx-auto w-full max-w-3xl p-8" onClick={(e) => e.stopPropagation()}>
-        {/* Close button */}
-        <div className="mb-3 flex justify-end">
+        {/* Toolbar */}
+        <div className="mb-3 flex justify-end gap-2">
+          {actions}
           <button
             type="button"
             onClick={onClose}
@@ -323,7 +327,11 @@ export function MissionBriefing({ mission, onClose }: Props) {
                   {mission.briefing.map((paragraph, index) => (
                     <p
                       key={index}
-                      className="first-letter:float-left first-letter:mr-1 first-letter:text-2xl first-letter:font-bold first-letter:leading-none"
+                      className={
+                        index === 0
+                          ? 'first-letter:float-left first-letter:mr-1 first-letter:text-2xl first-letter:font-bold first-letter:leading-none'
+                          : undefined
+                      }
                       style={{ textIndent: index === 0 ? '0' : '1.5em' }}
                     >
                       {formatInline(paragraph)}

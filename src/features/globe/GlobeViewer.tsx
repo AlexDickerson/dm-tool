@@ -341,11 +341,20 @@ export function GlobeViewer() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pinKind, setPinKind] = useState<GlobePinKind>('note');
   const [activeMission, setActiveMission] = useState<MissionData | null>(null);
+  /** The pin behind the active mission briefing — needed for Link Note / Refresh. */
+  const [activeMissionPin, setActiveMissionPin] = useState<GlobePin | null>(null);
+  const [missionLinking, setMissionLinking] = useState(false);
   /** null = idle; otherwise the current deploy stage message shown on the button. */
   const [deployStatus, setDeployStatus] = useState<string | null>(null);
   /** Post-deploy toast — success green or error red, auto-dismisses. */
   const [deployToast, setDeployToast] = useState<{ ok: boolean; message: string } | null>(null);
   const dragIdRef = useRef<string | null>(null);
+  /** Tracks whether the pin was dragged (mouse moved) vs just clicked in place. */
+  const dragMovedRef = useRef(false);
+  /** Last click metadata for manual double-click detection — MapLibre's
+   *  dblclick event is unreliable because the mousedown drag handler calls
+   *  preventDefault, suppressing the browser's dblclick generation. */
+  const lastPinClickRef = useRef<{ id: string; time: number } | null>(null);
   const selectedIconRef = useRef(selectedIcon);
   const pinKindRef = useRef(pinKind);
 
@@ -456,6 +465,7 @@ export function GlobeViewer() {
       center: [0, 30],
       zoom: 2,
       attributionControl: {},
+      doubleClickZoom: false,
     });
 
     map.on('style.load', () => {
@@ -508,27 +518,6 @@ export function GlobeViewer() {
         if (!dragIdRef.current) map.getCanvas().style.cursor = '';
       });
 
-      // Double-click on pin: note pins open Obsidian, mission pins open the in-universe briefing
-      map.on('dblclick', PIN_LAYER, (e) => {
-        e.preventDefault(); // prevent zoom on double-click
-        const pinId = e.features?.[0]?.properties?.id as string | undefined;
-        if (!pinId) return;
-        const pin = pinsRef.current.find((p) => p.id === pinId);
-        if (!pin) return;
-
-        if (pin.kind === 'mission') {
-          api.globePinGetMission(pin).then((mission) => {
-            if (mission) setActiveMission(mission);
-            // Refresh pins so any newly-cached note path is reflected
-            api.globePinsList().then(setPins);
-          });
-        } else {
-          api.globePinOpenNote(pin).then(() => {
-            api.globePinsList().then(setPins);
-          });
-        }
-      });
-
       // Right-click: place new pin, or remove existing one
       map.on('contextmenu', (e) => {
         const features = map.queryRenderedFeatures(e.point, { layers: [PIN_LAYER] });
@@ -539,11 +528,14 @@ export function GlobeViewer() {
         }
       });
 
-      // Drag: mousedown on pin starts, mousemove updates, mouseup commits
+      // Drag: mousedown on pin starts, mousemove updates, mouseup commits.
+      // Double-click detection is embedded here because the mousedown
+      // preventDefault suppresses the browser's native dblclick event.
       map.on('mousedown', PIN_LAYER, (e) => {
         if (e.originalEvent.button !== 0) return; // left-click only
         e.preventDefault();
         dragIdRef.current = e.features![0].properties!.id as string;
+        dragMovedRef.current = false;
         map.getCanvas().style.cursor = 'grabbing';
         map.dragPan.disable();
       });
@@ -551,6 +543,7 @@ export function GlobeViewer() {
       map.on('mousemove', (e) => {
         const id = dragIdRef.current;
         if (!id) return;
+        dragMovedRef.current = true;
         const updated = pinsRef.current.map((p) => (p.id === id ? { ...p, lng: e.lngLat.lng, lat: e.lngLat.lat } : p));
         pinsRef.current = updated;
         syncSource(updated);
@@ -562,10 +555,42 @@ export function GlobeViewer() {
         dragIdRef.current = null;
         map.getCanvas().style.cursor = '';
         map.dragPan.enable();
-        const pin = pinsRef.current.find((p) => p.id === id);
-        if (pin) {
-          api.globePinsUpsert(pin);
-          setPins([...pinsRef.current]);
+
+        const wasDrag = dragMovedRef.current;
+        dragMovedRef.current = false;
+
+        if (wasDrag) {
+          // Real drag — persist the new position
+          const pin = pinsRef.current.find((p) => p.id === id);
+          if (pin) {
+            api.globePinsUpsert(pin);
+            setPins([...pinsRef.current]);
+          }
+          lastPinClickRef.current = null;
+          return;
+        }
+
+        // Click-in-place — check for double-click (two clicks on same pin within 400ms)
+        const now = Date.now();
+        const last = lastPinClickRef.current;
+        if (last && last.id === id && now - last.time < 400) {
+          // Double-click: open briefing / Obsidian note
+          lastPinClickRef.current = null;
+          const pin = pinsRef.current.find((p) => p.id === id);
+          if (!pin) return;
+          if (pin.kind === 'mission') {
+            setActiveMissionPin(pin);
+            api.globePinGetMission(pin).then((mission) => {
+              if (mission) setActiveMission(mission);
+              api.globePinsList().then(setPins);
+            });
+          } else {
+            api.globePinOpenNote(pin).then(() => {
+              api.globePinsList().then(setPins);
+            });
+          }
+        } else {
+          lastPinClickRef.current = { id, time: now };
         }
       });
     });
@@ -687,7 +712,44 @@ export function GlobeViewer() {
         <IconPicker selected={selectedIcon} onSelect={setSelectedIcon} onClose={() => setPickerOpen(false)} />
       )}
 
-      {activeMission && <MissionBriefing mission={activeMission} onClose={() => setActiveMission(null)} />}
+      {activeMission && (
+        <MissionBriefing
+          mission={activeMission}
+          onClose={() => {
+            setActiveMission(null);
+            setActiveMissionPin(null);
+          }}
+          actions={
+            activeMissionPin && (
+              <button
+                type="button"
+                disabled={missionLinking}
+                onClick={async () => {
+                  if (!activeMissionPin) return;
+                  setMissionLinking(true);
+                  try {
+                    const updated = await api.globePinLinkNote(activeMissionPin);
+                    if (updated) {
+                      setActiveMissionPin(updated);
+                      const fresh = await api.globePinGetMission(updated);
+                      if (fresh) setActiveMission(fresh);
+                      const list = await api.globePinsList();
+                      setPins(list);
+                    }
+                  } finally {
+                    setMissionLinking(false);
+                  }
+                }}
+                className="rounded-md border border-white/20 bg-white/10 px-3 py-1 text-xs uppercase text-white/80 hover:bg-white/20 disabled:opacity-50"
+                style={{ letterSpacing: '0.1em' }}
+                title="Associate this pin with an existing Obsidian note"
+              >
+                {missionLinking ? 'Linking\u2026' : 'Link Note'}
+              </button>
+            )
+          }
+        />
+      )}
     </div>
   );
 }
