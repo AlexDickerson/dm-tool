@@ -22,6 +22,8 @@ const EMPTY_PATHS: ConfigPaths = {
   pf2eDbPath: '',
   foundryMcpUrl: '',
   obsidianVaultPath: '',
+  sidecarUrl: '',
+  sidecarSecret: '',
 };
 
 export function SetupScreen() {

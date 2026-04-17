@@ -9,6 +9,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AonPreviewData,
+  AurusTeam,
   Book,
   BookClassifyProgress,
   BookScanResult,
@@ -33,6 +34,7 @@ import type {
   MonsterFacets,
   MonsterSearchParams,
   MonsterSummary,
+  PartyInventoryItem,
   PickPathArgs,
   SearchParams,
   TaggerProgress,
@@ -148,6 +150,16 @@ const api: ElectronAPI = {
     ipcRenderer.on('globe-deploy-progress', handler);
     return () => ipcRenderer.removeListener('globe-deploy-progress', handler);
   },
+
+  // Party inventory (live-synced via sidecar)
+  inventoryList: (): Promise<PartyInventoryItem[]> => ipcRenderer.invoke('inventoryList'),
+  inventoryUpsert: (item: PartyInventoryItem): Promise<void> => ipcRenderer.invoke('inventoryUpsert', item),
+  inventoryDelete: (id: string): Promise<void> => ipcRenderer.invoke('inventoryDelete', id),
+
+  // Aurus leaderboard (live-synced via sidecar)
+  aurusList: (): Promise<AurusTeam[]> => ipcRenderer.invoke('aurusList'),
+  aurusUpsert: (team: AurusTeam): Promise<void> => ipcRenderer.invoke('aurusUpsert', team),
+  aurusDelete: (id: string): Promise<void> => ipcRenderer.invoke('aurusDelete', id),
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),

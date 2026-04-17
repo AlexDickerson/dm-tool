@@ -101,6 +101,13 @@ export interface DmToolConfig {
   /** URL players should visit to see the map. Shown in the "Deploy
    *  complete" toast. Optional — defaults to "http://server.ad:30002". */
   playerMapPublicUrl?: string;
+  /** Base URL of the live-sync sidecar (e.g. "http://server.ad:30003"). If
+   *  unset, live features (inventory, aurus leaderboard) are local-only. */
+  sidecarUrl?: string;
+  /** Shared secret for authenticating DM writes to the sidecar. Stored in
+   *  config.json as a plain string — it's already on the DM's personal
+   *  machine and the secret only authorizes writes to their own server. */
+  sidecarSecret?: string;
 }
 
 /** The config file is looked up in this order:
@@ -261,6 +268,15 @@ export function loadConfig(): DmToolConfig {
       ? cfg.playerMapPublicUrl.trim()
       : undefined;
 
+  const sidecarUrl =
+    cfg.sidecarUrl && typeof cfg.sidecarUrl === 'string' && cfg.sidecarUrl.trim().length > 0
+      ? cfg.sidecarUrl.trim().replace(/\/+$/, '')
+      : undefined;
+  const sidecarSecret =
+    cfg.sidecarSecret && typeof cfg.sidecarSecret === 'string' && cfg.sidecarSecret.trim().length > 0
+      ? cfg.sidecarSecret.trim()
+      : undefined;
+
   return {
     libraryPath,
     indexDbPath,
@@ -275,5 +291,7 @@ export function loadConfig(): DmToolConfig {
     playerMapDeployHost,
     playerMapDeployPath,
     playerMapPublicUrl,
+    sidecarUrl,
+    sidecarSecret,
   };
 }
