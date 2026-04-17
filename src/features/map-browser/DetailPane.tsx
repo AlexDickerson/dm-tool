@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, ExternalLink, Grid3x3, X } from 'lucide-react';
+import { Box, ExternalLink, Globe, Grid3x3, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { api } from '@/lib/api';
@@ -47,15 +47,47 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
     height: number;
   } | null>(null);
 
+  // Push-to-Foundry state. The button lives on the image overlay so it's
+  // reachable from any map, regardless of whether .uvtt walls exist.
+  const [foundryAvailable, setFoundryAvailable] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState<{
+    sceneName: string;
+    wallsCreated: number;
+    doorsCreated: number;
+  } | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getConfig().then((c) => setFoundryAvailable(!!c.foundryMcpUrl));
+  }, []);
+
   useEffect(() => {
     setShowWalls(false);
     setWallData(null);
+    setPushResult(null);
+    setPushError(null);
     if (fileName) {
       api.autoWallHasUvtt(fileName).then(setHasUvtt);
     } else {
       setHasUvtt(false);
     }
   }, [fileName]);
+
+  const handlePushScene = async () => {
+    if (!fileName || pushing) return;
+    setPushing(true);
+    setPushResult(null);
+    setPushError(null);
+    try {
+      const result = await api.pushToFoundry(fileName);
+      setPushResult(result);
+    } catch (e) {
+      setPushError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPushing(false);
+    }
+  };
 
   useEffect(() => {
     setAdditionalHooks(detail?.additionalEncounterHooks ?? []);
@@ -213,17 +245,47 @@ export function DetailPane({ fileName, variants, onSelectVariant, onClose, anthr
                 >
                   {detail.widthPx}×{detail.heightPx}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => openInExplorer(detail.fileName)}
-                  className="flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-xs transition-colors hover:bg-black/85"
-                  style={{ position: 'absolute', right: 8, bottom: 8 }}
-                  title="Show in folder"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  Show in folder
-                </button>
+                <div className="flex items-center gap-1.5" style={{ position: 'absolute', right: 8, bottom: 8 }}>
+                  {foundryAvailable && (
+                    <button
+                      type="button"
+                      onClick={handlePushScene}
+                      disabled={pushing}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium text-white shadow-xs transition-colors',
+                        pushing ? 'bg-primary/60' : 'bg-primary/85 hover:bg-primary',
+                      )}
+                      title={hasUvtt ? 'Create scene in Foundry with walls' : 'Create scene in Foundry'}
+                    >
+                      {pushing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
+                      {pushing ? 'Creating…' : 'Create scene'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => openInExplorer(detail.fileName)}
+                    className="flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-medium text-white shadow-xs transition-colors hover:bg-black/85"
+                    title="Show in folder"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Show in folder
+                  </button>
+                </div>
               </div>
+              {(pushResult || pushError) && (
+                <div className="-mt-2 text-xs">
+                  {pushResult && (
+                    <span className="text-green-400">
+                      Created &quot;{pushResult.sceneName}&quot; in Foundry
+                      {pushResult.wallsCreated > 0 &&
+                        ` — ${pushResult.wallsCreated} walls${
+                          pushResult.doorsCreated > 0 ? `, ${pushResult.doorsCreated} doors` : ''
+                        }`}
+                    </span>
+                  )}
+                  {pushError && <span className="text-destructive">Push failed: {pushError}</span>}
+                </div>
+              )}
 
               <AutoWallPanel
                 fileName={fileName}

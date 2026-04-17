@@ -326,6 +326,23 @@ export function SettingsDialog({
                         onChange={setPath('obsidianVaultPath')}
                         mode="directory"
                       />
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">
+                          Foundry MCP URL<span className="text-muted-foreground"> (optional)</span>
+                        </Label>
+                        <Input
+                          type="url"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="http://localhost:8765"
+                          value={configPaths.foundryMcpUrl}
+                          onChange={(e) => setPath('foundryMcpUrl')(e.target.value)}
+                          className="text-xs"
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          URL of your foundry-mcp server. Enables &quot;Push to Foundry&quot; on maps with walls.
+                        </p>
+                      </div>
                     </div>
                   </div>
 

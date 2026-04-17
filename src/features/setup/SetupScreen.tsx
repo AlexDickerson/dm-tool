@@ -4,6 +4,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { PathField } from '../../components/PathField';
 import type { ConfigPaths } from '../../../shared/types';
 
@@ -145,6 +147,23 @@ export function SetupScreen() {
                 mode="file"
                 filters={[{ name: 'SQLite', extensions: ['sqlite', 'sqlite3', 'db'] }]}
               />
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">
+                  Foundry MCP URL<span className="text-muted-foreground"> (optional)</span>
+                </Label>
+                <Input
+                  type="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="http://localhost:8765"
+                  value={paths.foundryMcpUrl}
+                  onChange={(e) => set('foundryMcpUrl')(e.target.value)}
+                  className="text-xs"
+                />
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  URL of your foundry-mcp server. Enables &quot;Push to Foundry&quot; on maps with walls.
+                </p>
+              </div>
             </div>
           </div>
 
