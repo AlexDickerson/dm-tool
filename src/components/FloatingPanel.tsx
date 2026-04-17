@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { readNumber, writeString } from '@/lib/storage-utils';
 
 interface DetailOverlayProps {
   children: React.ReactNode;
@@ -35,26 +36,11 @@ export function DetailOverlay({
   const onClosedRef = useRef(onClosed);
   onClosedRef.current = onClosed;
 
-  const [width, setWidth] = useState(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const n = Number(saved);
-        if (Number.isFinite(n)) return Math.max(minWidth, Math.min(maxWidth, n));
-      }
-    } catch {
-      // non-fatal
-    }
-    return defaultWidth;
-  });
+  const [width, setWidth] = useState(() => readNumber(storageKey, defaultWidth, minWidth, maxWidth));
 
   // Persist width
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, String(width));
-    } catch {
-      // non-fatal
-    }
+    writeString(storageKey, String(width));
   }, [storageKey, width]);
 
   // Close animation

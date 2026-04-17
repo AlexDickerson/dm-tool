@@ -6,6 +6,8 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { pdfjsLib } from '@/lib/pdfjs';
+import { STORAGE_KEYS } from '@/lib/constants';
+import { readNumber, readString, writeString } from '@/lib/storage-utils';
 import { extractCover } from './useBooks';
 import { partSubtitle, type ApGroup } from './ap-merge';
 import type { PDFDocumentProxy } from 'pdfjs-dist/types/src/display/api';
@@ -90,52 +92,32 @@ const SEPARATOR_HEIGHT = 48;
 // localStorage helpers for reader preferences
 // ---------------------------------------------------------------------------
 
-const ZOOM_STORAGE_KEY = 'dmtool.reader.zoom';
-const SCROLL_PREFIX = 'dmtool.reader.scroll.';
-
 function loadZoom(): ZoomPreset {
-  try {
-    const v = localStorage.getItem(ZOOM_STORAGE_KEY);
-    if (v && ZOOM_PRESETS.some((p) => p.value === v)) return v as ZoomPreset;
-  } catch {
-    /* ignore */
-  }
+  const v = readString(STORAGE_KEYS.readerZoom);
+  if (v && ZOOM_PRESETS.some((p) => p.value === v)) return v as ZoomPreset;
   return 'fit-width';
 }
 
 function saveZoom(z: ZoomPreset) {
-  try {
-    localStorage.setItem(ZOOM_STORAGE_KEY, z);
-  } catch {
-    /* ignore */
-  }
+  writeString(STORAGE_KEYS.readerZoom, z);
 }
 
 /** Stable key for scroll position: single book uses the bookId, merged
  *  APs use "ap-<subcategory>". */
 function scrollKey(bookId?: number, apGroup?: ApGroup): string | null {
-  if (apGroup) return `${SCROLL_PREFIX}ap-${apGroup.subcategory}`;
-  if (bookId != null) return `${SCROLL_PREFIX}${bookId}`;
+  if (apGroup) return `${STORAGE_KEYS.readerScrollPrefix}ap-${apGroup.subcategory}`;
+  if (bookId != null) return `${STORAGE_KEYS.readerScrollPrefix}${bookId}`;
   return null;
 }
 
 function loadScroll(key: string | null): number {
   if (!key) return 0;
-  try {
-    const v = localStorage.getItem(key);
-    return v ? Number(v) || 0 : 0;
-  } catch {
-    return 0;
-  }
+  return readNumber(key, 0);
 }
 
 function saveScroll(key: string | null, top: number) {
   if (!key) return;
-  try {
-    localStorage.setItem(key, String(Math.round(top)));
-  } catch {
-    /* ignore */
-  }
+  writeString(key, String(Math.round(top)));
 }
 
 // ---------------------------------------------------------------------------

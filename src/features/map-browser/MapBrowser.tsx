@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, Info, Layers, Merge, Plus, Rows, X } from 'lucide-react';
@@ -9,6 +9,7 @@ import { ThumbnailGrid, type ThumbnailItem } from './ThumbnailGrid';
 import { DetailPane } from './DetailPane';
 import { TaggerDialog } from './TaggerDialog';
 import { useFacets, useMapSearch, usePackMapping } from './useMaps';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { MapSummary, SearchParams } from '@shared/types';
 import { groupByStem } from '@shared/map-stem';
@@ -63,8 +64,14 @@ export function MapBrowser({
   const { data: maps, loading, error, refresh: refreshMaps } = useMapSearch(searchParams);
   const { data: facets } = useFacets();
 
-  // Tagger dialog state.
+  // Tagger dialog state. Hide the Add Maps UI entirely when the binary
+  // isn't configured — the rest of the browser still works against the
+  // pre-tagged library.
   const [taggerOpen, setTaggerOpen] = useState(false);
+  const [taggerAvailable, setTaggerAvailable] = useState(false);
+  useEffect(() => {
+    api.taggerAvailable().then(setTaggerAvailable);
+  }, []);
   const handleIngestComplete = useCallback(() => {
     refreshMaps();
   }, [refreshMaps]);
@@ -238,17 +245,19 @@ export function MapBrowser({
                 {mergeMode ? 'Cancel merge' : 'Merge packs'}
               </Button>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setTaggerOpen(true)}
-              className="gap-1.5 whitespace-nowrap"
-              title="Tag and import new battlemaps into the library"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Maps
-            </Button>
+            {taggerAvailable && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setTaggerOpen(true)}
+                className="gap-1.5 whitespace-nowrap"
+                title="Tag and import new battlemaps into the library"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Maps
+              </Button>
+            )}
             {loading && <span className="text-xs text-muted-foreground">Searching…</span>}
             {!loading && maps && (
               <span
@@ -326,12 +335,14 @@ export function MapBrowser({
         </div>
       </div>
 
-      <TaggerDialog
-        open={taggerOpen}
-        onOpenChange={setTaggerOpen}
-        anthropicApiKey={anthropicApiKey}
-        onIngestComplete={handleIngestComplete}
-      />
+      {taggerAvailable && (
+        <TaggerDialog
+          open={taggerOpen}
+          onOpenChange={setTaggerOpen}
+          anthropicApiKey={anthropicApiKey}
+          onIngestComplete={handleIngestComplete}
+        />
+      )}
     </div>
   );
 }

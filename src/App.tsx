@@ -24,26 +24,7 @@ import {
   type ThemeId,
   type ToolEntry,
 } from './lib/constants';
-
-function loadString(key: string): string {
-  try {
-    return localStorage.getItem(key) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function loadNumber(key: string, fallback: number, min: number, max: number): number {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return fallback;
-    return Math.max(min, Math.min(max, n));
-  } catch {
-    return fallback;
-  }
-}
+import { readJson, readNumber, readString, writeJson, writeString } from './lib/storage-utils';
 
 type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items' | 'tools' | 'globe';
 
@@ -66,33 +47,21 @@ function MainApp() {
   // knows to re-fetch. Passed as a prop — MapBrowser watches it.
   const [packMappingVersion, setPackMappingVersion] = useState(0);
   const [uiScale, setUiScale] = useState<number>(() =>
-    loadNumber(STORAGE_KEYS.uiScale, UI_SCALE.default, UI_SCALE.min, UI_SCALE.max),
+    readNumber(STORAGE_KEYS.uiScale, UI_SCALE.default, UI_SCALE.min, UI_SCALE.max),
   );
   const [thumbScale, setThumbScale] = useState<number>(() =>
-    loadNumber(STORAGE_KEYS.thumbScale, THUMB_SCALE.default, THUMB_SCALE.min, THUMB_SCALE.max),
+    readNumber(STORAGE_KEYS.thumbScale, THUMB_SCALE.default, THUMB_SCALE.min, THUMB_SCALE.max),
   );
   const [anthropicApiKey, setAnthropicApiKey] = useState<string>('');
-  const [chatModel, setChatModel] = useState<string>(() => loadString(STORAGE_KEYS.chatModel) || DEFAULT_CHAT_MODEL);
+  const [chatModel, setChatModel] = useState<string>(() => readString(STORAGE_KEYS.chatModel) || DEFAULT_CHAT_MODEL);
   const [fontFamily, setFontFamily] = useState<FontFamily>(
-    () => (loadString(STORAGE_KEYS.fontFamily) as FontFamily) || 'sans-serif',
+    () => (readString(STORAGE_KEYS.fontFamily) as FontFamily | null) || 'sans-serif',
   );
-  const [theme, setTheme] = useState<ThemeId>(() => (loadString(STORAGE_KEYS.theme) as ThemeId) || THEME_DEFAULT);
-  const [toolUrls, setToolUrls] = useState<ToolEntry[]>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.toolUrls);
-      if (raw) return JSON.parse(raw) as ToolEntry[];
-    } catch {
-      /* fall through */
-    }
-    return DEFAULT_TOOLS;
-  });
-  const [toolFavicons, setToolFavicons] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(STORAGE_KEYS.toolFavicons) === 'true';
-    } catch {
-      return false;
-    }
-  });
+  const [theme, setTheme] = useState<ThemeId>(
+    () => (readString(STORAGE_KEYS.theme) as ThemeId | null) || THEME_DEFAULT,
+  );
+  const [toolUrls, setToolUrls] = useState<ToolEntry[]>(() => readJson(STORAGE_KEYS.toolUrls, DEFAULT_TOOLS));
+  const [toolFavicons, setToolFavicons] = useState<boolean>(() => readString(STORAGE_KEYS.toolFavicons) === 'true');
   const [activeToolId, setActiveToolId] = useState(toolUrls[0]?.id ?? '');
   const [chatOpen, setChatOpen] = useState(false);
   const [keywords, setKeywords] = useState('');
@@ -109,11 +78,7 @@ function MainApp() {
   // mount (so a saved preference is restored) and on every scale change.
   useEffect(() => {
     document.documentElement.style.fontSize = `${uiScale}px`;
-    try {
-      localStorage.setItem(STORAGE_KEYS.uiScale, String(uiScale));
-    } catch {
-      // Storage may be unavailable in some embedded contexts; non-fatal.
-    }
+    writeString(STORAGE_KEYS.uiScale, String(uiScale));
     // The native min/max/close buttons live outside the DOM, so we have
     // to push their height through IPC. Header is HEADER_REMS rem tall,
     // so the pixel height equals uiScale * HEADER_REMS.
@@ -127,11 +92,7 @@ function MainApp() {
   // and recomputes column count + virtualizer measurements when it
   // changes.
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.thumbScale, String(thumbScale));
-    } catch {
-      // non-fatal
-    }
+    writeString(STORAGE_KEYS.thumbScale, String(thumbScale));
   }, [thumbScale]);
 
   // Persist API key via secure storage (OS keychain-backed).
@@ -150,20 +111,12 @@ function MainApp() {
   }, [anthropicApiKey]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.chatModel, chatModel);
-    } catch {
-      // non-fatal
-    }
+    writeString(STORAGE_KEYS.chatModel, chatModel);
   }, [chatModel]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--font-body', FONT_STACKS[fontFamily]);
-    try {
-      localStorage.setItem(STORAGE_KEYS.fontFamily, fontFamily);
-    } catch {
-      // non-fatal
-    }
+    writeString(STORAGE_KEYS.fontFamily, fontFamily);
   }, [fontFamily]);
 
   useEffect(() => {
@@ -172,27 +125,15 @@ function MainApp() {
     } else {
       document.documentElement.setAttribute('data-theme', theme);
     }
-    try {
-      localStorage.setItem(STORAGE_KEYS.theme, theme);
-    } catch {
-      // non-fatal
-    }
+    writeString(STORAGE_KEYS.theme, theme);
   }, [theme]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.toolUrls, JSON.stringify(toolUrls));
-    } catch {
-      /* non-fatal */
-    }
+    writeJson(STORAGE_KEYS.toolUrls, toolUrls);
   }, [toolUrls]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.toolFavicons, String(toolFavicons));
-    } catch {
-      /* non-fatal */
-    }
+    writeString(STORAGE_KEYS.toolFavicons, String(toolFavicons));
   }, [toolFavicons]);
 
   return (

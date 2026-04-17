@@ -4,6 +4,10 @@ import type { TaggerRunArgs, TaggerResult } from '../../shared/types.js';
 import { runTagger, cancelTagger, isTaggerRunning } from '../tagger.js';
 
 export function registerTaggerHandlers(cfg: DmToolConfig, getMainWindow: () => Electron.BrowserWindow | null): void {
+  ipcMain.handle('taggerAvailable', (): boolean => {
+    return !!cfg.taggerBinPath;
+  });
+
   ipcMain.handle('taggerPickSource', async (): Promise<string | null> => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: 'Select folder containing new maps',
@@ -21,10 +25,12 @@ export function registerTaggerHandlers(cfg: DmToolConfig, getMainWindow: () => E
   };
 
   ipcMain.handle('taggerPreview', async (_e, args: TaggerRunArgs): Promise<TaggerResult> => {
+    if (!cfg.taggerBinPath) throw new Error('Map tagger not configured');
     return runTagger(cfg, { ...args, preview: true }, sendTaggerProgress);
   });
 
   ipcMain.handle('taggerIngest', async (_e, args: TaggerRunArgs): Promise<TaggerResult> => {
+    if (!cfg.taggerBinPath) throw new Error('Map tagger not configured');
     return runTagger(cfg, { ...args, preview: false }, sendTaggerProgress);
   });
 

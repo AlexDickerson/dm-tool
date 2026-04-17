@@ -7,6 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { STORAGE_KEYS } from '@/lib/constants';
+import { readJson, readString, writeJson, writeString } from '@/lib/storage-utils';
 import { useBackgroundIngest, useBookClassify, useBookList, useBookScan } from './useBooks';
 import { BookReader } from './BookReader';
 import { groupAdventurePaths, apTotalPages, type ApGroup } from './ap-merge';
@@ -31,27 +33,20 @@ type PersistedTab =
   | { id: string; kind: 'book'; bookId: number; title: string }
   | { id: string; kind: 'ap'; subcategory: string; title: string };
 
-const TAB_STORAGE_KEY = 'dmtool.bookbrowser.tabs';
-const ACTIVE_TAB_STORAGE_KEY = 'dmtool.bookbrowser.activeTab';
-
 function persistTabs(tabs: TabDef[], activeTabId: string) {
   const serializable: PersistedTab[] = tabs.map((t) => {
     if (t.kind === 'ap') return { id: t.id, kind: 'ap', subcategory: t.group.subcategory, title: t.title };
     return t as PersistedTab;
   });
-  localStorage.setItem(TAB_STORAGE_KEY, JSON.stringify(serializable));
-  localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTabId);
+  writeJson(STORAGE_KEYS.bookTabs, serializable);
+  writeString(STORAGE_KEYS.bookActiveTab, activeTabId);
 }
 
 function loadPersistedTabs(): { tabs: PersistedTab[]; activeTabId: string } | null {
-  try {
-    const raw = localStorage.getItem(TAB_STORAGE_KEY);
-    const active = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-    if (!raw) return null;
-    return { tabs: JSON.parse(raw), activeTabId: active ?? 'browser' };
-  } catch {
-    return null;
-  }
+  const tabs = readJson<PersistedTab[] | null>(STORAGE_KEYS.bookTabs, null);
+  if (!tabs) return null;
+  const active = readString(STORAGE_KEYS.bookActiveTab) ?? 'browser';
+  return { tabs, activeTabId: active };
 }
 
 // Use AI-derived classification when available, fall back to folder-derived.
@@ -879,7 +874,10 @@ function BookCard({
       api
         .booksGetCoverUrl(book.id)
         .then(setCoverUrl)
-        .catch(() => {});
+        .catch((err) => {
+          console.error(`Failed to load cover for book ${book.id}:`, err);
+          setCoverError(true);
+        });
     }
   }, [book.id, book.ingested]);
 
@@ -918,7 +916,10 @@ function ApCard({ group, onClick }: { group: ApGroup; onClick: () => void }) {
       api
         .booksGetCoverUrl(coverBook.id)
         .then(setCoverUrl)
-        .catch(() => {});
+        .catch((err) => {
+          console.error(`Failed to load cover for book ${coverBook.id}:`, err);
+          setCoverError(true);
+        });
     }
   }, [coverBook?.id, coverBook?.ingested]);
 

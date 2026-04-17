@@ -578,6 +578,10 @@ export interface ElectronAPI {
   // Map tagger (ingest new maps)
   // -----------------------------------------------------------------------
 
+  /** Whether the map-tagger binary is configured and available. If false,
+   *  the Add Maps UI should be hidden — the rest of the app still works
+   *  against the pre-tagged library. */
+  taggerAvailable(): Promise<boolean>;
   /** Open a folder picker and return the selected path, or null if
    *  cancelled. */
   taggerPickSource(): Promise<string | null>;

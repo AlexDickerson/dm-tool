@@ -373,7 +373,12 @@ export function GlobeViewer() {
 
   // Load pins from the database on mount.
   useEffect(() => {
-    api.globePinsList().then(setPins);
+    api
+      .globePinsList()
+      .then(setPins)
+      .catch((err) => {
+        console.error('Failed to load globe pins:', err);
+      });
   }, []);
 
   // Stream deploy progress into the button label while a deploy is running.
@@ -417,7 +422,9 @@ export function GlobeViewer() {
 
   const removePin = useCallback(
     (id: string) => {
-      api.globePinsDelete(id);
+      api.globePinsDelete(id).catch((err) => {
+        console.error(`Failed to delete pin ${id}:`, err);
+      });
       setPins((prev) => {
         const next = prev.filter((p) => p.id !== id);
         syncSource(next);
@@ -440,7 +447,9 @@ export function GlobeViewer() {
         note: '',
         kind: pinKindRef.current,
       };
-      api.globePinsUpsert(pin);
+      api.globePinsUpsert(pin).catch((err) => {
+        console.error(`Failed to add pin ${pin.id}:`, err);
+      });
       setPins((prev) => {
         const next = [...prev, pin];
         syncSource(next);
@@ -563,7 +572,9 @@ export function GlobeViewer() {
           // Real drag — persist the new position
           const pin = pinsRef.current.find((p) => p.id === id);
           if (pin) {
-            api.globePinsUpsert(pin);
+            api.globePinsUpsert(pin).catch((err) => {
+              console.error(`Failed to persist pin drag for ${pin.id}:`, err);
+            });
             setPins([...pinsRef.current]);
           }
           lastPinClickRef.current = null;
@@ -580,14 +591,24 @@ export function GlobeViewer() {
           if (!pin) return;
           if (pin.kind === 'mission') {
             setActiveMissionPin(pin);
-            api.globePinGetMission(pin).then((mission) => {
-              if (mission) setActiveMission(mission);
-              api.globePinsList().then(setPins);
-            });
+            api
+              .globePinGetMission(pin)
+              .then((mission) => {
+                if (mission) setActiveMission(mission);
+                return api.globePinsList();
+              })
+              .then(setPins)
+              .catch((err) => {
+                console.error(`Failed to load mission for pin ${pin.id}:`, err);
+              });
           } else {
-            api.globePinOpenNote(pin).then(() => {
-              api.globePinsList().then(setPins);
-            });
+            api
+              .globePinOpenNote(pin)
+              .then(() => api.globePinsList())
+              .then(setPins)
+              .catch((err) => {
+                console.error(`Failed to open note for pin ${pin.id}:`, err);
+              });
           }
         } else {
           lastPinClickRef.current = { id, time: now };

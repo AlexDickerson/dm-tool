@@ -101,6 +101,7 @@ const api: ElectronAPI = {
   },
 
   // Map tagger
+  taggerAvailable: (): Promise<boolean> => ipcRenderer.invoke('taggerAvailable'),
   taggerPickSource: (): Promise<string | null> => ipcRenderer.invoke('taggerPickSource'),
   taggerPreview: (args: TaggerRunArgs): Promise<TaggerResult> => ipcRenderer.invoke('taggerPreview', args),
   taggerIngest: (args: TaggerRunArgs): Promise<TaggerResult> => ipcRenderer.invoke('taggerIngest', args),
