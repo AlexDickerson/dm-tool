@@ -64,6 +64,8 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
       pf2eDbPath: cfg.pf2eDbPath ?? '',
       foundryMcpUrl: cfg.foundryMcpUrl ?? '',
       obsidianVaultPath: cfg.obsidianVaultPath ?? '',
+      sidecarUrl: cfg.sidecarUrl ?? '',
+      sidecarSecret: cfg.sidecarSecret ?? '',
     }),
   );
 
@@ -98,6 +100,8 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
     if (paths.pf2eDbPath?.trim()) config.pf2eDbPath = paths.pf2eDbPath;
     if (paths.foundryMcpUrl?.trim()) config.foundryMcpUrl = paths.foundryMcpUrl;
     if (paths.obsidianVaultPath?.trim()) config.obsidianVaultPath = paths.obsidianVaultPath;
+    if (paths.sidecarUrl?.trim()) config.sidecarUrl = paths.sidecarUrl;
+    if (paths.sidecarSecret?.trim()) config.sidecarSecret = paths.sidecarSecret;
 
     const outPath = resolveConfigPath();
     await writeFile(outPath, JSON.stringify(config, null, 2), 'utf-8');

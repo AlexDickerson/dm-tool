@@ -352,6 +352,13 @@ export interface ConfigPaths {
   pf2eDbPath: string;
   foundryMcpUrl: string;
   obsidianVaultPath: string;
+  /** Base URL of the sidecar live-sync service (e.g. "http://server.ad:30003"
+   *  or via nginx: "http://server.ad:30002"). Empty = live features disabled. */
+  sidecarUrl: string;
+  /** Shared secret for DM writes to the sidecar. Stored via safeStorage rather
+   *  than in config.json since it's a credential. Empty = live features
+   *  disabled. */
+  sidecarSecret: string;
 }
 
 export interface PickPathArgs {
@@ -703,6 +710,61 @@ export interface ElectronAPI {
   globeDeployPlayer(): Promise<GlobeDeployResult>;
   /** Subscribe to deploy progress events. Returns an unsubscribe fn. */
   onGlobeDeployProgress(callback: (p: GlobeDeployProgress) => void): () => void;
+
+  // -----------------------------------------------------------------------
+  // Party inventory (live-synced via sidecar)
+  // -----------------------------------------------------------------------
+
+  inventoryList(): Promise<PartyInventoryItem[]>;
+  inventoryUpsert(item: PartyInventoryItem): Promise<void>;
+  inventoryDelete(id: string): Promise<void>;
+
+  // -----------------------------------------------------------------------
+  // Aurus leaderboard (live-synced via sidecar)
+  // -----------------------------------------------------------------------
+
+  aurusList(): Promise<AurusTeam[]>;
+  aurusUpsert(team: AurusTeam): Promise<void>;
+  aurusDelete(id: string): Promise<void>;
+}
+
+// --- Party inventory ---------------------------------------------------------
+
+export type PartyInventoryCategory = 'consumable' | 'equipment' | 'quest' | 'treasure' | 'other';
+
+export interface PartyInventoryItem {
+  id: string;
+  name: string;
+  qty: number;
+  category: PartyInventoryCategory;
+  bulk?: number;
+  /** Price of a single unit in copper pieces. Multiply by qty for total value. */
+  valueCp?: number;
+  /** Link to the Archives of Nethys entry, if known. */
+  aonUrl?: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Aurus leaderboard -------------------------------------------------------
+
+export interface AurusTeam {
+  id: string;
+  name: string;
+  /** Free-text emblem descriptor (could become a game-icons name later). */
+  emblem?: string;
+  /** CSS color string for the team banner stripe. */
+  color: string;
+  /** Open-ended combat rating. DM-adjusted; no implicit ceiling. */
+  combatPower: number;
+  /** Total loot recovered, in copper pieces. */
+  valueReclaimedCp: number;
+  /** Exactly one team should be flagged true; the player portal highlights it. */
+  isPlayerParty: boolean;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // --- Player-map deploy -------------------------------------------------------

@@ -19,6 +19,8 @@ import { registerFoundryHandlers } from './foundry.js';
 import { registerPackGroupingHandlers } from './pack-grouping.js';
 import { registerConfigHandlers } from './config.js';
 import { registerGlobeHandlers } from './globe.js';
+import { registerInventoryHandlers } from './inventory.js';
+import { registerAurusHandlers } from './aurus.js';
 
 export function registerIpcHandlers(
   db: MapDb,
@@ -37,4 +39,6 @@ export function registerIpcHandlers(
   registerPackGroupingHandlers(db);
   registerConfigHandlers(db, cfg);
   registerGlobeHandlers(cfg, getMainWindow);
+  registerInventoryHandlers(cfg);
+  registerAurusHandlers(cfg);
 }

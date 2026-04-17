@@ -10,3 +10,19 @@ services:
       # Place data.json next to this compose file and it overrides the
       # baked-in empty placeholder.
       - ./data.json:/usr/share/nginx/html/data.json:ro
+    depends_on:
+      - sidecar
+
+  sidecar:
+    build: ../sidecar
+    container_name: player-map-sidecar
+    restart: unless-stopped
+    environment:
+      PORT: '30003'
+      HOST: '0.0.0.0'
+      DATA_DIR: '/data'
+      SHARED_SECRET: '${SIDECAR_SECRET:-dev-secret}'
+    volumes:
+      - ./sidecar-data:/data
+    expose:
+      - '30003'

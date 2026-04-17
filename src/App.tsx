@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Backpack, BookOpen, Globe, Map, MessageSquare, Search, Skull, Swords, Wrench } from 'lucide-react';
+import { Backpack, BookOpen, Globe, Map, MessageSquare, Package, Search, Skull, Swords, Trophy, Wrench } from 'lucide-react';
 import { MapBrowser } from './features/map-browser/MapBrowser';
 import { BookBrowser } from './features/book-browser/BookBrowser';
 import { ItemBrowser } from './features/item-browser/ItemBrowser';
 import { MonsterBrowser } from './features/monsters/MonsterBrowser';
 import { ToolsBrowser } from './features/tools/ToolsBrowser';
 import { GlobeViewer } from './features/globe/GlobeViewer';
+import { InventoryTab } from './features/inventory/InventoryTab';
+import { AurusTab } from './features/aurus/AurusTab';
 import { ChatDrawer } from './features/chat/ChatDrawer';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { SettingsDialog } from './features/settings/SettingsDialog';
@@ -26,7 +28,7 @@ import {
 } from './lib/constants';
 import { readJson, readNumber, readString, writeJson, writeString } from './lib/storage-utils';
 
-type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items' | 'tools' | 'globe';
+type ActiveTab = 'maps' | 'books' | 'combat' | 'monsters' | 'items' | 'tools' | 'globe' | 'inventory' | 'aurus';
 
 export default function App() {
   const [appMode, setAppMode] = useState<'loading' | 'normal' | 'setup'>('loading');
@@ -165,10 +167,22 @@ function MainApp() {
           />
           <NavTab active={activeTab === 'items'} onClick={() => setActiveTab('items')} icon={Backpack} label="Items" />
           <NavTab active={activeTab === 'globe'} onClick={() => setActiveTab('globe')} icon={Globe} label="Globe" />
+          <NavTab
+            active={activeTab === 'inventory'}
+            onClick={() => setActiveTab('inventory')}
+            icon={Package}
+            label="Inventory"
+          />
+          <NavTab
+            active={activeTab === 'aurus'}
+            onClick={() => setActiveTab('aurus')}
+            icon={Trophy}
+            label="Aurus"
+          />
           <NavTab active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={Wrench} label="Tools" />
         </nav>
         {/* Search bar — shared across all tabs */}
-        {activeTab !== 'tools' && activeTab !== 'globe' && (
+        {activeTab !== 'tools' && activeTab !== 'globe' && activeTab !== 'inventory' && activeTab !== 'aurus' && (
           <div
             className="relative mx-2 flex max-w-md flex-1 items-center"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -250,6 +264,8 @@ function MainApp() {
           {activeTab === 'monsters' && <MonsterBrowser keywords={keywords} />}
           {activeTab === 'items' && <ItemBrowser keywords={keywords} />}
           {activeTab === 'globe' && <GlobeViewer />}
+          {activeTab === 'inventory' && <InventoryTab />}
+          {activeTab === 'aurus' && <AurusTab />}
           {activeTab === 'tools' && (
             <ToolsBrowser
               tools={toolUrls}
