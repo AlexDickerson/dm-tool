@@ -109,30 +109,27 @@ export function LootPanel({ encounter, partyLevel, anthropicApiKey, onChange }: 
     [encounter, onChange],
   );
 
-  const handleSendToInventory = useCallback(
-    async (item: LootItem) => {
-      const now = new Date().toISOString();
-      const inv: PartyInventoryItem = {
-        id: crypto.randomUUID(),
-        name: item.name,
-        qty: item.qty,
-        category: lootKindToInventoryCategory(item.kind),
-        valueCp: item.valueCp,
-        aonUrl: item.aonUrl,
-        note: item.description || undefined,
-        carriedBy: 'Party',
-        createdAt: now,
-        updatedAt: now,
-      };
-      await api.inventoryUpsert(inv);
-      setSentIds((s) => {
-        const next = new Set(s);
-        next.add(item.id);
-        return next;
-      });
-    },
-    [],
-  );
+  const handleSendToInventory = useCallback(async (item: LootItem) => {
+    const now = new Date().toISOString();
+    const inv: PartyInventoryItem = {
+      id: crypto.randomUUID(),
+      name: item.name,
+      qty: item.qty,
+      category: lootKindToInventoryCategory(item.kind),
+      valueCp: item.valueCp,
+      aonUrl: item.aonUrl,
+      note: item.description || undefined,
+      carriedBy: 'Party',
+      createdAt: now,
+      updatedAt: now,
+    };
+    await api.inventoryUpsert(inv);
+    setSentIds((s) => {
+      const next = new Set(s);
+      next.add(item.id);
+      return next;
+    });
+  }, []);
 
   return (
     <div style={{ borderTop: '1px solid hsl(var(--border))', display: 'flex', flexDirection: 'column' }}>
@@ -229,9 +226,7 @@ function LootRow({
   onSendToInventory: () => void;
 }) {
   return (
-    <li
-      className="group flex items-start gap-2 rounded border border-border/40 bg-accent/10 px-2 py-1.5 text-xs"
-    >
+    <li className="group flex items-start gap-2 rounded border border-border/40 bg-accent/10 px-2 py-1.5 text-xs">
       <SourceBadge source={item.source} kind={item.kind} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
@@ -288,9 +283,7 @@ function LootRow({
           title={sentToInventory ? 'Already sent to party inventory' : 'Send to party inventory'}
           className={cn(
             'rounded p-1 transition-colors',
-            sentToInventory
-              ? 'text-primary/40'
-              : 'text-muted-foreground hover:bg-primary/15 hover:text-primary',
+            sentToInventory ? 'text-primary/40' : 'text-muted-foreground hover:bg-primary/15 hover:text-primary',
           )}
         >
           <Upload className="h-3.5 w-3.5" />
@@ -377,7 +370,13 @@ function ManualLootEditor({
       </div>
       <div>
         <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Value (cp)</Label>
-        <Input type="number" min={0} value={valueCp} onChange={(e) => setValueCp(e.target.value)} className="h-7 text-xs" />
+        <Input
+          type="number"
+          min={0}
+          value={valueCp}
+          onChange={(e) => setValueCp(e.target.value)}
+          className="h-7 text-xs"
+        />
       </div>
       <div>
         <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Kind</Label>

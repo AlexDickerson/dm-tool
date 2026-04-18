@@ -203,29 +203,29 @@ function MainApp() {
           activeTab !== 'inventory' &&
           activeTab !== 'aurus' &&
           activeTab !== 'combat' && (
-          <div
-            className="relative mx-2 flex max-w-md flex-1 items-center"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={keywords}
-              onChange={(e) => setKeywords(e.target.value)}
-              placeholder={
-                activeTab === 'maps'
-                  ? 'Search maps…'
-                  : activeTab === 'books'
-                    ? 'Filter books…'
-                    : activeTab === 'monsters'
-                      ? 'Search monsters…'
-                      : activeTab === 'items'
-                        ? 'Search items…'
-                        : 'Search…'
-              }
-              className="h-8 bg-background/50 pl-8 text-xs"
-            />
-          </div>
-        )}
+            <div
+              className="relative mx-2 flex max-w-md flex-1 items-center"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+            >
+              <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder={
+                  activeTab === 'maps'
+                    ? 'Search maps…'
+                    : activeTab === 'books'
+                      ? 'Filter books…'
+                      : activeTab === 'monsters'
+                        ? 'Search monsters…'
+                        : activeTab === 'items'
+                          ? 'Search items…'
+                          : 'Search…'
+                }
+                className="h-8 bg-background/50 pl-8 text-xs"
+              />
+            </div>
+          )}
         <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <button
             type="button"
@@ -385,4 +385,3 @@ function NavTab({
     </button>
   );
 }
-

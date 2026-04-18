@@ -179,11 +179,21 @@ export function InitiativeTracker({ encounter, onChange }: Props) {
           color: 'hsl(var(--muted-foreground))',
         }}
       >
-        <Button size="sm" variant="outline" onClick={() => void rollMonsters()} disabled={encounter.combatants.length === 0}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void rollMonsters()}
+          disabled={encounter.combatants.length === 0}
+        >
           <Dice5 className="mr-1 h-3.5 w-3.5" />
           Roll monsters
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => void clearInitiative()} disabled={encounter.combatants.length === 0}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => void clearInitiative()}
+          disabled={encounter.combatants.length === 0}
+        >
           Clear
         </Button>
         <Button
@@ -218,12 +228,7 @@ export function InitiativeTracker({ encounter, onChange }: Props) {
           {pushError}
         </div>
       )}
-      {pushResult && (
-        <PushResultDialog
-          result={pushResult}
-          onClose={() => setPushResult(null)}
-        />
-      )}
+      {pushResult && <PushResultDialog result={pushResult} onClose={() => setPushResult(null)} />}
 
       {/* Initiative list */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
@@ -376,7 +381,9 @@ function CombatantRow({
         onClick={(e) => e.stopPropagation()}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
       >
-        <span style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', gap: 2 }}>
+        <span
+          style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', gap: 2 }}
+        >
           <Heart className="h-2.5 w-2.5" style={{ color: hpColor }} />
           HP
         </span>

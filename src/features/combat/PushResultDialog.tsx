@@ -98,11 +98,22 @@ export function PushResultDialog({ result, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '12px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
           {createdCount > 0 && (
             <section>
               <SectionLabel>Created</SectionLabel>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <ul
+                style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}
+              >
                 {result.created.map((c) => (
                   <li
                     key={c.actorId}
@@ -130,7 +141,9 @@ export function PushResultDialog({ result, onClose }: Props) {
           {skippedCount > 0 && (
             <section>
               <SectionLabel>Skipped</SectionLabel>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <ul
+                style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}
+              >
                 {result.skipped.map((s, i) => (
                   <li
                     key={`${s.displayName}-${i}`}

@@ -737,11 +737,7 @@ export interface ElectronAPI {
   /** Generate loot for an encounter via Anthropic. Returns the new loot
    *  list; the renderer is responsible for persisting it onto the
    *  encounter via encountersUpsert. */
-  generateEncounterLoot(args: {
-    encounter: Encounter;
-    partyLevel: number;
-    apiKey: string;
-  }): Promise<LootItem[]>;
+  generateEncounterLoot(args: { encounter: Encounter; partyLevel: number; apiKey: string }): Promise<LootItem[]>;
   /** Push an encounter's monster combatants to Foundry VTT as actors,
    *  organized in a folder named after the encounter. Requires
    *  foundryMcpUrl to be set in config.json and a live Foundry session

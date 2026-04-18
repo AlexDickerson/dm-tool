@@ -73,9 +73,7 @@ export function ResizableSidebar({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        <div
-          className={`pointer-events-none absolute inset-y-0 ${handleLineClass} w-px bg-border transition-colors`}
-        />
+        <div className={`pointer-events-none absolute inset-y-0 ${handleLineClass} w-px bg-border transition-colors`} />
       </div>
     </div>
   );

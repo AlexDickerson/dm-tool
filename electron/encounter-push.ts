@@ -10,7 +10,13 @@
 //
 // PCs are skipped — they already have Foundry character sheets.
 
-import type { Combatant, Encounter, PushEncounterResult, PushedActorSummary, SkippedCombatantSummary } from '../shared/types.js';
+import type {
+  Combatant,
+  Encounter,
+  PushEncounterResult,
+  PushedActorSummary,
+  SkippedCombatantSummary,
+} from '../shared/types.js';
 import {
   createActorFromCompendium,
   findInCompendium,

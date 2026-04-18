@@ -292,9 +292,7 @@ function MonsterBody({ detail }: { detail: MonsterDetail }) {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h3>
-  );
+  return <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h3>;
 }
 
 function formatSkills(raw: string): string {

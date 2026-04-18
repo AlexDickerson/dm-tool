@@ -228,7 +228,8 @@ function coerceLootItem(raw: ModelLootItem): LootItem | null {
   const kind = VALID_KINDS.includes(raw.kind as LootKind) ? (raw.kind as LootKind) : 'item';
   const source = VALID_SOURCES.includes(raw.source as LootSource) ? (raw.source as LootSource) : 'ai';
   const qty = Math.max(1, Math.floor(typeof raw.qty === 'number' ? raw.qty : 1));
-  const valueCp = typeof raw.valueCp === 'number' && Number.isFinite(raw.valueCp) ? Math.max(0, raw.valueCp) : undefined;
+  const valueCp =
+    typeof raw.valueCp === 'number' && Number.isFinite(raw.valueCp) ? Math.max(0, raw.valueCp) : undefined;
   const itemId = typeof raw.itemId === 'string' && raw.itemId.length > 0 ? raw.itemId : undefined;
   const aonUrl = typeof raw.aonUrl === 'string' && raw.aonUrl.length > 0 ? raw.aonUrl : undefined;
   return {
