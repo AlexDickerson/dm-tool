@@ -20,6 +20,7 @@ import { ToolsBrowser } from './features/tools/ToolsBrowser';
 import { GlobeViewer } from './features/globe/GlobeViewer';
 import { InventoryTab } from './features/inventory/InventoryTab';
 import { AurusTab } from './features/aurus/AurusTab';
+import { CombatTab } from './features/combat/CombatTab';
 import { ChatDrawer } from './features/chat/ChatDrawer';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { SettingsDialog } from './features/settings/SettingsDialog';
@@ -34,6 +35,7 @@ import {
   THEME_DEFAULT,
   DEFAULT_CHAT_MODEL,
   DEFAULT_TOOLS,
+  PARTY_LEVEL,
   type FontFamily,
   type ThemeId,
   type ToolEntry,
@@ -76,6 +78,9 @@ function MainApp() {
   );
   const [toolUrls, setToolUrls] = useState<ToolEntry[]>(() => readJson(STORAGE_KEYS.toolUrls, DEFAULT_TOOLS));
   const [toolFavicons, setToolFavicons] = useState<boolean>(() => readString(STORAGE_KEYS.toolFavicons) === 'true');
+  const [partyLevel, setPartyLevel] = useState<number>(() =>
+    readNumber(STORAGE_KEYS.partyLevel, PARTY_LEVEL.default, PARTY_LEVEL.min, PARTY_LEVEL.max),
+  );
   const [activeToolId, setActiveToolId] = useState(toolUrls[0]?.id ?? '');
   const [chatOpen, setChatOpen] = useState(false);
   const [keywords, setKeywords] = useState('');
@@ -150,6 +155,10 @@ function MainApp() {
     writeString(STORAGE_KEYS.toolFavicons, String(toolFavicons));
   }, [toolFavicons]);
 
+  useEffect(() => {
+    writeString(STORAGE_KEYS.partyLevel, String(partyLevel));
+  }, [partyLevel]);
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       {/* Custom title bar. The native OS chrome is hidden via
@@ -189,7 +198,11 @@ function MainApp() {
           <NavTab active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} icon={Wrench} label="Tools" />
         </nav>
         {/* Search bar — shared across all tabs */}
-        {activeTab !== 'tools' && activeTab !== 'globe' && activeTab !== 'inventory' && activeTab !== 'aurus' && (
+        {activeTab !== 'tools' &&
+          activeTab !== 'globe' &&
+          activeTab !== 'inventory' &&
+          activeTab !== 'aurus' &&
+          activeTab !== 'combat' && (
           <div
             className="relative mx-2 flex max-w-md flex-1 items-center"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -243,6 +256,8 @@ function MainApp() {
             onToolUrlsChange={setToolUrls}
             toolFavicons={toolFavicons}
             onToolFaviconsChange={setToolFavicons}
+            partyLevel={partyLevel}
+            onPartyLevelChange={setPartyLevel}
           />
         </div>
       </header>
@@ -267,7 +282,7 @@ function MainApp() {
             />
           )}
           {activeTab === 'books' && <BookBrowser keywords={keywords} />}
-          {activeTab === 'combat' && <CombatPlaceholder />}
+          {activeTab === 'combat' && <CombatTab partyLevel={partyLevel} anthropicApiKey={anthropicApiKey} />}
           {activeTab === 'monsters' && <MonsterBrowser keywords={keywords} />}
           {activeTab === 'items' && <ItemBrowser keywords={keywords} />}
           {activeTab === 'globe' && <GlobeViewer />}
@@ -371,13 +386,3 @@ function NavTab({
   );
 }
 
-function CombatPlaceholder() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="flex flex-col items-center gap-3 text-muted-foreground">
-        <Swords className="h-12 w-12 opacity-20" />
-        <p className="text-sm">Combat tracker coming soon</p>
-      </div>
-    </div>
-  );
-}

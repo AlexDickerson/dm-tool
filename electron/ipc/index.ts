@@ -21,6 +21,7 @@ import { registerConfigHandlers } from './config.js';
 import { registerGlobeHandlers } from './globe.js';
 import { registerInventoryHandlers } from './inventory.js';
 import { registerAurusHandlers } from './aurus.js';
+import { registerCombatHandlers } from './combat.js';
 
 export function registerIpcHandlers(
   db: MapDb,
@@ -41,4 +42,5 @@ export function registerIpcHandlers(
   registerGlobeHandlers(cfg, getMainWindow);
   registerInventoryHandlers(cfg);
   registerAurusHandlers(cfg);
+  registerCombatHandlers();
 }

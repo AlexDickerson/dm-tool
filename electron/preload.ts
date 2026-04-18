@@ -10,6 +10,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AonPreviewData,
   AurusTeam,
+  Encounter,
+  LootItem,
   Book,
   BookClassifyProgress,
   BookScanResult,
@@ -160,6 +162,13 @@ const api: ElectronAPI = {
   aurusList: (): Promise<AurusTeam[]> => ipcRenderer.invoke('aurusList'),
   aurusUpsert: (team: AurusTeam): Promise<void> => ipcRenderer.invoke('aurusUpsert', team),
   aurusDelete: (id: string): Promise<void> => ipcRenderer.invoke('aurusDelete', id),
+
+  // Combat tracker (DM-side only — no sidecar push)
+  encountersList: (): Promise<Encounter[]> => ipcRenderer.invoke('encountersList'),
+  encountersUpsert: (enc: Encounter): Promise<void> => ipcRenderer.invoke('encountersUpsert', enc),
+  encountersDelete: (id: string): Promise<void> => ipcRenderer.invoke('encountersDelete', id),
+  generateEncounterLoot: (args: { encounter: Encounter; partyLevel: number; apiKey: string }): Promise<LootItem[]> =>
+    ipcRenderer.invoke('generateEncounterLoot', args),
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),

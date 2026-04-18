@@ -21,6 +21,7 @@ import {
   FONT_STACKS,
   THEMES,
   CHAT_MODELS,
+  PARTY_LEVEL,
   type FontFamily,
   type ThemeId,
   type ToolEntry,
@@ -46,6 +47,8 @@ export interface SettingsDialogProps {
   onToolUrlsChange: (tools: ToolEntry[]) => void;
   toolFavicons: boolean;
   onToolFaviconsChange: (v: boolean) => void;
+  partyLevel: number;
+  onPartyLevelChange: (n: number) => void;
 }
 
 export function SettingsDialog({
@@ -66,6 +69,8 @@ export function SettingsDialog({
   onToolUrlsChange,
   toolFavicons,
   onToolFaviconsChange,
+  partyLevel,
+  onPartyLevelChange,
 }: SettingsDialogProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<SettingsTab>('maps');
@@ -418,7 +423,31 @@ export function SettingsDialog({
 
               {tab === 'books' && <p className="text-xs text-muted-foreground">No book-specific settings yet.</p>}
 
-              {tab === 'combat' && <p className="text-xs text-muted-foreground">No combat settings yet.</p>}
+              {tab === 'combat' && (
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <Label htmlFor="party-level">Party level</Label>
+                    <Input
+                      id="party-level"
+                      type="number"
+                      min={PARTY_LEVEL.min}
+                      max={PARTY_LEVEL.max}
+                      value={partyLevel}
+                      onChange={(e) => {
+                        const n = parseInt(e.target.value, 10);
+                        if (Number.isFinite(n)) {
+                          onPartyLevelChange(Math.max(PARTY_LEVEL.min, Math.min(PARTY_LEVEL.max, n)));
+                        }
+                      }}
+                      className="mt-1 w-24"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Used by the encounter loot generator to scale treasure to the party. Update between sessions as
+                      characters level up.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {tab === 'monsters' && <p className="text-xs text-muted-foreground">No monster settings yet.</p>}
 

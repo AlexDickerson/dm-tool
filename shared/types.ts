@@ -726,6 +726,22 @@ export interface ElectronAPI {
   aurusList(): Promise<AurusTeam[]>;
   aurusUpsert(team: AurusTeam): Promise<void>;
   aurusDelete(id: string): Promise<void>;
+
+  // -----------------------------------------------------------------------
+  // Combat tracker (encounters + initiative)
+  // -----------------------------------------------------------------------
+
+  encountersList(): Promise<Encounter[]>;
+  encountersUpsert(encounter: Encounter): Promise<void>;
+  encountersDelete(id: string): Promise<void>;
+  /** Generate loot for an encounter via Anthropic. Returns the new loot
+   *  list; the renderer is responsible for persisting it onto the
+   *  encounter via encountersUpsert. */
+  generateEncounterLoot(args: {
+    encounter: Encounter;
+    partyLevel: number;
+    apiKey: string;
+  }): Promise<LootItem[]>;
 }
 
 // --- Party inventory ---------------------------------------------------------
@@ -765,6 +781,77 @@ export interface AurusTeam {
   /** Exactly one team should be flagged true; the player portal highlights it. */
   isPlayerParty: boolean;
   note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Combat tracker ----------------------------------------------------------
+
+export type LootKind = 'currency' | 'item' | 'consumable' | 'narrative';
+export type LootSource = 'db' | 'ai' | 'manual';
+
+export interface LootItem {
+  id: string;
+  name: string;
+  /** Short description or flavor text — one or two sentences from the AI,
+   *  or a DM-authored note for manual entries. */
+  description: string;
+  kind: LootKind;
+  /** Unit value in copper pieces (multiply by qty for total value). */
+  valueCp?: number;
+  qty: number;
+  /** pf2e-db `items.id` when this row was drawn from the database. Lets the
+   *  "send to inventory" action link back to a known item for stats. */
+  itemId?: string;
+  /** Canonical Archives of Nethys page for the item, when known. */
+  aonUrl?: string;
+  /** Where this row came from — distinguishes AI-invented from DB-drawn
+   *  items in the UI so the DM can audit before committing. */
+  source: LootSource;
+}
+
+export type CombatantKind = 'monster' | 'pc';
+
+export interface Combatant {
+  /** Stable UUID within this encounter — used as React key and for edits. */
+  id: string;
+  kind: CombatantKind;
+  /** Exact monster name from pf2e-db. Only present for kind='monster' — used
+   *  to refetch the full stat block on demand. */
+  monsterName?: string;
+  /** Rendered name. Auto-numbered ("Goblin 1", "Goblin 2") when multiple of
+   *  the same monster are added, but freely editable by the DM. */
+  displayName: string;
+  /** Initiative modifier (Perception for monsters by default). Used for the
+   *  auto-roll button and kept as the tiebreaker when two combatants roll
+   *  the same total. */
+  initiativeMod: number;
+  /** Rolled initiative total. null before the encounter has been rolled —
+   *  unrolled combatants sort to the end of the order. */
+  initiative: number | null;
+  hp: number;
+  maxHp: number;
+  /** Free-form conditions / status notes. */
+  notes?: string;
+}
+
+export interface Encounter {
+  id: string;
+  name: string;
+  combatants: Combatant[];
+  /** Index into combatants[] (sorted-order, see below) pointing at whose
+   *  turn it currently is. Bounds-checked against combatants.length by the
+   *  UI — persisted as-is. */
+  turnIndex: number;
+  /** 1-indexed round counter, incremented when the turn pointer wraps. */
+  round: number;
+  /** Treasure awarded for this encounter. Populated manually or via the
+   *  AI auto-generate button. */
+  loot: LootItem[];
+  /** When true, the AI is allowed to self-author up to ~20% of the loot;
+   *  the rest must be drawn from pf2e-db items. When false, every row must
+   *  come from the DB. */
+  allowInventedItems: boolean;
   createdAt: string;
   updatedAt: string;
 }
