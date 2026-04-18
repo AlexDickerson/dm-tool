@@ -3,7 +3,7 @@
 // persistent store for dm-tool-owned data like globe pins.
 
 import Database from 'better-sqlite3';
-import type { AurusTeam, GlobePin, PartyInventoryItem } from '../shared/types.js';
+import type { AurusTeam, Encounter, GlobePin, PartyInventoryItem } from '../shared/types.js';
 import { tryParseJson } from './util.js';
 import { cleanFoundryMarkup } from '../shared/foundry-markup.js';
 
@@ -48,6 +48,13 @@ function migratePf2eDb(): void {
   `);
   db.exec(`
     CREATE TABLE IF NOT EXISTS aurus_teams (
+      id         TEXT PRIMARY KEY,
+      data       TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS encounters (
       id         TEXT PRIMARY KEY,
       data       TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -113,6 +120,42 @@ export function deleteAurusTeam(id: string): void {
   requireDb().prepare('DELETE FROM aurus_teams WHERE id = ?').run(id);
 }
 
+// --- Encounters CRUD --------------------------------------------------------
+
+/** Backfill fields that may be missing when an encounter was written by an
+ *  older version of the schema (e.g. before loot was introduced). Keeps
+ *  the renderer from having to guard every access. */
+function normalizeEncounter(raw: Partial<Encounter>): Encounter {
+  return {
+    id: raw.id ?? '',
+    name: raw.name ?? '',
+    combatants: raw.combatants ?? [],
+    turnIndex: raw.turnIndex ?? 0,
+    round: raw.round ?? 1,
+    loot: raw.loot ?? [],
+    allowInventedItems: raw.allowInventedItems ?? false,
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: raw.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+export function listEncounters(): Encounter[] {
+  const rows = requireDb().prepare('SELECT data FROM encounters ORDER BY updated_at DESC').all() as { data: string }[];
+  return rows.map((r) => normalizeEncounter(JSON.parse(r.data) as Partial<Encounter>));
+}
+
+export function upsertEncounter(enc: Encounter): void {
+  requireDb()
+    .prepare(
+      'INSERT INTO encounters (id, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at',
+    )
+    .run(enc.id, JSON.stringify(enc), enc.updatedAt);
+}
+
+export function deleteEncounter(id: string): void {
+  requireDb().prepare('DELETE FROM encounters WHERE id = ?').run(id);
+}
+
 export function closePf2eDb(): void {
   db?.close();
   db = null;
@@ -121,6 +164,13 @@ export function closePf2eDb(): void {
 function requireDb(): Database.Database {
   if (!db) throw new Error('PF2e database not initialized');
   return db;
+}
+
+/** Exposed for modules (e.g. loot-gen) that need to query items/monsters
+ *  directly without going through a wrapper. Returns the same instance
+ *  requireDb uses, so it throws if the DB hasn't been opened yet. */
+export function getPf2eDb(): Database.Database {
+  return requireDb();
 }
 
 // --- Helpers for cleaning Foundry-style markup ---
@@ -393,8 +443,18 @@ export function listMonsters(params: MonsterSearchParams): MonsterSummary[] {
   const binds: unknown[] = [];
 
   if (params.keywords) {
-    clauses.push('name LIKE ?');
-    binds.push(`%${params.keywords}%`);
+    // Split the query into whitespace-separated tokens and require each to
+    // appear somewhere in the name. This makes word order irrelevant, so
+    // "adult blue dragon" matches "Blue Dragon (Adult)". Empty tokens are
+    // filtered so trailing spaces don't produce `%%` clauses.
+    const tokens = params.keywords
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length > 0);
+    for (const t of tokens) {
+      clauses.push('name LIKE ?');
+      binds.push(`%${t}%`);
+    }
   }
   if (params.levels) {
     clauses.push('level BETWEEN ? AND ?');
@@ -537,6 +597,15 @@ export function getMonsterFacets(): MonsterFacets {
     levelRange: [levelRow.min, levelRow.max],
   };
   return facetsCache;
+}
+
+/** Lean variant used by the loot generator — returns the raw row so callers
+ *  can pull just the fields they need without paying for the full
+ *  Foundry-markup cleaning pass that rowToResult does. */
+export function getMonsterRowByName(name: string): MonsterRow | null {
+  const d = requireDb();
+  const row = d.prepare('SELECT * FROM monsters WHERE name = ? LIMIT 1').get(name) as MonsterRow | undefined;
+  return row ?? null;
 }
 
 export function getMonsterByName(name: string): MonsterDetail | null {

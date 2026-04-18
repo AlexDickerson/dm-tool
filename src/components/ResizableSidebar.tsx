@@ -7,6 +7,10 @@ interface ResizableSidebarProps {
   defaultWidth?: number;
   minWidth?: number;
   maxWidth?: number;
+  /** Which edge the panel is anchored to. 'left' (default) puts the drag
+   *  handle on the right edge and dragging right widens; 'right' mirrors
+   *  both so the panel can sit on the right side of a layout. */
+  side?: 'left' | 'right';
   children: React.ReactNode;
 }
 
@@ -15,6 +19,7 @@ export function ResizableSidebar({
   defaultWidth = 200,
   minWidth = 120,
   maxWidth = 400,
+  side = 'left',
   children,
 }: ResizableSidebarProps) {
   const [width, setWidth] = useState(() => readNumber(storageKey, defaultWidth, minWidth, maxWidth));
@@ -41,28 +46,34 @@ export function ResizableSidebar({
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!dragging.current) return;
-      const delta = e.clientX - startX.current;
+      const rawDelta = e.clientX - startX.current;
+      // For a right-anchored panel, dragging left must grow the panel, so
+      // flip the sign of the delta.
+      const delta = side === 'right' ? -rawDelta : rawDelta;
       setWidth(Math.max(minWidth, Math.min(maxWidth, startWidth.current + delta)));
     },
-    [minWidth, maxWidth],
+    [minWidth, maxWidth, side],
   );
 
   const onPointerUp = useCallback(() => {
     dragging.current = false;
   }, []);
 
+  const handlePositionClass = side === 'right' ? 'left-0' : 'right-0';
+  const handleLineClass = side === 'right' ? 'left-0' : 'right-0';
+
   return (
     <div className="relative shrink-0" style={{ width }}>
       {children}
       {/* Drag handle */}
       <div
-        className="absolute right-0 top-0 z-10 h-full cursor-col-resize select-none"
+        className={`absolute ${handlePositionClass} top-0 z-10 h-full cursor-col-resize select-none`}
         style={{ width: 5 }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-px bg-border transition-colors" />
+        <div className={`pointer-events-none absolute inset-y-0 ${handleLineClass} w-px bg-border transition-colors`} />
       </div>
     </div>
   );

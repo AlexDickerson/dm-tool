@@ -17,7 +17,12 @@ export const STORAGE_KEYS = {
   bookActiveTab: 'dmtool.bookbrowser.activeTab',
   toolUrls: 'dmtool.toolUrls',
   toolFavicons: 'dmtool.toolFavicons',
+  partyLevel: 'dmtool.partyLevel',
 } as const;
+
+// --- Party level (global) ----------------------------------------------------
+
+export const PARTY_LEVEL = { default: 1, min: 1, max: 20 } as const;
 
 // --- External tool iframes ---------------------------------------------------
 

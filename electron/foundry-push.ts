@@ -6,7 +6,7 @@
 
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { MCP_PROTOCOL_VERSION } from './constants.js';
+import { initSession, uploadAsset, createSceneFromUvtt } from './foundry-mcp-client.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,113 +51,6 @@ export interface PushSceneResult {
 }
 
 // ---------------------------------------------------------------------------
-// MCP Streamable HTTP helpers
-// ---------------------------------------------------------------------------
-
-interface McpSession {
-  url: string;
-  sessionId: string;
-  nextId: number;
-}
-
-async function mcpPost(
-  session: McpSession,
-  body: Record<string, unknown>,
-): Promise<{ headers: Headers; data: Record<string, unknown> }> {
-  const res = await fetch(`${session.url}/mcp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json, text/event-stream',
-      'Mcp-Session-Id': session.sessionId,
-    },
-    body: JSON.stringify(body),
-  });
-
-  const text = await res.text();
-
-  // Notifications return 202 with no body
-  if (!text.trim()) {
-    return { headers: res.headers, data: {} };
-  }
-
-  // Parse SSE response: find `data: {...}` line
-  for (const line of text.split('\n')) {
-    if (line.startsWith('data: ')) {
-      return { headers: res.headers, data: JSON.parse(line.slice(6)) as Record<string, unknown> };
-    }
-  }
-
-  // Fallback: try parsing entire body as JSON
-  return { headers: res.headers, data: JSON.parse(text) as Record<string, unknown> };
-}
-
-async function initSession(url: string): Promise<McpSession> {
-  const res = await fetch(`${url}/mcp`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json, text/event-stream',
-    },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: {
-        protocolVersion: MCP_PROTOCOL_VERSION,
-        capabilities: {},
-        clientInfo: { name: 'dm-tool', version: '1.0' },
-      },
-    }),
-  });
-
-  const sessionId = res.headers.get('mcp-session-id');
-  if (!sessionId) throw new Error('No MCP session ID returned');
-
-  // Consume the response body
-  await res.text();
-
-  const session: McpSession = { url, sessionId, nextId: 2 };
-
-  // Send initialized notification
-  await mcpPost(session, {
-    jsonrpc: '2.0',
-    method: 'notifications/initialized',
-  });
-
-  return session;
-}
-
-async function callTool(
-  session: McpSession,
-  toolName: string,
-  args: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
-  const id = session.nextId++;
-  const { data } = await mcpPost(session, {
-    jsonrpc: '2.0',
-    id,
-    method: 'tools/call',
-    params: { name: toolName, arguments: args },
-  });
-
-  const result = data['result'] as { content?: Array<{ type: string; text?: string }> } | undefined;
-  const textContent = result?.content?.find((c) => c.type === 'text');
-
-  if (!textContent?.text) {
-    const error = data['error'] as { message?: string } | undefined;
-    throw new Error(error?.message ?? 'No result from tool call');
-  }
-
-  // Check if the tool returned an error
-  if (textContent.text.startsWith('Error:')) {
-    throw new Error(textContent.text);
-  }
-
-  return JSON.parse(textContent.text) as Record<string, unknown>;
-}
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -177,7 +70,7 @@ export async function pushSceneToFoundry(opts: PushSceneOptions): Promise<PushSc
   const fileName = basename(opts.imagePath);
   const uploadPath = `maps/${fileName}`;
 
-  await callTool(session, 'upload_asset', {
+  await uploadAsset(session, {
     path: uploadPath,
     data: imageData,
   });
@@ -199,7 +92,7 @@ export async function pushSceneToFoundry(opts: PushSceneOptions): Promise<PushSc
     line_of_sight: [],
   };
 
-  const result = await callTool(session, 'create_scene_from_uvtt', {
+  const result = await createSceneFromUvtt(session, {
     name: opts.name,
     img: uploadPath,
     uvtt: uvttData,
