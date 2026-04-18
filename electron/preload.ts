@@ -12,6 +12,7 @@ import type {
   AurusTeam,
   Encounter,
   LootItem,
+  PushEncounterResult,
   Book,
   BookClassifyProgress,
   BookScanResult,
@@ -169,6 +170,8 @@ const api: ElectronAPI = {
   encountersDelete: (id: string): Promise<void> => ipcRenderer.invoke('encountersDelete', id),
   generateEncounterLoot: (args: { encounter: Encounter; partyLevel: number; apiKey: string }): Promise<LootItem[]> =>
     ipcRenderer.invoke('generateEncounterLoot', args),
+  pushEncounterToFoundry: (encounterId: string): Promise<PushEncounterResult> =>
+    ipcRenderer.invoke('pushEncounterToFoundry', encounterId),
 
   // Auto-Wall
   autoWallAvailable: (): Promise<boolean> => ipcRenderer.invoke('autoWallAvailable'),

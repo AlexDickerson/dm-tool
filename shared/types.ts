@@ -742,6 +742,12 @@ export interface ElectronAPI {
     partyLevel: number;
     apiKey: string;
   }): Promise<LootItem[]>;
+  /** Push an encounter's monster combatants to Foundry VTT as actors,
+   *  organized in a folder named after the encounter. Requires
+   *  foundryMcpUrl to be set in config.json and a live Foundry session
+   *  with the API Bridge module connected. Returns a summary of what
+   *  was created + skipped so the UI can surface ambiguities. */
+  pushEncounterToFoundry(encounterId: string): Promise<PushEncounterResult>;
 }
 
 // --- Party inventory ---------------------------------------------------------
@@ -833,6 +839,36 @@ export interface Combatant {
   maxHp: number;
   /** Free-form conditions / status notes. */
   notes?: string;
+}
+
+/** One monster combatant successfully turned into a Foundry actor. */
+export interface PushedActorSummary {
+  displayName: string;
+  monsterName: string;
+  actorId: string;
+  actorName: string;
+  actorUuid: string;
+  sourcePackId: string;
+  sourcePackLabel: string;
+}
+
+/** One combatant we couldn't push — either no compendium hit, no monsterName,
+ *  or Foundry rejected the create. */
+export interface SkippedCombatantSummary {
+  displayName: string;
+  monsterName?: string;
+  reason: string;
+}
+
+export interface PushEncounterResult {
+  /** Folder the actors were placed in. null when nothing was pushed. */
+  folderId: string | null;
+  folderName: string | null;
+  /** True when a new folder was created; false when an existing one was
+   *  reused (re-push of the same encounter name). */
+  folderCreated: boolean;
+  created: PushedActorSummary[];
+  skipped: SkippedCombatantSummary[];
 }
 
 export interface Encounter {

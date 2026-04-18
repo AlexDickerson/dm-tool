@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react';
-import { ChevronLeft, ChevronRight, Dice5, Heart, Trash2, UserPlus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Dice5, Heart, Trash2, UploadCloud, UserPlus, X } from 'lucide-react';
 import { Skull } from 'lucide-react';
-import type { Combatant, Encounter, MonsterDetail, MonsterSummary } from '@shared/types';
+import type { Combatant, Encounter, MonsterDetail, MonsterSummary, PushEncounterResult } from '@shared/types';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { reserveMonsterName, rollD20, sortedCombatants } from './util';
+import { PushResultDialog } from './PushResultDialog';
 
 interface Props {
   encounter: Encounter;
@@ -15,6 +16,25 @@ interface Props {
 
 export function InitiativeTracker({ encounter, onChange }: Props) {
   const [addMode, setAddMode] = useState<'none' | 'monster' | 'pc'>('none');
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState<PushEncounterResult | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  const monsterCount = encounter.combatants.filter((c) => c.kind === 'monster').length;
+
+  const handlePushToFoundry = useCallback(async () => {
+    if (pushing || monsterCount === 0) return;
+    setPushing(true);
+    setPushError(null);
+    try {
+      const result = await api.pushEncounterToFoundry(encounter.id);
+      setPushResult(result);
+    } catch (e) {
+      setPushError((e as Error).message || 'Push failed.');
+    } finally {
+      setPushing(false);
+    }
+  }, [encounter.id, monsterCount, pushing]);
 
   const order = sortedCombatants(encounter.combatants);
   const currentId = order[encounter.turnIndex]?.id ?? null;
@@ -166,11 +186,44 @@ export function InitiativeTracker({ encounter, onChange }: Props) {
         <Button size="sm" variant="ghost" onClick={() => void clearInitiative()} disabled={encounter.combatants.length === 0}>
           Clear
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void handlePushToFoundry()}
+          disabled={pushing || monsterCount === 0}
+          title={
+            monsterCount === 0
+              ? 'Add monster combatants first'
+              : 'Create a Foundry actor for each monster in a folder named after the encounter'
+          }
+        >
+          <UploadCloud className="mr-1 h-3.5 w-3.5" />
+          {pushing ? 'Pushing…' : 'Push to Foundry'}
+        </Button>
         <div style={{ flex: 1 }} />
         <span className="text-[11px]">
           {encounter.combatants.length} combatant{encounter.combatants.length === 1 ? '' : 's'}
         </span>
       </div>
+      {pushError && (
+        <div
+          style={{
+            padding: '6px 12px',
+            fontSize: 11,
+            color: 'hsl(var(--destructive))',
+            background: 'hsl(var(--destructive) / 0.1)',
+            borderBottom: '1px solid hsl(var(--destructive) / 0.4)',
+          }}
+        >
+          {pushError}
+        </div>
+      )}
+      {pushResult && (
+        <PushResultDialog
+          result={pushResult}
+          onClose={() => setPushResult(null)}
+        />
+      )}
 
       {/* Initiative list */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
