@@ -3,6 +3,9 @@
 # the remote host, then runs `docker compose up -d --build`. The build
 # happens in-container on the server; nothing is pre-built locally.
 #
+# Portal state is in-memory only — no volumes. The DM auto-pushes on
+# every edit, so the cache refills within seconds of play resuming.
+#
 # Usage (manual):
 #   scp -r <monorepo subset> alex@server.ad:~/dm-tool-deploy
 #   ssh alex@server.ad "cd ~/dm-tool-deploy/apps/player-portal && \
@@ -18,9 +21,4 @@ services:
     ports:
       - '30002:3000'
     environment:
-      DATA_DIR: '/data'
       SHARED_SECRET: '${SHARED_SECRET:?SHARED_SECRET must be set}'
-    volumes:
-      # Live-sync state (inventory, aurus, globe pins) persists here.
-      # Everything else streams in via /api/* — no file bind mounts.
-      - ./data:/data

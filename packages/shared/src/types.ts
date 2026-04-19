@@ -349,15 +349,15 @@ export interface ConfigPaths {
   taggerBinPath: string;
   booksPath: string;
   autoWallBinPath: string;
-  pf2eDbPath: string;
   foundryMcpUrl: string;
   obsidianVaultPath: string;
-  /** Base URL of the sidecar live-sync service (e.g. "http://server.ad:30003"
-   *  or via nginx: "http://server.ad:30002"). Empty = live features disabled. */
+  /** Public URL players visit; shown in the resync-complete toast. */
+  playerMapPublicUrl: string;
+  /** Base URL of the player portal's live-sync API (e.g.
+   *  "http://server.ad:30002"). Empty = live features disabled. */
   sidecarUrl: string;
-  /** Shared secret for DM writes to the sidecar. Stored via safeStorage rather
-   *  than in config.json since it's a credential. Empty = live features
-   *  disabled. */
+  /** Shared secret for DM writes to the portal's live-sync API. Empty =
+   *  live features disabled. */
   sidecarSecret: string;
 }
 

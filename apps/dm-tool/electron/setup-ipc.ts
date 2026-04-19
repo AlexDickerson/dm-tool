@@ -1,17 +1,18 @@
-// Minimal IPC handlers registered in setup mode (first run, no config.json).
-// Only exposes the handful of channels needed for the setup screen and the
-// shared title-bar overlay. Everything else (maps, books, chat, tagger, etc.)
-// is unavailable until a valid config exists and the app restarts.
+// Minimal IPC handlers registered in setup mode (first run — DB exists
+// but the settings table is empty). Only exposes the handful of channels
+// needed for the setup screen and the shared title-bar overlay.
+// Everything else (maps, books, chat, tagger, etc.) is unavailable until
+// the user completes setup and the app restarts.
 
 import { app, dialog, ipcMain } from 'electron';
-import { writeFile } from 'node:fs/promises';
 import type { ConfigPaths, PickPathArgs } from '@dm-tool/shared/types';
-import { resolveConfigPath } from './config.js';
+import { replaceSettings } from './pf2e-db.js';
 
 export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserWindow | null): void {
   ipcMain.handle('getAppMode', (): 'normal' | 'setup' => 'setup');
 
-  // Config is not loaded yet — return empty paths.
+  // Config is not loaded yet — return empty paths so the controlled
+  // inputs in SetupScreen render cleanly.
   ipcMain.handle(
     'getConfig',
     (): ConfigPaths => ({
@@ -22,9 +23,9 @@ export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserW
       taggerBinPath: '',
       booksPath: '',
       autoWallBinPath: '',
-      pf2eDbPath: '',
       foundryMcpUrl: '',
       obsidianVaultPath: '',
+      playerMapPublicUrl: '',
       sidecarUrl: '',
       sidecarSecret: '',
     }),
@@ -49,22 +50,45 @@ export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserW
       }
     }
 
-    const config: Record<string, string> = {
-      libraryPath: paths.libraryPath,
-      indexDbPath: paths.indexDbPath,
-      inboxPath: paths.inboxPath,
-      quarantinePath: paths.quarantinePath,
-    };
-    if (paths.taggerBinPath?.trim()) config.taggerBinPath = paths.taggerBinPath;
-    if (paths.booksPath?.trim()) config.booksPath = paths.booksPath;
-    if (paths.autoWallBinPath?.trim()) config.autoWallBinPath = paths.autoWallBinPath;
-    if (paths.pf2eDbPath?.trim()) config.pf2eDbPath = paths.pf2eDbPath;
-    if (paths.foundryMcpUrl?.trim()) config.foundryMcpUrl = paths.foundryMcpUrl;
+    writeSettings(paths);
 
-    const outPath = resolveConfigPath();
-    await writeFile(outPath, JSON.stringify(config, null, 2), 'utf-8');
-
-    app.relaunch();
-    app.exit(0);
+    // app.relaunch() drops electron-vite's dev-server context and leaves
+    // the renderer blank. Only auto-relaunch in packaged builds.
+    if (app.isPackaged) {
+      app.relaunch();
+      app.exit(0);
+    } else {
+      await dialog.showMessageBox({
+        type: 'info',
+        title: 'Settings saved',
+        message: 'Dm-tool will now close.',
+        detail: 'Run `npm run dev` again to relaunch with the new settings.',
+      });
+      app.exit(0);
+    }
   });
+}
+
+export function writeSettings(paths: ConfigPaths): void {
+  const settings: Record<string, string> = {
+    libraryPath: paths.libraryPath,
+    indexDbPath: paths.indexDbPath,
+    inboxPath: paths.inboxPath,
+    quarantinePath: paths.quarantinePath,
+  };
+  const optional: Array<keyof ConfigPaths> = [
+    'taggerBinPath',
+    'booksPath',
+    'autoWallBinPath',
+    'foundryMcpUrl',
+    'obsidianVaultPath',
+    'playerMapPublicUrl',
+    'sidecarUrl',
+    'sidecarSecret',
+  ];
+  for (const key of optional) {
+    const v = paths[key];
+    if (typeof v === 'string' && v.trim().length > 0) settings[key] = v.trim();
+  }
+  replaceSettings(settings);
 }

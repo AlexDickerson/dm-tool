@@ -9,4 +9,3 @@ tagger/
 resources/
 .claude/
 package-lock.json
-apps/player-portal/data/

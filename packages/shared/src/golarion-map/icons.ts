@@ -1,5 +1,7 @@
-// Icon utilities for the player-facing globe. Adapted from dm-tool's
-// globe-icons.ts — same MapLibre image registration approach.
+// MapLibre image registration for game-icons.net markers. Both the DM
+// tool and the player portal share the same icon encoding + default-dot
+// treatment — the DM tool adds its own IconPicker layer on top
+// (ALL_ICON_NAMES + SUGGESTED_ICONS stay dm-tool-side).
 
 import type { Map as MlMap } from 'maplibre-gl';
 import iconsData from '@iconify-json/game-icons/icons.json';
@@ -59,4 +61,11 @@ export function resolvePinIcon(map: MlMap, icon: string): string {
   }
   ensureIconImage(map, icon);
   return iconKey(icon);
+}
+
+/** Render an icon as an inline SVG string for use in React (picker thumbnails). */
+export function iconSvgHtml(name: string, size = 24): string {
+  const body = getIconBody(name);
+  if (!body) return '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512" fill="currentColor">${body}</svg>`;
 }

@@ -33,7 +33,7 @@ export function registerIpcHandlers(
   registerBookHandlers(bookDb, cfg, getMainWindow);
   registerChatHandlers(getMainWindow);
   registerMonsterHandlers();
-  registerItemHandlers(cfg);
+  registerItemHandlers();
   registerTaggerHandlers(cfg, getMainWindow);
   registerAutoWallHandlers(cfg);
   registerFoundryHandlers(db, cfg);

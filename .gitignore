@@ -32,7 +32,3 @@ tagger/*.spec
 # Auto-Wall binary (downloaded during CI or locally)
 auto-wall-bin/
 
-# Runtime state from the player-portal live-sync server (inventory,
-# aurus, globe snapshots). Written inside the container via the
-# bind-mount volume in docker-compose.yml.
-apps/player-portal/data/

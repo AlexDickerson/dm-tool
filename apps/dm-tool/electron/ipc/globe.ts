@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import type { DmToolConfig } from '../config.js';
-import { listGlobePins, upsertGlobePin, deleteGlobePin } from '../pf2e-db.js';
+import { listGlobePins, upsertGlobePin, deleteGlobePin, setMissionMarkdown } from '../pf2e-db.js';
 import type { GlobePin, GlobeDeployProgress, GlobeDeployResult, MissionData } from '@dm-tool/shared/types';
 import { missionNoteTemplate, parseMissionNote } from '../mission-parser.js';
 import { findNoteByPinId, safeFileName, stampPinId } from '../mission-notes.js';
@@ -12,8 +12,6 @@ import { findNoteByPinId, safeFileName, stampPinId } from '../mission-notes.js';
 const DEFAULT_PUBLIC_URL = 'http://server.ad:30002';
 
 export function registerGlobeHandlers(cfg: DmToolConfig, getMainWindow: () => Electron.BrowserWindow | null): void {
-  const hasPf2eDb = (): boolean => !!cfg.pf2eDbPath;
-
   /** Best-effort POST of the current pin snapshot to the player portal's
    *  /api/globe endpoint. Silent no-op if sidecarUrl/secret aren't
    *  configured. Network/5xx errors log and swallow — the SQLite write
@@ -73,6 +71,11 @@ export function registerGlobeHandlers(cfg: DmToolConfig, getMainWindow: () => El
           if (filePath) {
             try {
               const raw = await readFile(filePath, 'utf-8');
+              // Mirror the markdown into the DB so the pin row is self-
+              // contained — useful for backups and for any future portal
+              // feature that wants the raw text without going through
+              // the DM's Obsidian vault.
+              setMissionMarkdown(pin.id, raw);
               const mission = parseMissionNote(raw, pin.label || 'Mission');
               const { dmNotes: _dmNotes, ...playerSafe } = mission;
               out.mission = playerSafe as MissionData;
@@ -88,19 +91,14 @@ export function registerGlobeHandlers(cfg: DmToolConfig, getMainWindow: () => El
     return { exportedAt: new Date().toISOString(), pins: exportPins };
   }
 
-  ipcMain.handle('globePinsList', () => {
-    if (!hasPf2eDb()) return [];
-    return listGlobePins();
-  });
+  ipcMain.handle('globePinsList', () => listGlobePins());
 
   ipcMain.handle('globePinsUpsert', async (_e, pin: GlobePin) => {
-    if (!hasPf2eDb()) return;
     upsertGlobePin(pin);
     await pushSnapshot();
   });
 
   ipcMain.handle('globePinsDelete', async (_e, id: string) => {
-    if (!hasPf2eDb()) return;
     deleteGlobePin(id);
     await pushSnapshot();
   });

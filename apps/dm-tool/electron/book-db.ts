@@ -1,8 +1,10 @@
 // Read/write SQLite wrapper for the book catalog.
 //
-// Unlike MapDb (which opens the map-tagger's read-only Python-managed DB),
-// this file owns a dm-tool-specific SQLite file living in userData. We own
-// the schema, so migrations run idempotently on startup in the constructor.
+// The books table lives inside the pf2e.db file alongside globe_pins,
+// party_inventory, aurus_teams, and encounters — all dm-tool-owned
+// mutable state in one place. BookDb takes a shared connection rather
+// than opening its own file; migrations still run in the constructor
+// so the schema is self-contained here.
 //
 // Cover images are stored as PNG blobs directly in the database. When the
 // user reorganises their PDF library (renaming folders, changing booksPath),
@@ -13,7 +15,7 @@
 // plain Node process.
 
 import { basename } from 'node:path';
-import Database, { type Database as BetterSqliteDB } from 'better-sqlite3';
+import { type Database as BetterSqliteDB } from 'better-sqlite3';
 import type { Book, BookClassification } from '@dm-tool/shared/types';
 
 /** Raw row shape as it comes back from the SELECT (excludes cover_blob
@@ -53,17 +55,11 @@ export interface ScannedFile {
 export class BookDb {
   private db: BetterSqliteDB;
 
-  constructor(dbPath: string) {
-    // Writers get their own file — WAL mode so reads during a long ingest
-    // don't block. The DB is tiny (one small table) so we don't bother
-    // with busy_timeout tuning.
-    this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
+  constructor(db: BetterSqliteDB) {
+    // Shares the pf2e.db connection — the caller already set
+    // journal_mode=WAL on it. We just ensure our table + columns exist.
+    this.db = db;
     this.migrate();
-  }
-
-  close(): void {
-    this.db.close();
   }
 
   private migrate(): void {
@@ -334,29 +330,6 @@ export class BookDb {
       path: string;
       cover_blob: Buffer;
     }>;
-  }
-
-  /** Migrate cover PNGs from disk files into the database. Called once at
-   *  startup by main.ts for the v1→v2 transition. */
-  migrateDiskCovers(readFile: (id: number) => Buffer | null): number {
-    const rows = this.db
-      .prepare('SELECT id FROM books WHERE cover_blob IS NULL AND ingested_at IS NOT NULL')
-      .all() as Array<{ id: number }>;
-    if (rows.length === 0) return 0;
-
-    const update = this.db.prepare('UPDATE books SET cover_blob = ? WHERE id = ?');
-    let migrated = 0;
-    const tx = this.db.transaction(() => {
-      for (const row of rows) {
-        const buf = readFile(row.id);
-        if (buf) {
-          update.run(buf, row.id);
-          migrated++;
-        }
-      }
-    });
-    tx();
-    return migrated;
   }
 }
 

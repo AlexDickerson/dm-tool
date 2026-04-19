@@ -3,12 +3,13 @@ import { join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import type { MapDb } from '../db.js';
-import { type DmToolConfig, resolveConfigPath } from '../config.js';
+import type { DmToolConfig } from '../config.js';
 import type { ConfigPaths, MapDetail, PickPathArgs } from '@dm-tool/shared/types';
 import { getMonsterPreview } from '../pf2e-db.js';
 import { fetchAonPreview } from '../aon-preview.js';
 import { generateEncounterHooks } from '../anthropic.js';
 import { appendAdditionalHooks, getAdditionalHooks } from '../hooks-store.js';
+import { writeSettings } from '../setup-ipc.js';
 
 export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
   // --- Secure storage (API keys) -------------------------------------------
@@ -61,9 +62,9 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
       taggerBinPath: cfg.taggerBinPath ?? '',
       booksPath: cfg.booksPath ?? '',
       autoWallBinPath: cfg.autoWallBinPath ?? '',
-      pf2eDbPath: cfg.pf2eDbPath ?? '',
       foundryMcpUrl: cfg.foundryMcpUrl ?? '',
       obsidianVaultPath: cfg.obsidianVaultPath ?? '',
+      playerMapPublicUrl: cfg.playerMapPublicUrl ?? '',
       sidecarUrl: cfg.sidecarUrl ?? '',
       sidecarSecret: cfg.sidecarSecret ?? '',
     }),
@@ -88,26 +89,24 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
       }
     }
 
-    const config: Record<string, string> = {
-      libraryPath: paths.libraryPath,
-      indexDbPath: paths.indexDbPath,
-      inboxPath: paths.inboxPath,
-      quarantinePath: paths.quarantinePath,
-    };
-    if (paths.taggerBinPath?.trim()) config.taggerBinPath = paths.taggerBinPath;
-    if (paths.booksPath?.trim()) config.booksPath = paths.booksPath;
-    if (paths.autoWallBinPath?.trim()) config.autoWallBinPath = paths.autoWallBinPath;
-    if (paths.pf2eDbPath?.trim()) config.pf2eDbPath = paths.pf2eDbPath;
-    if (paths.foundryMcpUrl?.trim()) config.foundryMcpUrl = paths.foundryMcpUrl;
-    if (paths.obsidianVaultPath?.trim()) config.obsidianVaultPath = paths.obsidianVaultPath;
-    if (paths.sidecarUrl?.trim()) config.sidecarUrl = paths.sidecarUrl;
-    if (paths.sidecarSecret?.trim()) config.sidecarSecret = paths.sidecarSecret;
+    writeSettings(paths);
 
-    const outPath = resolveConfigPath();
-    await writeFile(outPath, JSON.stringify(config, null, 2), 'utf-8');
-
-    app.relaunch();
-    app.exit(0);
+    // app.relaunch() respawns Electron directly, which works in a
+    // packaged build but drops the electron-vite dev-server context in
+    // dev mode (renderer comes back blank). Only auto-relaunch in prod;
+    // in dev just exit and let the user re-run `npm run dev`.
+    if (app.isPackaged) {
+      app.relaunch();
+      app.exit(0);
+    } else {
+      await dialog.showMessageBox({
+        type: 'info',
+        title: 'Settings saved',
+        message: 'Dm-tool will now close.',
+        detail: 'Run `npm run dev` again to relaunch with the new settings.',
+      });
+      app.exit(0);
+    }
   });
 
   // --- Misc handlers -------------------------------------------------------

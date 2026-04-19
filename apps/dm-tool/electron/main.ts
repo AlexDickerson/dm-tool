@@ -14,14 +14,14 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, net, session } from 'electron';
 import { dirname, join, normalize, sep, resolve as resolvePath } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { existsSync, readFileSync } from 'node:fs';
-import { configExists, loadConfig, type DmToolConfig } from './config.js';
+import { existsSync } from 'node:fs';
+import { isConfigured, loadBootstrapConfig, loadConfigFromDb, type DmToolConfig } from './config.js';
 import { MapDb } from './db.js';
 import { BookDb } from './book-db.js';
 import { registerIpcHandlers } from './ipc/index.js';
 import { registerSetupIpcHandlers } from './setup-ipc.js';
 import { scanBookRoot } from './book-scanner.js';
-import { openPf2eDb, closePf2eDb } from './pf2e-db.js';
+import { closePf2eDb, getPf2eDb, openPf2eDb } from './pf2e-db.js';
 
 // `map-file://` and `book-file://` must be registered as privileged
 // schemes BEFORE app.ready fires, otherwise the CSP rules in index.html
@@ -297,8 +297,28 @@ async function startup(): Promise<void> {
   // First-run: no config.json found anywhere — boot into the setup screen
   // so the user can pick paths via native dialogs. Only the minimal IPC
   // surface is registered; the full app (maps, books, chat, etc.) is
-  // unavailable until a valid config exists and the app restarts.
-  if (!configExists()) {
+  // Open the state DB up front — it hosts settings, books, globe pins,
+  // party inventory, Aurus, encounters, and the PF2e rules content.
+  // Location comes from the bootstrap config.json (or $DM_TOOL_DB_PATH,
+  // or defaults to <userData>/dm-tool.db).
+  const bootstrap = loadBootstrapConfig();
+  try {
+    openPf2eDb(bootstrap.dbPath);
+    console.log('State DB loaded:', bootstrap.dbPath);
+  } catch (e) {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'DM Tool — database error',
+      message: `Could not open state DB at ${bootstrap.dbPath}`,
+      detail: (e as Error).message,
+    });
+    app.quit();
+    return;
+  }
+
+  // If the settings table isn't populated yet, fall into setup mode so
+  // the user can fill in library paths via SetupScreen.
+  if (!isConfigured()) {
     registerSetupIpcHandlers(() => mainWindow);
     Menu.setApplicationMenu(null);
 
@@ -319,7 +339,7 @@ async function startup(): Promise<void> {
 
   let cfg: DmToolConfig;
   try {
-    cfg = loadConfig();
+    cfg = loadConfigFromDb();
   } catch (e) {
     await dialog.showMessageBox({
       type: 'error',
@@ -344,19 +364,12 @@ async function startup(): Promise<void> {
     return;
   }
 
-  // Open the dm-tool-owned book catalog DB. Unlike MapDb (which fails
-  // startup if the tagger index is missing) this one is optional — we
-  // always create the file but only run the phase-1 scan if booksPath is
-  // configured. That way users who don't have a PDF library yet can
-  // still use the map browser.
+  // Book catalog shares the state DB connection. BookDb's constructor
+  // runs the CREATE TABLE migration for the books table.
   try {
-    const bookDbPath = join(app.getPath('userData'), 'books.sqlite');
-    bookDb = new BookDb(bookDbPath);
+    bookDb = new BookDb(getPf2eDb());
   } catch (e) {
-    // Non-fatal — log and disable the book catalog. The IPC handlers
-    // will surface a user-friendly error if the renderer tries to use
-    // them, so the map browser stays usable.
-    console.error('Failed to open book catalog DB:', (e as Error).message);
+    console.error('Failed to initialise book catalog:', (e as Error).message);
     bookDb = null;
   }
 
@@ -375,31 +388,6 @@ async function startup(): Promise<void> {
     }
   }
 
-  // Open the PF2e rules/monsters/items database if configured.
-  if (cfg.pf2eDbPath && existsSync(cfg.pf2eDbPath)) {
-    try {
-      openPf2eDb(cfg.pf2eDbPath);
-      console.log('PF2e DB loaded:', cfg.pf2eDbPath);
-    } catch (e) {
-      console.error('Failed to open PF2e DB:', (e as Error).message);
-    }
-  }
-
-  // Migrate cover PNGs from disk (v1) into the database (v2). Runs once —
-  // after migration the disk files are no longer needed.
-  const coverDiskRoot = join(app.getPath('userData'), 'book-covers');
-  if (bookDb) {
-    const migrated = bookDb.migrateDiskCovers((id) => {
-      const p = join(coverDiskRoot, `${id}.png`);
-      try {
-        return existsSync(p) ? readFileSync(p) : null;
-      } catch {
-        return null;
-      }
-    });
-    if (migrated > 0) console.log(`Migrated ${migrated} cover(s) from disk into DB`);
-  }
-
   // Kill the default Electron application menu (File/Edit/View/...).
   // Our custom title bar in the renderer replaces it. Standard OS
   // accelerators (Alt+F4, copy/paste inside inputs, etc.) still work
@@ -408,7 +396,7 @@ async function startup(): Promise<void> {
 
   registerMapFileProtocol(cfg);
   registerBookFileProtocol(() => bookDb);
-  if (cfg.pf2eDbPath) registerMonsterFileProtocol(cfg.pf2eDbPath);
+  registerMonsterFileProtocol(bootstrap.dbPath);
   registerIpcHandlers(db, bookDb, cfg, () => mainWindow);
 
   // Renderer-driven runtime resize of the native window-control overlay.
@@ -485,9 +473,7 @@ app.on('will-quit', () => {
     db.close();
     db = null;
   }
-  if (bookDb) {
-    bookDb.close();
-    bookDb = null;
-  }
+  // bookDb shares the pf2e.db handle — closePf2eDb() below releases it.
+  bookDb = null;
   closePf2eDb();
 });

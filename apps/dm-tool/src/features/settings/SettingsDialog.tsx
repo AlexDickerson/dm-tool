@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ClipboardCopy, FolderOpen, Plus, RotateCcw, Settings, X } from 'lucide-react';
+import { ClipboardCopy, FolderOpen, Plus, RefreshCw, RotateCcw, Settings, X } from 'lucide-react';
 import { PathField } from '../../components/PathField';
 import { cn } from '../../lib/utils';
 import {
@@ -83,6 +83,35 @@ export function SettingsDialog({
   const [pathsSaving, setPathsSaving] = useState(false);
   const [pathsError, setPathsError] = useState<string | null>(null);
 
+  /** null = idle; otherwise the current resync stage message shown on the button. */
+  const [resyncStatus, setResyncStatus] = useState<string | null>(null);
+  /** Post-resync toast — stays until the user opens the dialog fresh. */
+  const [resyncToast, setResyncToast] = useState<{ ok: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    const unsub = window.electronAPI.onGlobeDeployProgress((p) => {
+      setResyncStatus(p.message);
+    });
+    return unsub;
+  }, []);
+
+  const handleResync = useCallback(async () => {
+    setResyncStatus('Starting...');
+    setResyncToast(null);
+    try {
+      const result = await window.electronAPI.globeDeployPlayer();
+      if (result.ok) {
+        setResyncToast({ ok: true, message: `Synced — players can visit ${result.url ?? 'the map'}` });
+      } else {
+        setResyncToast({ ok: false, message: result.error ?? 'Resync failed for unknown reason' });
+      }
+    } catch (e) {
+      setResyncToast({ ok: false, message: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setResyncStatus(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (open) {
       window.electronAPI.getConfig().then((c) => {
@@ -154,7 +183,7 @@ export function SettingsDialog({
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
-          {/* Global: API key + UI scale */}
+          {/* Global: API key + chat model + UI scale */}
           <div className="space-y-2">
             <Label htmlFor="anthropic-key" className="text-xs font-medium">
               Anthropic API Key
@@ -170,6 +199,27 @@ export function SettingsDialog({
             />
             <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
               Powers AI features (encounter hooks, map tagging). Stored locally on this machine.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="chat-model" className="text-xs font-medium">
+              Chat Model
+            </Label>
+            <select
+              id="chat-model"
+              value={chatModel}
+              onChange={(e) => onChatModelChange(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {CHAT_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
+              Model used by the chat assistant. Higher tiers are smarter but cost more per message.
             </p>
           </div>
 
@@ -317,14 +367,6 @@ export function SettingsDialog({
                         filters={[{ name: 'Executable', extensions: ['exe'] }]}
                       />
                       <PathField
-                        label="PF2e Database"
-                        description="PF2e rules/monsters SQLite database for offline lookups."
-                        value={configPaths.pf2eDbPath}
-                        onChange={setPath('pf2eDbPath')}
-                        mode="file"
-                        filters={[{ name: 'SQLite', extensions: ['sqlite', 'sqlite3', 'db'] }]}
-                      />
-                      <PathField
                         label="Obsidian Vault"
                         description="Obsidian vault folder. Globe pins will create notes in a Golarion/ subfolder."
                         value={configPaths.obsidianVaultPath}
@@ -347,6 +389,94 @@ export function SettingsDialog({
                         <p className="text-[11px] leading-snug text-muted-foreground">
                           URL of your foundry-mcp server. Enables &quot;Push to Foundry&quot; on maps with walls.
                         </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Player Portal
+                    </h4>
+                    <div className="space-y-3 pl-2 border-l-2 border-border/50">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">
+                          Sidecar URL<span className="text-muted-foreground"> (optional)</span>
+                        </Label>
+                        <Input
+                          type="url"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="http://server.ad:30002"
+                          value={configPaths.sidecarUrl}
+                          onChange={(e) => setPath('sidecarUrl')(e.target.value)}
+                          className="text-xs"
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Base URL of the player portal. Pin edits, inventory, and Aurus leaderboard push here on every
+                          change.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">
+                          Shared Secret<span className="text-muted-foreground"> (optional)</span>
+                        </Label>
+                        <Input
+                          type="password"
+                          autoComplete="off"
+                          spellCheck={false}
+                          value={configPaths.sidecarSecret}
+                          onChange={(e) => setPath('sidecarSecret')(e.target.value)}
+                          className="text-xs"
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Bearer token the portal expects on writes. Must match the portal container&apos;s
+                          SHARED_SECRET env var.
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-medium">
+                          Public URL<span className="text-muted-foreground"> (optional)</span>
+                        </Label>
+                        <Input
+                          type="url"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="http://server.ad:30002"
+                          value={configPaths.playerMapPublicUrl}
+                          onChange={(e) => setPath('playerMapPublicUrl')(e.target.value)}
+                          className="text-xs"
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          URL players visit. Shown in the Resync-complete toast.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleResync}
+                          disabled={resyncStatus !== null}
+                          className="w-full gap-1.5"
+                        >
+                          <RefreshCw className={cn('h-3.5 w-3.5', resyncStatus !== null && 'animate-spin')} />
+                          {resyncStatus ?? 'Resync globe now'}
+                        </Button>
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Force-reads every linked Obsidian mission note and pushes the fresh snapshot. Pin edits
+                          auto-push already — only needed when you&apos;ve changed a mission note outside dm-tool.
+                        </p>
+                        {resyncToast && (
+                          <p
+                            className={cn(
+                              'text-[11px] leading-snug',
+                              resyncToast.ok ? 'text-emerald-500' : 'text-destructive',
+                            )}
+                          >
+                            {resyncToast.ok ? '✓ ' : '✗ '}
+                            {resyncToast.message}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -462,27 +592,6 @@ export function SettingsDialog({
                 />
               )}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="chat-model" className="text-xs font-medium">
-              Chat Model
-            </Label>
-            <select
-              id="chat-model"
-              value={chatModel}
-              onChange={(e) => onChatModelChange(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              {CHAT_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-            <p className="pt-0.5 text-[11px] leading-snug text-muted-foreground">
-              Model used by the chat assistant. Higher tiers are smarter but cost more per message.
-            </p>
           </div>
         </div>
       </DialogContent>

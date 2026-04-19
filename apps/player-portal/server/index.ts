@@ -2,10 +2,13 @@
 // to be the sidecar), and proxies /map/ to map.pathfinderwiki.com to
 // sidestep CORS on tile requests.
 //
-// Live-sync API — two datasets (inventory, aurus), each with:
+// Live-sync API — three datasets (inventory, aurus, globe), each with:
 //   GET   /api/<name>           — read current snapshot (public)
 //   POST  /api/<name>           — overwrite snapshot (DM only, bearer auth)
 //   WS    /api/<name>/stream    — subscribe to updates (public, read-only)
+//
+// State is in-memory only. Portal restart loses it; the DM auto-pushes
+// on every edit, so the cache refills within seconds of play resuming.
 //
 // Auth: single shared secret as `Authorization: Bearer <secret>` on writes.
 // Reads/WS are unauthed since players need them and nothing private lives
@@ -25,7 +28,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
-const DATA_DIR = process.env.DATA_DIR ?? './data';
 const SHARED_SECRET = process.env.SHARED_SECRET;
 // In prod the compiled server sits at server-dist/index.js and the SPA
 // build is at dist/. In dev Vite serves static from memory on :5173 and
@@ -38,13 +40,9 @@ if (!SHARED_SECRET) {
   process.exit(1);
 }
 
-const stores = createStores(DATA_DIR);
+const stores = createStores();
 
 async function main(): Promise<void> {
-  await stores.inventory.load();
-  await stores.aurus.load();
-  await stores.globe.load();
-
   const app = Fastify({ logger: true });
   await app.register(websocketPlugin);
 
@@ -89,7 +87,7 @@ async function main(): Promise<void> {
       items: body.items,
       updatedAt: new Date().toISOString(),
     };
-    await stores.inventory.set(snapshot);
+    stores.inventory.set(snapshot);
     return { ok: true, updatedAt: snapshot.updatedAt };
   });
 
@@ -119,7 +117,7 @@ async function main(): Promise<void> {
       teams: body.teams,
       updatedAt: new Date().toISOString(),
     };
-    await stores.aurus.set(snapshot);
+    stores.aurus.set(snapshot);
     return { ok: true, updatedAt: snapshot.updatedAt };
   });
 
@@ -152,7 +150,7 @@ async function main(): Promise<void> {
       pins: body.pins,
       updatedAt: new Date().toISOString(),
     };
-    await stores.globe.set(snapshot);
+    stores.globe.set(snapshot);
     return { ok: true, updatedAt: snapshot.updatedAt };
   });
 

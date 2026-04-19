@@ -1,10 +1,3 @@
 {
-  "libraryPath": "E:\\TTRPG\\Tools\\dnd-map-tagger\\data\\library",
-  "indexDbPath": "E:\\TTRPG\\Tools\\dnd-map-tagger\\data\\index.sqlite",
-  "inboxPath": "E:\\TTRPG\\Tools\\dnd-map-tagger\\data\\inbox",
-  "quarantinePath": "E:\\TTRPG\\Tools\\dnd-map-tagger\\data\\quarantine",
-  "taggerBinPath": "E:\\TTRPG\\Tools\\dnd-map-tagger\\.venv\\Scripts\\map-tagger.exe",
-  "booksPath": "E:\\TTRPG\\Systems\\PF2e",
-  "autoWallBinPath": "E:\\TTRPG\\Tools\\auto-wall\\Auto-Wall.exe",
-  "foundryMcpUrl": "http://localhost:8765"
+  "dbPath": "E:\\TTRPG\\Tools\\data\\dm-tool.db"
 }

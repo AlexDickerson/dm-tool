@@ -19,9 +19,9 @@ const EMPTY_PATHS: ConfigPaths = {
   taggerBinPath: '',
   booksPath: '',
   autoWallBinPath: '',
-  pf2eDbPath: '',
   foundryMcpUrl: '',
   obsidianVaultPath: '',
+  playerMapPublicUrl: '',
   sidecarUrl: '',
   sidecarSecret: '',
 };
@@ -140,14 +140,6 @@ export function SetupScreen() {
                 onChange={set('autoWallBinPath')}
                 mode="file"
                 filters={[{ name: 'Executable', extensions: ['exe'] }]}
-              />
-              <PathField
-                label="PF2e Database"
-                description="PF2e rules/monsters SQLite database for offline lookups."
-                value={paths.pf2eDbPath}
-                onChange={set('pf2eDbPath')}
-                mode="file"
-                filters={[{ name: 'SQLite', extensions: ['sqlite', 'sqlite3', 'db'] }]}
               />
               <div className="space-y-1">
                 <Label className="text-xs font-medium">

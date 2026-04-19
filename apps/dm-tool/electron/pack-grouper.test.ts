@@ -1,31 +1,40 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The module under test calls `app.getPath('userData')` to decide where
-// to cache the pack mapping. We stub that module to point at a fresh
-// temp directory per test so the real fs I/O runs in isolation.
-let userDataDir: string;
-
-vi.mock('electron', () => ({
-  app: {
-    getPath: (key: string) => {
-      if (key === 'userData') return userDataDir;
-      throw new Error(`unexpected getPath(${key})`);
+// pack-grouper.ts delegates persistence to pf2e-db, which wraps
+// better-sqlite3. The native addon is built against Electron's Node ABI
+// and can't load under the host Node that vitest runs in. Replace the
+// five pf2e-db exports pack-grouper uses with an in-memory Map so tests
+// exercise the real parsing/merge logic without touching SQLite.
+vi.mock('./pf2e-db', () => {
+  let store = new Map<string, string>();
+  return {
+    hasPackMappings: () => store.size > 0,
+    listPackMappings: () => Object.fromEntries(store.entries()),
+    replacePackMappings: (mapping: Record<string, string>) => {
+      store = new Map(Object.entries(mapping));
     },
-  },
-}));
-
-// Import AFTER the mock registration so the module reads the stub.
-const { buildGroupingPrompt, getCachedPackMapping, mergePacks, parseAndCacheMapping } = await import('./pack-grouper');
-
-beforeEach(() => {
-  userDataDir = mkdtempSync(join(tmpdir(), 'dmtool-packtest-'));
+    upsertPackMapping: (fileName: string, packName: string) => {
+      store.set(fileName, packName);
+    },
+    renamePackMappings: (sourcePacks: string[], targetName: string) => {
+      const sources = new Set(sourcePacks);
+      for (const [fn, pack] of store.entries()) {
+        if (sources.has(pack)) store.set(fn, targetName);
+      }
+    },
+    // Test-only reset hook — lets us start each case with an empty store.
+    __reset: () => {
+      store = new Map();
+    },
+  };
 });
 
-afterEach(() => {
-  rmSync(userDataDir, { recursive: true, force: true });
+// Import AFTER the mock is registered so pack-grouper binds to the stubs.
+const { buildGroupingPrompt, getCachedPackMapping, mergePacks, parseAndCacheMapping } = await import('./pack-grouper');
+const { __reset } = (await import('./pf2e-db')) as unknown as { __reset: () => void };
+
+beforeEach(() => {
+  __reset();
 });
 
 // ---------------------------------------------------------------------------
@@ -79,7 +88,7 @@ describe('parseAndCacheMapping', () => {
   it('strips a bare ``` ... ``` code fence too', () => {
     const raw = '```\n{"castle_day.jpg":"Castle","castle_night.jpg":"Castle","tavern.jpg":"Tavern"}\n```';
     const mapping = parseAndCacheMapping(raw, fileNames);
-    expect(mapping['tavern.jpg']).toBe('Tavern');
+    expect(mapping['castle_day.jpg']).toBe('Castle');
   });
 
   it('trims whitespace on both ends of a pack name', () => {
@@ -121,15 +130,13 @@ describe('parseAndCacheMapping', () => {
     expect(() => parseAndCacheMapping('"string"', fileNames)).toThrow(/Expected a JSON object/);
   });
 
-  it('persists the result to disk and getCachedPackMapping reads it back', () => {
+  it('persists the result and getCachedPackMapping reads it back', () => {
     const raw = JSON.stringify({
       'castle_day.jpg': 'Castle',
       'castle_night.jpg': 'Castle',
       'tavern.jpg': 'Tavern',
     });
     parseAndCacheMapping(raw, fileNames);
-
-    expect(existsSync(join(userDataDir, 'pack-mapping.json'))).toBe(true);
 
     const roundTrip = getCachedPackMapping(fileNames);
     expect(roundTrip).toEqual({
@@ -145,11 +152,11 @@ describe('parseAndCacheMapping', () => {
 // ---------------------------------------------------------------------------
 
 describe('getCachedPackMapping', () => {
-  it('returns null when no cache file exists', () => {
+  it('returns null when no mapping has ever been saved', () => {
     expect(getCachedPackMapping(['a.jpg'])).toBeNull();
   });
 
-  it('returns the cached mapping unchanged when the file list hash matches', () => {
+  it('returns the cached mapping unchanged when the library is the same', () => {
     const files = ['a.jpg', 'b.jpg'];
     parseAndCacheMapping(JSON.stringify({ 'a.jpg': 'Pack A', 'b.jpg': 'Pack B' }), files);
     expect(getCachedPackMapping(files)).toEqual({ 'a.jpg': 'Pack A', 'b.jpg': 'Pack B' });
@@ -166,7 +173,7 @@ describe('getCachedPackMapping', () => {
     expect(mapping!['Castle_Day.jpg']).toBeDefined(); // filled in
   });
 
-  it('prunes entries for files that have been removed', () => {
+  it('excludes entries for files that have been removed from the library', () => {
     const initial = ['a.jpg', 'b.jpg'];
     parseAndCacheMapping(JSON.stringify({ 'a.jpg': 'Pack A', 'b.jpg': 'Pack B' }), initial);
 
@@ -176,21 +183,13 @@ describe('getCachedPackMapping', () => {
     expect(mapping!['b.jpg']).toBeUndefined();
   });
 
-  it('persists the augmented mapping so the next call matches by hash', () => {
+  it('persists the augmented mapping so the next call is idempotent', () => {
     parseAndCacheMapping(JSON.stringify({ 'a.jpg': 'Pack A' }), ['a.jpg']);
 
     const next = ['a.jpg', 'b.jpg'];
     const first = getCachedPackMapping(next);
-    const second = getCachedPackMapping(next); // same list → hash matches
+    const second = getCachedPackMapping(next);
     expect(second).toEqual(first);
-  });
-
-  it('returns null when the cache file is corrupt', () => {
-    // Write a valid cache then corrupt it.
-    parseAndCacheMapping(JSON.stringify({ 'a.jpg': 'Pack A' }), ['a.jpg']);
-    const path = join(userDataDir, 'pack-mapping.json');
-    writeFileSync(path, '{ not valid json', 'utf-8');
-    expect(getCachedPackMapping(['a.jpg'])).toBeNull();
   });
 });
 
@@ -220,12 +219,11 @@ describe('mergePacks', () => {
   });
 
   it('bootstraps from the stem heuristic when no cache exists', () => {
-    // No prior parseAndCacheMapping — mergePacks must still work.
     const fileNames = ['Castle_Day.jpg', 'Castle_Night.jpg', 'Tavern.jpg'];
     const result = mergePacks(['castle'], 'Grand Castle', fileNames);
     expect(result['Castle_Day.jpg']).toBe('Grand Castle');
     expect(result['Castle_Night.jpg']).toBe('Grand Castle');
-    expect(result['Tavern.jpg']).toBe('tavern'); // untouched stem
+    expect(result['Tavern.jpg']).toBe('tavern');
   });
 
   it('persists the merge so subsequent getCachedPackMapping reflects it', () => {
