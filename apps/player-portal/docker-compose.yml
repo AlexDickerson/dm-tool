@@ -1,0 +1,22 @@
+# Local/dev compose. Self-contained — `docker compose up -d --build`
+# builds everything from source (no prior `npm run build` needed). The
+# context is the monorepo root because npm workspaces needs to see the
+# root manifests + packages/shared to resolve @dm-tool/shared.
+
+services:
+  player-portal:
+    build:
+      context: ../..
+      dockerfile: apps/player-portal/Dockerfile
+    container_name: player-portal
+    restart: unless-stopped
+    ports:
+      - '30002:3000'
+    environment:
+      DATA_DIR: '/data'
+      SHARED_SECRET: '${SHARED_SECRET:-dev-secret}'
+    volumes:
+      # Live-sync snapshots (inventory, aurus, globe) persist across
+      # container restarts. Nothing else is file-mounted — globe pins
+      # now stream live from the DM over /api/globe like inventory/aurus.
+      - ./data:/data

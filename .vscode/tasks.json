@@ -22,7 +22,7 @@
     },
     {
       "label": "typecheck",
-      "detail": "tsc --noEmit for both node + web tsconfigs",
+      "detail": "tsc --noEmit across all workspaces (dm-tool node + web, sidecar, player-portal, shared)",
       "type": "shell",
       "command": "npm run typecheck",
       "options": { "cwd": "${workspaceFolder}" },
