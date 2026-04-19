@@ -8,6 +8,14 @@
       "ignoreDependencies": ["tailwindcss", "tailwindcss-animate"]
     },
     "packages/ai": {
+      "entry": [
+        "src/index.ts",
+        "src/chat/index.ts",
+        "src/classifier/index.ts",
+        "src/hooks/index.ts",
+        "src/loot/index.ts",
+        "harness/run.ts"
+      ],
       "project": ["src/**/*.ts", "harness/**/*.ts"]
     }
   }
