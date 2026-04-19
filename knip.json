@@ -7,6 +7,9 @@
       "project": ["electron/**/*.ts", "src/**/*.{ts,tsx}"],
       "ignoreDependencies": ["tailwindcss", "tailwindcss-animate"]
     },
+    "apps/player-portal": {
+      "vite": false
+    },
     "packages/ai": {
       "entry": [
         "src/index.ts",
