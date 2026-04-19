@@ -1,25 +1,60 @@
 // AI loot generator for combat encounters.
 //
 // Mechanical fit first: computes a PF2e treasure budget from the encounter's
-// XP threat (summed creature-level → XP via CRB table 10-1) scaled against
+// XP threat (summed creature-level → XP via CRB Table 10-1) scaled against
 // the party's per-level treasure budget (Table 10-9). That budget is handed
 // to the model as a hard constraint so "scaled to threat level" holds
 // regardless of model cleverness.
 //
-// Thematic fit second: the model gets the monster roster (name, creature
-// type, traits) so it can flavor names and pick items that suit the fight.
+// Thematic fit second: the model gets the monster roster (name, level, traits)
+// so it can flavor names and pick items that suit the fight.
 //
-// Items source: when `allowInventedItems` is false, every row MUST come
-// from the DB shortlist (permanent items at party level ±2). When true, up
-// to 20% can be model-invented, the rest must still be real items.
+// Items source: when encounter.allowInventedItems is false, every row MUST
+// come from the caller-supplied DB shortlist. When true, up to 20% can be
+// model-invented, the rest must still be real items.
 
 import { randomUUID } from 'node:crypto';
 import type { Encounter, LootItem, LootKind, LootSource } from '@dm-tool/shared/types';
-import { ANTHROPIC_API_URL, ANTHROPIC_API_VERSION, DEFAULT_MODEL } from './constants.js';
-import { getMonsterRowByName, getPf2eDb } from './pf2e-db.js';
-import { tryParseJson } from './util.js';
+import { callAnthropic } from '../shared/anthropic.js';
+import { DEFAULT_MODEL, LOOT_MAX_TOKENS } from '../shared/constants.js';
+import { tryParseJson } from '../shared/text.js';
 
-const LOOT_MAX_TOKENS = 2048;
+// --- Public input types (callers supply these) -----------------------------
+
+export interface LootMonster {
+  name: string;
+  level: number;
+  traits: string[];
+}
+
+/** A DB-sourced item the model can pick from. Caller is responsible for
+ *  pre-querying a random, level-appropriate slice of their items table. */
+export interface LootShortlistItem {
+  id: string;
+  name: string;
+  level: number | null;
+  price: string | null;
+  bulk: string | null;
+  traits: string | null;
+  usage: string | null;
+  aonUrl: string | null;
+  isMagical: number;
+  source: string | null;
+}
+
+export interface GenerateLootInput {
+  apiKey: string;
+  encounter: Encounter;
+  partyLevel: number;
+  /** Monsters resolved from the encounter's combatant list; used for XP math
+   *  and thematic flavor. Combatants that failed to resolve should be dropped
+   *  before calling. */
+  monsters: LootMonster[];
+  /** Pre-queried item shortlist. Recommended shape: ~80 random items at
+   *  party level ±2. Cast a wide net so the model has room for thematic fit
+   *  once mechanical fit is satisfied. */
+  shortlist: LootShortlistItem[];
+}
 
 // --- PF2e treasure + XP tables ---------------------------------------------
 
@@ -50,9 +85,9 @@ const TREASURE_PER_LEVEL_GP: Record<number, number> = {
   20: 490000,
 };
 
-/** Relative-level → XP (PF2e Core Rulebook, Table 10-1). Creatures more
- *  than four levels below the party contribute nothing; more than four
- *  above are capped at extreme (160). */
+/** Relative-level → XP (PF2e Core Rulebook, Table 10-1). Creatures more than
+ *  four levels below the party contribute nothing; more than four above are
+ *  capped at extreme (160). */
 function creatureXp(creatureLevel: number, partyLevel: number): number {
   const d = creatureLevel - partyLevel;
   if (d <= -5) return 0;
@@ -60,8 +95,6 @@ function creatureXp(creatureLevel: number, partyLevel: number): number {
   return [10, 15, 20, 30, 40, 60, 80, 120, 160][d + 4];
 }
 
-/** Human-readable threat label from total encounter XP. Used for prompt
- *  context so the model knows what "severe" means concretely. */
 function threatLabel(totalXp: number): 'trivial' | 'low' | 'moderate' | 'severe' | 'extreme' {
   if (totalXp <= 40) return 'trivial';
   if (totalXp <= 60) return 'low';
@@ -70,54 +103,19 @@ function threatLabel(totalXp: number): 'trivial' | 'low' | 'moderate' | 'severe'
   return 'extreme';
 }
 
-/** Multiplier against the moderate-encounter budget. Continuous rather
- *  than bucketed so tuned encounters (70 XP, 110 XP, etc.) still produce
+/** Multiplier against the moderate-encounter budget. Continuous rather than
+ *  bucketed so tuned encounters (70 XP, 110 XP, etc.) still produce
  *  proportional treasure instead of snapping to a threshold. */
 function budgetMultiplier(totalXp: number): number {
   return Math.max(0.25, totalXp / 80);
 }
 
-// --- Item shortlist ---------------------------------------------------------
+// --- Prompt ----------------------------------------------------------------
 
-interface ShortlistItem {
-  id: string;
-  name: string;
-  level: number | null;
-  price: string | null;
-  bulk: string | null;
-  traits: string | null;
-  usage: string | null;
-  aonUrl: string | null;
-  isMagical: number;
-  source: string | null;
+function summarizeMonster(m: LootMonster): string {
+  const traits = m.traits.length > 0 ? ` [${m.traits.slice(0, 5).join(', ')}]` : '';
+  return `${m.name} (Lvl ${m.level})${traits}`;
 }
-
-/** Pull a randomized, level-appropriate slice of the items table for the
- *  model to choose from. We cast a wide net (±2 levels) because the AI
- *  needs room to match items to theme after mechanical fit is satisfied. */
-function buildItemShortlist(partyLevel: number): ShortlistItem[] {
-  const levelMin = Math.max(0, partyLevel - 2);
-  const levelMax = partyLevel + 2;
-  const rows = getPf2eDb()
-    .prepare(
-      `SELECT id, name, level, price, bulk, traits, usage, aon_url AS aonUrl, is_magical AS isMagical, source
-       FROM items
-       WHERE level BETWEEN ? AND ?
-       ORDER BY RANDOM()
-       LIMIT 80`,
-    )
-    .all(levelMin, levelMax) as ShortlistItem[];
-  return rows;
-}
-
-// --- Monster context --------------------------------------------------------
-
-function summarizeMonster(row: { name: string; level: number; traits: string[] }): string {
-  const traits = row.traits.length > 0 ? ` [${row.traits.slice(0, 5).join(', ')}]` : '';
-  return `${row.name} (Lvl ${row.level})${traits}`;
-}
-
-// --- Prompt -----------------------------------------------------------------
 
 function buildLootPrompt(args: {
   encounter: Encounter;
@@ -126,7 +124,7 @@ function buildLootPrompt(args: {
   threat: ReturnType<typeof threatLabel>;
   budgetGp: number;
   monsterLines: string[];
-  shortlist: ShortlistItem[];
+  shortlist: LootShortlistItem[];
   allowInvented: boolean;
 }): string {
   const { encounter, partyLevel, totalXp, threat, budgetGp, monsterLines, shortlist, allowInvented } = args;
@@ -171,41 +169,7 @@ function buildLootPrompt(args: {
   ].join('\n');
 }
 
-// --- Anthropic call ---------------------------------------------------------
-
-interface AnthropicTextBlock {
-  type: 'text';
-  text: string;
-}
-interface AnthropicResponse {
-  content: Array<AnthropicTextBlock | { type: string }>;
-}
-
-async function callAnthropic(prompt: string, apiKey: string): Promise<string> {
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_API_VERSION,
-    },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      max_tokens: LOOT_MAX_TOKENS,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Anthropic API error ${res.status}: ${errText.slice(0, 300) || res.statusText}`);
-  }
-  const json = (await res.json()) as AnthropicResponse;
-  const textBlock = json.content?.find((c): c is AnthropicTextBlock => c.type === 'text');
-  if (!textBlock) throw new Error('Anthropic response had no text content block');
-  return textBlock.text;
-}
-
-// --- Response parsing -------------------------------------------------------
+// --- Response parsing ------------------------------------------------------
 
 interface ModelLootItem {
   name: unknown;
@@ -247,50 +211,24 @@ function coerceLootItem(raw: ModelLootItem): LootItem | null {
 
 function parseLootResponse(rawText: string): LootItem[] {
   let text = rawText.trim();
-  // Strip ```json … ``` fences if the model wrapped its output.
   const fenceMatch = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
   if (fenceMatch) text = fenceMatch[1].trim();
 
   const parsed = tryParseJson<{ items?: ModelLootItem[] }>(text, {});
   const items = Array.isArray(parsed.items) ? parsed.items : [];
-  const coerced = items.map(coerceLootItem).filter((x): x is LootItem => x !== null);
-  return coerced;
+  return items.map(coerceLootItem).filter((x): x is LootItem => x !== null);
 }
 
-// --- Entry point ------------------------------------------------------------
+// --- Entry point -----------------------------------------------------------
 
-export async function generateEncounterLoot(args: {
-  encounter: Encounter;
-  partyLevel: number;
-  apiKey: string;
-}): Promise<LootItem[]> {
-  const { encounter, partyLevel, apiKey } = args;
-  if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error('Anthropic API key is not set. Add one in Settings.');
-  }
+export async function generateEncounterLoot(input: GenerateLootInput): Promise<LootItem[]> {
+  const { apiKey, encounter, partyLevel, monsters, shortlist } = input;
 
-  // Assemble monster context — names + traits feed thematic fit, levels
-  // feed the XP calculation.
-  let totalXp = 0;
-  const monsterLines: string[] = [];
-  for (const c of encounter.combatants) {
-    if (c.kind !== 'monster' || !c.monsterName) continue;
-    const row = getMonsterRowByName(c.monsterName);
-    if (!row) continue;
-    totalXp += creatureXp(row.level, partyLevel);
-    monsterLines.push(
-      summarizeMonster({
-        name: row.name,
-        level: row.level,
-        traits: tryParseJson<string[]>(row.traits, []),
-      }),
-    );
-  }
+  const totalXp = monsters.reduce((sum, m) => sum + creatureXp(m.level, partyLevel), 0);
+  const monsterLines = monsters.map(summarizeMonster);
 
   const moderatePerEncounterGp = (TREASURE_PER_LEVEL_GP[partyLevel] ?? TREASURE_PER_LEVEL_GP[10]) / 4;
   const budgetGp = moderatePerEncounterGp * budgetMultiplier(totalXp);
-
-  const shortlist = buildItemShortlist(partyLevel);
 
   const prompt = buildLootPrompt({
     encounter,
@@ -303,6 +241,11 @@ export async function generateEncounterLoot(args: {
     allowInvented: encounter.allowInventedItems,
   });
 
-  const responseText = await callAnthropic(prompt, apiKey);
+  const responseText = await callAnthropic({
+    apiKey,
+    model: DEFAULT_MODEL,
+    maxTokens: LOOT_MAX_TOKENS,
+    prompt,
+  });
   return parseLootResponse(responseText);
 }

@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "PF2e GM assistant agents (chat; loot/hooks/classifier to follow). Pure TS library consumed by dm-tool via workspace reference; no Electron or Node-native deps.",
+  "description": "PF2e GM assistant agents (chat, book classifier, encounter hook generator, loot generator). Pure TS library consumed by dm-tool via workspace reference; no Electron coupling.",
   "exports": {
     ".": "./src/index.ts",
-    "./chat": "./src/chat/index.ts"
+    "./chat": "./src/chat/index.ts",
+    "./classifier": "./src/classifier/index.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./loot": "./src/loot/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

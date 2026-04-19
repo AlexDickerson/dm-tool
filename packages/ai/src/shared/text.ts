@@ -25,3 +25,13 @@ export function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return text.slice(0, max) + '…';
 }
+
+/** Attempt to parse JSON, returning `fallback` on failure or null input. */
+export function tryParseJson<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}

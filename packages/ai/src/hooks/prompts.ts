@@ -1,11 +1,4 @@
-// AI prompt templates for features that still live in the Electron main process.
-// Chat prompts have moved to packages/ai.
-
 import type { MapDetail } from '@dm-tool/shared/types';
-
-// ---------------------------------------------------------------------------
-// Encounter hook generation
-// ---------------------------------------------------------------------------
 
 /** Build the user-side prompt for encounter hook generation. The model is
  *  asked to return a JSON array of new hooks, distinct from existing ones. */

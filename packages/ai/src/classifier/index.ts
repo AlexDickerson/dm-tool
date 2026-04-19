@@ -1,11 +1,9 @@
 // AI-powered book classification. Sends a cover image + filename to Claude
 // and gets back structured metadata (system, category, title, publisher).
-//
-// Follows the same direct-fetch pattern as anthropic.ts — keeps the API key
-// in the main process, avoids CORS/CSP, minimal dependencies.
 
 import type { BookClassification } from '@dm-tool/shared/types';
-import { DEFAULT_MODEL, ANTHROPIC_API_URL, ANTHROPIC_API_VERSION, CLASSIFY_MAX_TOKENS } from './constants.js';
+import { callAnthropic, type VisionMediaType } from '../shared/anthropic.js';
+import { CLASSIFY_MAX_TOKENS, DEFAULT_MODEL } from '../shared/constants.js';
 
 const PROMPT = [
   'You are classifying a TTRPG PDF book for a digital library catalog.',
@@ -31,69 +29,37 @@ const PROMPT = [
   'Example: {"system":"PF2e","category":"Adventure Path","subcategory":"Abomination Vaults","title":"Ruins of Gauntlight","publisher":"Paizo"}',
 ].join('\n');
 
-export async function classifyBook(args: {
+export interface ClassifyBookInput {
   apiKey: string;
-  coverBlob: Buffer;
+  coverImage: Buffer;
+  /** Defaults to image/png (historical behavior — covers are extracted as PNG). */
+  mediaType?: VisionMediaType;
   fileName: string;
-}): Promise<BookClassification> {
-  const { apiKey, coverBlob, fileName } = args;
+}
 
-  const body = {
+export async function classifyBook(input: ClassifyBookInput): Promise<BookClassification> {
+  const raw = await callAnthropic({
+    apiKey: input.apiKey,
     model: DEFAULT_MODEL,
-    max_tokens: CLASSIFY_MAX_TOKENS,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: 'image/png',
-              data: coverBlob.toString('base64'),
-            },
-          },
-          {
-            type: 'text',
-            text: PROMPT.replace('{fileName}', fileName),
-          },
-        ],
-      },
-    ],
-  };
-
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_API_VERSION,
+    maxTokens: CLASSIFY_MAX_TOKENS,
+    prompt: PROMPT.replace('{fileName}', input.fileName),
+    image: {
+      buffer: input.coverImage,
+      mediaType: input.mediaType ?? 'image/png',
     },
-    body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Anthropic API ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-  const textBlock = json.content?.find((b) => b.type === 'text');
-  if (!textBlock?.text) {
-    throw new Error('No text in Anthropic response');
-  }
-
   // Strip markdown code fences if present.
-  const raw = textBlock.text
+  const stripped = raw
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/i, '')
     .trim();
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(stripped);
   } catch {
-    throw new Error(`Failed to parse classification JSON: ${raw.slice(0, 200)}`);
+    throw new Error(`Failed to parse classification JSON: ${stripped.slice(0, 200)}`);
   }
 
   const c = parsed as Record<string, unknown>;
@@ -101,7 +67,7 @@ export async function classifyBook(args: {
     system: typeof c.system === 'string' ? c.system : 'Generic',
     category: typeof c.category === 'string' ? c.category : 'Supplement',
     subcategory: typeof c.subcategory === 'string' ? c.subcategory : null,
-    title: typeof c.title === 'string' ? c.title : args.fileName.replace(/\.pdf$/i, ''),
+    title: typeof c.title === 'string' ? c.title : input.fileName.replace(/\.pdf$/i, ''),
     publisher: typeof c.publisher === 'string' ? c.publisher : null,
   };
 }

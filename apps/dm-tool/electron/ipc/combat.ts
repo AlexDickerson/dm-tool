@@ -3,9 +3,16 @@
 
 import { ipcMain } from 'electron';
 import type { Encounter, LootItem, PushEncounterResult } from '@dm-tool/shared/types';
+import { generateEncounterLoot, type LootMonster } from '@dm-tool/ai/loot';
 import type { DmToolConfig } from '../config.js';
-import { deleteEncounter, listEncounters, upsertEncounter } from '../pf2e-db.js';
-import { generateEncounterLoot } from '../loot-gen.js';
+import {
+  buildLootShortlist,
+  deleteEncounter,
+  getMonsterRowByName,
+  listEncounters,
+  upsertEncounter,
+} from '../pf2e-db.js';
+import { tryParseJson } from '../util.js';
 import { pushEncounterActorsToFoundry } from '../encounter-push.js';
 
 export function registerCombatHandlers(cfg: DmToolConfig): void {
@@ -15,7 +22,31 @@ export function registerCombatHandlers(cfg: DmToolConfig): void {
   ipcMain.handle(
     'generateEncounterLoot',
     async (_e, args: { encounter: Encounter; partyLevel: number; apiKey: string }): Promise<LootItem[]> => {
-      return generateEncounterLoot(args);
+      if (!args?.apiKey || args.apiKey.trim().length === 0) {
+        throw new Error('Anthropic API key is not set. Add one in Settings.');
+      }
+
+      const monsters: LootMonster[] = [];
+      for (const c of args.encounter.combatants) {
+        if (c.kind !== 'monster' || !c.monsterName) continue;
+        const row = getMonsterRowByName(c.monsterName);
+        if (!row) continue;
+        monsters.push({
+          name: row.name,
+          level: row.level,
+          traits: tryParseJson<string[]>(row.traits, []),
+        });
+      }
+
+      const shortlist = buildLootShortlist(args.partyLevel);
+
+      return generateEncounterLoot({
+        apiKey: args.apiKey,
+        encounter: args.encounter,
+        partyLevel: args.partyLevel,
+        monsters,
+        shortlist,
+      });
     },
   );
   ipcMain.handle('pushEncounterToFoundry', async (_e, encounterId: string): Promise<PushEncounterResult> => {
