@@ -8,7 +8,9 @@
       "ignoreDependencies": ["tailwindcss", "tailwindcss-animate"]
     },
     "apps/player-portal": {
-      "vite": false
+      "vite": false,
+      "ignore": ["vite.config.ts"],
+      "ignoreDependencies": ["@vitejs/plugin-react"]
     },
     "packages/ai": {
       "entry": [
