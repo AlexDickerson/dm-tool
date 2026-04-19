@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  lint-and-typecheck:
+  quality:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +23,6 @@ jobs:
 
       - name: Audit dependencies
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: ESLint
         run: npm run lint
@@ -33,3 +32,33 @@ jobs:
 
       - name: TypeScript
         run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Knip
+        run: npm run knip
+
+  electronegativity:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - uses: doyensec/electronegativity-action@v2
+        with:
+          input: apps/dm-tool
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ../electronegativity_results
+          category: electronegativity
