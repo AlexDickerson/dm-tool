@@ -50,8 +50,8 @@ jobs:
         working-directory: tagger
         run: |
           python -m venv .venv
-          .venv\Scripts\pip install -q -e . pyinstaller
-          .venv\Scripts\pyinstaller --onefile --name map-tagger --paths src entry.py --distpath dist -y
+          .venv\Scripts\pip install -q -e . "nuitka[onefile]"
+          .venv\Scripts\python -m nuitka --onefile --assume-yes-for-downloads --output-filename=map-tagger.exe --output-dir=dist --include-package=dnd_map_tagger --windows-console-mode=force --remove-output entry.py
 
       # -- Download Auto-Wall exe from latest release --
       - name: Download Auto-Wall exe
