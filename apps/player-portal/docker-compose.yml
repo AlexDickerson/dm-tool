@@ -1,0 +1,20 @@
+# Local/dev compose. Self-contained — `docker compose up -d --build`
+# builds everything from source (no prior `npm run build` needed). The
+# context is the monorepo root because npm workspaces needs to see the
+# root manifests + packages/shared to resolve @dm-tool/shared.
+#
+# Portal state is in-memory only. The DM auto-pushes on every edit, so
+# the cache refills within seconds of the DM touching anything. No
+# volumes are mounted — the container is pure relay.
+
+services:
+  player-portal:
+    build:
+      context: ../..
+      dockerfile: apps/player-portal/Dockerfile
+    container_name: player-portal
+    restart: unless-stopped
+    ports:
+      - '30002:3000'
+    environment:
+      SHARED_SECRET: '${SHARED_SECRET:-dev-secret}'

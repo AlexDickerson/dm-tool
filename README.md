@@ -15,13 +15,23 @@ A desktop toolbox for prepping and running tabletop RPG sessions, built with Ele
 
 ## Player Portal
 
-A companion web SPA under `player-map/` that players visit in a browser. Three routes share a top nav:
+A companion web SPA under `apps/player-portal/` that players visit in a browser. Three routes share a top nav:
 
 - `/globe` — read-only Golarion map with mission pins (static, deployed via the globe Deploy button)
 - `/inventory` — live-synced party inventory (groups by category, shows carrier)
 - `/leaderboard` — live-synced Aurus standings (player party pinned and highlighted)
 
-Inventory and leaderboard data flow through a small Node sidecar (`sidecar/`) that sits beside the nginx container on the deploy host. The DM tool POSTs snapshots to the sidecar on every edit (authed via a shared secret), and the portal subscribes via WebSocket for near-instant updates. Add `sidecarUrl` and `sidecarSecret` to `config.json` to wire it up.
+Inventory and leaderboard data flow through the portal's own Fastify server (what used to be a separate sidecar). The DM tool POSTs snapshots on every edit (authed via a shared secret), and the portal subscribes via WebSocket for near-instant updates. Add `sidecarUrl` and `sidecarSecret` to `config.json` to wire it up — they now point at the portal's `/api/*` routes.
+
+## Repository Layout
+
+This is an npm-workspaces monorepo:
+
+- `apps/dm-tool/` — the Electron desktop app
+- `apps/player-portal/` — player-facing web app + its Fastify live-sync server, single process (`@dm-tool/player-portal`)
+- `packages/shared/` — types + shared UI components used by the apps (`@dm-tool/shared`)
+- `tagger/` — standalone Python map indexer; built separately
+- `resources/` — app icons and buildResources for electron-builder
 
 ## Setup
 

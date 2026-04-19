@@ -1,0 +1,24 @@
+# Deploy compose — the DM globe Deploy IPC ships the monorepo source
+# (packages/shared, apps/player-portal, tsconfigs, root manifests) to
+# the remote host, then runs `docker compose up -d --build`. The build
+# happens in-container on the server; nothing is pre-built locally.
+#
+# Portal state is in-memory only — no volumes. The DM auto-pushes on
+# every edit, so the cache refills within seconds of play resuming.
+#
+# Usage (manual):
+#   scp -r <monorepo subset> alex@server.ad:~/dm-tool-deploy
+#   ssh alex@server.ad "cd ~/dm-tool-deploy/apps/player-portal && \
+#     SHARED_SECRET=... docker compose -f deploy-compose.yml up -d --build"
+
+services:
+  player-portal:
+    build:
+      context: ../..
+      dockerfile: apps/player-portal/Dockerfile
+    container_name: player-portal
+    restart: unless-stopped
+    ports:
+      - '30002:3000'
+    environment:
+      SHARED_SECRET: '${SHARED_SECRET:?SHARED_SECRET must be set}'

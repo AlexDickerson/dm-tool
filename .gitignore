@@ -1,6 +1,10 @@
 node_modules/
 out/
 dist/
+apps/*/out/
+apps/*/dist/
+apps/*/server-dist/
+packages/*/dist/
 *.log
 .DS_Store
 
@@ -28,5 +32,3 @@ tagger/*.spec
 # Auto-Wall binary (downloaded during CI or locally)
 auto-wall-bin/
 
-# Runtime export from the globe Deploy pipeline
-player-map/data.json

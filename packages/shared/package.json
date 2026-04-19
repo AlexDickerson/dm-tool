@@ -1,0 +1,33 @@
+{
+  "name": "@dm-tool/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Types and shared UI components used across the DM app and player portal. Consumers provide React via peerDependencies.",
+  "exports": {
+    ".": "./src/types.ts",
+    "./types": "./src/types.ts",
+    "./foundry-markup": "./src/foundry-markup.ts",
+    "./map-stem": "./src/map-stem.ts",
+    "./MissionBriefing": "./src/MissionBriefing.tsx",
+    "./golarion-map": "./src/golarion-map/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@iconify-json/game-icons": "^1.2.3"
+  },
+  "peerDependencies": {
+    "maplibre-gl": ">=5",
+    "react": ">=19"
+  },
+  "devDependencies": {
+    "@types/geojson": "^7946.0.14",
+    "@types/react": "^19.2.14",
+    "maplibre-gl": "^5.23.0",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.4"
+  }
+}
