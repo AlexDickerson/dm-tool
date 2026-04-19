@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, safeStorage, shell } from 'electron';
+import { app, ipcMain, safeStorage, shell } from 'electron';
 import { extname, join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
@@ -10,8 +10,8 @@ import type { ConfigPaths, MapDetail, PickPathArgs } from '@dm-tool/shared/types
 import { getMonsterPreview } from '@dm-tool/db/pf2e';
 import { fetchAonPreview } from '../aon-preview.js';
 import { appendAdditionalHooks, getAdditionalHooks } from '../hooks-store.js';
-import { writeSettings } from '../setup-ipc.js';
 import { THUMBNAIL_SUFFIX } from '../constants.js';
+import { handlePickPath, handleSaveConfigAndRestart } from './shared.js';
 
 function resolveMapImagePath(libraryPath: string, fileName: string): string {
   const thumb = join(libraryPath, `${fileName}${THUMBNAIL_SUFFIX}`);
@@ -85,44 +85,9 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
     }),
   );
 
-  ipcMain.handle('pickPath', async (_e, args: PickPathArgs): Promise<string | null> => {
-    const properties: ('openDirectory' | 'openFile')[] = [args.mode === 'directory' ? 'openDirectory' : 'openFile'];
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: args.title ?? (args.mode === 'directory' ? 'Select folder' : 'Select file'),
-      properties,
-      filters: args.filters,
-    });
-    if (canceled || filePaths.length === 0) return null;
-    return filePaths[0];
-  });
+  ipcMain.handle('pickPath', (_e, args: PickPathArgs) => handlePickPath(args));
 
-  ipcMain.handle('saveConfigAndRestart', async (_e, paths: ConfigPaths): Promise<void> => {
-    const required = ['libraryPath', 'indexDbPath', 'inboxPath', 'quarantinePath'] as const;
-    for (const field of required) {
-      if (!paths[field] || typeof paths[field] !== 'string' || !paths[field].trim()) {
-        throw new Error(`${field} is required`);
-      }
-    }
-
-    writeSettings(paths);
-
-    // app.relaunch() respawns Electron directly, which works in a
-    // packaged build but drops the electron-vite dev-server context in
-    // dev mode (renderer comes back blank). Only auto-relaunch in prod;
-    // in dev just exit and let the user re-run `npm run dev`.
-    if (app.isPackaged) {
-      app.relaunch();
-      app.exit(0);
-    } else {
-      await dialog.showMessageBox({
-        type: 'info',
-        title: 'Settings saved',
-        message: 'Dm-tool will now close.',
-        detail: 'Run `npm run dev` again to relaunch with the new settings.',
-      });
-      app.exit(0);
-    }
-  });
+  ipcMain.handle('saveConfigAndRestart', (_e, paths: ConfigPaths) => handleSaveConfigAndRestart(paths));
 
   // --- Misc handlers -------------------------------------------------------
 
