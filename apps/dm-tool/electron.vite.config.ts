@@ -11,9 +11,13 @@ import react from '@vitejs/plugin-react';
 // via node_modules symlinks — no manual alias needed.
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@dm-tool/ai'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['@dm-tool/ai', '@dm-tool/db'] })],
     build: {
       rollupOptions: {
+        // @dm-tool/db is bundled (raw .ts source), but its native dep
+        // better-sqlite3 must stay external — Rollup can't bundle .node
+        // binaries loaded via dynamic require.
+        external: ['better-sqlite3'],
         input: {
           index: resolve(__dirname, 'electron/main.ts'),
         },
@@ -21,7 +25,7 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@dm-tool/ai'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['@dm-tool/ai', '@dm-tool/db'] })],
     build: {
       rollupOptions: {
         input: {
