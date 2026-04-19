@@ -1,6 +1,36 @@
-import { describe, expect, it } from 'vitest';
-import { safeFileName, stampPinId } from './mission-notes';
+import * as fs from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const fsMockState = vi.hoisted(() => ({
+  unreadablePath: null as string | null,
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    readFileSync: vi.fn(((path, ...args) => {
+      if (path === fsMockState.unreadablePath) {
+        throw new Error('EACCES: permission denied');
+      }
+      return actual.readFileSync(
+        path,
+        ...(args as Parameters<typeof actual.readFileSync> extends [any, ...infer Rest] ? Rest : never),
+      );
+    }) as typeof actual.readFileSync),
+  };
+});
+
+import { findNoteByPinId, safeFileName, stampPinId } from './mission-notes';
 import { parseYaml, splitFrontmatter } from './mission-parser';
+
+afterEach(() => {
+  fsMockState.unreadablePath = null;
+  vi.restoreAllMocks();
+});
 
 // ---------------------------------------------------------------------------
 // safeFileName — strip illegal chars and collapse whitespace
@@ -117,5 +147,68 @@ describe('stampPinId', () => {
     const out = stampPinId(raw, 'pin-1', 'note');
     // After the closing `---` there should be a newline before `# Body`.
     expect(out).toMatch(/---\n\n# Body/);
+  });
+});
+
+describe('findNoteByPinId', () => {
+  it('returns null when the root directory does not exist', () => {
+    const missingRoot = join(tmpdir(), `missing-root-${Date.now()}`);
+    expect(findNoteByPinId(missingRoot, 'pin-1')).toBeNull();
+  });
+
+  it('finds a matching markdown file in nested directories', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      const nestedDir = join(root, 'missions', 'chapter-1');
+      mkdirSync(nestedDir, { recursive: true });
+      const notePath = join(nestedDir, 'ambush.md');
+      writeFileSync(notePath, '---\npin-id: pin-42\n---\n\n# Encounter', 'utf8');
+      expect(findNoteByPinId(root, 'pin-42')).toBe(notePath);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('skips hidden directories when scanning', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      const hiddenDir = join(root, '.obsidian');
+      mkdirSync(hiddenDir, { recursive: true });
+      writeFileSync(join(hiddenDir, 'hidden.md'), '---\npin-id: pin-hidden\n---\n', 'utf8');
+      expect(findNoteByPinId(root, 'pin-hidden')).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores unreadable markdown entries and continues scanning', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      const badPath = join(root, 'bad.md');
+      writeFileSync(badPath, '---\npin-id: pin-good\n---\n', 'utf8');
+      fsMockState.unreadablePath = badPath;
+
+      const goodPath = join(root, 'good.md');
+      writeFileSync(goodPath, '---\npin-id: pin-good\n---\n', 'utf8');
+
+      expect(findNoteByPinId(root, 'pin-good')).toBe(goodPath);
+      expect(vi.mocked(fs.readFileSync)).toHaveBeenCalledWith(badPath, {
+        encoding: 'utf-8',
+        flag: 'r',
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('returns null when pin-id is not within the first 512 bytes', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      const longPrefix = 'x'.repeat(520);
+      writeFileSync(join(root, 'late-pin.md'), `${longPrefix}\npin-id: pin-late\n`, 'utf8');
+      expect(findNoteByPinId(root, 'pin-late')).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
