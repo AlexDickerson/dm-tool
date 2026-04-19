@@ -18,7 +18,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",
     "@dm-tool/shared": "*",
-    "ai": "^6.0.158",
+    "ai": "^6.0.168",
     "zod": "^4.3.6"
   },
   "devDependencies": {
