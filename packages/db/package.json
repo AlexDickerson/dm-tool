@@ -1,0 +1,26 @@
+{
+  "name": "@dm-tool/db",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Single data layer for dm-tool: module functions over pf2e.db (settings, globe pins, inventory, combat, aurus, compendium reads), the BookDb class that shares that connection, and a read-only MapDb wrapper around the map-tagger index. Consumed by dm-tool's Electron main process.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pf2e": "./src/pf2e/index.ts",
+    "./books": "./src/books/index.ts",
+    "./maps": "./src/maps/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dm-tool/ai": "*",
+    "@dm-tool/shared": "*",
+    "better-sqlite3": "^12.8.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3"
+  }
+}

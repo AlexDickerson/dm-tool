@@ -4,7 +4,7 @@
 import { ipcMain } from 'electron';
 import type { DmToolConfig } from '../config.js';
 import type { AurusTeam } from '@dm-tool/shared/types';
-import { deleteAurusTeam, listAurusTeams, upsertAurusTeam } from '../pf2e-db.js';
+import { deleteAurusTeam, listAurusTeams, upsertAurusTeam } from '@dm-tool/db/pf2e';
 
 async function pushSnapshot(cfg: DmToolConfig): Promise<void> {
   if (!cfg.sidecarUrl || !cfg.sidecarSecret) return;

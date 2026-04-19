@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import type { ChatMessage, ChatModel } from '@dm-tool/shared/types';
 import { streamChat } from '@dm-tool/ai/chat';
-import { searchMonsters, searchItems } from '../pf2e-db.js';
+import { searchMonsters, searchItems } from '@dm-tool/db/pf2e';
 
 /** Max characters of page text to send as tool context. ~2K tokens. */
 const TOOL_CONTEXT_LIMIT = 8000;

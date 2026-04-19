@@ -5,8 +5,8 @@
 // `shared/types.ts::ElectronAPI` and the corresponding contextBridge
 // exposure in preload.ts — the three files form one contract.
 
-import type { MapDb } from '../db.js';
-import type { BookDb } from '../book-db.js';
+import type { MapDb } from '@dm-tool/db/maps';
+import type { BookDb } from '@dm-tool/db/books';
 import type { DmToolConfig } from '../config.js';
 import { registerMapHandlers } from './maps.js';
 import { registerBookHandlers } from './books.js';

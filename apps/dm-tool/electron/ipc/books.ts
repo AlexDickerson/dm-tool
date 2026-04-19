@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import { ipcMain } from 'electron';
-import type { BookDb } from '../book-db.js';
+import type { BookDb } from '@dm-tool/db/books';
 import type { DmToolConfig } from '../config.js';
 import type { Book, BookClassifyProgress, BookScanResult, FinalizeIngestArgs } from '@dm-tool/shared/types';
 import { classifyBook } from '@dm-tool/ai/classifier';

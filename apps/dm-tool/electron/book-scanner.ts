@@ -20,7 +20,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import type { ScannedFile } from './book-db.js';
+import type { ScannedFile } from '@dm-tool/db/books';
 
 export function scanBookRoot(rootPath: string): ScannedFile[] {
   if (!existsSync(rootPath)) return [];

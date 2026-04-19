@@ -16,7 +16,7 @@ import {
   renamePackMappings,
   replacePackMappings,
   upsertPackMapping,
-} from './pf2e-db.js';
+} from '@dm-tool/db/pf2e';
 
 // ---------------------------------------------------------------------------
 // Prompt

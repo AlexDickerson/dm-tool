@@ -1,5 +1,5 @@
 import { dialog, ipcMain } from 'electron';
-import type { MapDb } from '../db.js';
+import type { MapDb } from '@dm-tool/db/maps';
 import { buildGroupingPrompt, getCachedPackMapping, mergePacks, parseAndCacheMapping } from '../pack-grouper.js';
 
 export function registerPackGroupingHandlers(db: MapDb): void {
