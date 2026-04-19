@@ -1,6 +1,6 @@
 {
   "name": "dm-tool-workspace",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "DM toolbox for prepping and running TTRPG sessions. npm-workspaces monorepo: apps/dm-tool (Electron), apps/player-portal (player web app + live-sync Fastify server), packages/shared (types + shared UI).",
   "private": true,
   "type": "module",

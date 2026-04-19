@@ -1,6 +1,6 @@
 {
   "name": "dm-tool",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "DM desktop app: Electron + React + SQLite. Browses the dnd-map-tagger index, drives Foundry VTT via MCP, runs the chat/loot AI, and pushes state to the sidecar for the player portal.",
   "private": true,
   "type": "module",
