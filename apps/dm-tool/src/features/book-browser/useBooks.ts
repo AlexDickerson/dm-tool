@@ -176,7 +176,7 @@ export async function extractCover(bookId: number): Promise<void> {
     canvas.width = scaledVp.width;
     canvas.height = scaledVp.height;
     const ctx = canvas.getContext('2d')!;
-    await page.render({ canvasContext: ctx, viewport: scaledVp }).promise;
+    await page.render({ canvas, canvasContext: ctx, viewport: scaledVp }).promise;
 
     const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
     canvas.width = 0;
