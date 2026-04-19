@@ -48,10 +48,7 @@ jobs:
 
       - name: Build map-tagger exe
         working-directory: tagger
-        run: |
-          python -m venv .venv
-          .venv\Scripts\pip install -q -e . pyinstaller
-          .venv\Scripts\pyinstaller --onefile --name map-tagger --paths src entry.py --distpath dist -y
+        run: .\build.bat
 
       # -- Download Auto-Wall exe from latest release --
       - name: Download Auto-Wall exe
@@ -87,7 +84,7 @@ jobs:
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dm-tool-windows
 
