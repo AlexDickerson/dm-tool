@@ -2,10 +2,12 @@
 //
 // Two layers:
 //
-// 1. Bootstrap config — a tiny { "dbPath": "..." } JSON file that tells us
-//    where the SQLite state file lives. This is all the info we need to
-//    open the DB; everything else comes from the DB. Resolution order:
-//      - $DM_TOOL_DB_PATH env var
+// 1. Bootstrap config — tells us where the SQLite state file lives. This is
+//    all the info we need to open the DB; everything else comes from the
+//    DB. Resolution order:
+//      - $DM_TOOL_DB_PATH env var (dev override)
+//      - HKCU\Software\dm-tool\DbPath (stable per-user registry key — the
+//        NSIS installer writes here, so it survives app upgrades)
 //      - apps/dm-tool/config.json (or monorepo root, for dev)
 //      - <userData>/config.json
 //      - default: <userData>/dm-tool.db
@@ -16,9 +18,15 @@
 //    binary fallbacks, and returns the canonical DmToolConfig.
 
 import { app } from 'electron';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getAllSettings, getSetting } from './pf2e-db.js';
+
+/** Stable per-user registry location for the bootstrap db path. Kept
+ *  un-versioned on purpose so it survives app upgrades. */
+const REGISTRY_KEY = 'HKCU\\Software\\dm-tool';
+const REGISTRY_VALUE = 'DbPath';
 
 /** Candidate roots to search for dev-only sibling directories (tagger/,
  *  auto-wall-bin/, config.json). In dev, cwd is the dm-tool app dir
@@ -126,12 +134,57 @@ function findBootstrapConfigPath(): string | null {
   return existsSync(userDataConfig) ? userDataConfig : null;
 }
 
-/** Resolve the DB path at startup. Env override > bootstrap config.json >
- *  default under userData. Never throws — a missing bootstrap config just
- *  means "use the default location." */
+/** Expand `%VAR%` references against process.env. Used for REG_EXPAND_SZ
+ *  values, which `reg query` returns raw (unlike Win32 API reads). Unknown
+ *  vars are left untouched so we don't silently corrupt the path. */
+function expandEnvVars(input: string): string {
+  return input.replace(/%([^%]+)%/g, (match, name: string) => {
+    const v = process.env[name];
+    return v !== undefined ? v : match;
+  });
+}
+
+/** Read the bootstrap db path from the Windows registry. Returns null on
+ *  non-Windows platforms, when the key/value is missing, or on any error
+ *  shelling out to `reg.exe`. We use `reg query` instead of a native module
+ *  to keep the dependency footprint zero — this runs once at startup. */
+function readDbPathFromRegistry(): string | null {
+  if (process.platform !== 'win32') return null;
+  // Absolute path to the system `reg.exe` so we aren't at the mercy of PATH.
+  const systemRoot = process.env.SystemRoot ?? process.env.WINDIR ?? 'C:\\Windows';
+  const regExe = join(systemRoot, 'System32', 'reg.exe');
+  try {
+    const stdout = execFileSync(regExe, ['query', REGISTRY_KEY, '/v', REGISTRY_VALUE], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      // Suppress the transient console window when launched from a packaged
+      // Electron app (no shell attached).
+      windowsHide: true,
+    });
+    // Output is like:
+    //   HKEY_CURRENT_USER\Software\dm-tool
+    //       DbPath    REG_SZ    C:\path\to\dm-tool.db
+    const pattern = new RegExp(`^\\s+${REGISTRY_VALUE}\\s+REG_(SZ|EXPAND_SZ)\\s+(.+?)\\s*$`, 'm');
+    const match = stdout.match(pattern);
+    if (!match) return null;
+    const [, type, raw] = match;
+    const value = (type === 'EXPAND_SZ' ? expandEnvVars(raw) : raw).trim();
+    return value.length > 0 ? value : null;
+  } catch {
+    // reg.exe exits non-zero when the key/value is missing; that's expected.
+    return null;
+  }
+}
+
+/** Resolve the DB path at startup. Env override > stable registry key >
+ *  bootstrap config.json > default under userData. Never throws — every
+ *  missing source just falls through to the next. */
 export function loadBootstrapConfig(): BootstrapConfig {
   const fromEnv = process.env.DM_TOOL_DB_PATH;
   if (fromEnv && fromEnv.trim().length > 0) return { dbPath: resolve(fromEnv.trim()) };
+
+  const fromRegistry = readDbPathFromRegistry();
+  if (fromRegistry) return { dbPath: resolve(fromRegistry) };
 
   const configPath = findBootstrapConfigPath();
   if (configPath) {

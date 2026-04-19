@@ -886,7 +886,7 @@ function PageSlot({
         const ctx = canvas.getContext('2d')!;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
         if (cancelled) return;
         renderedScaleRef.current = scale;
 
