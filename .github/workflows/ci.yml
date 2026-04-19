@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.0
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -50,7 +50,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.0
 
       - uses: doyensec/electronegativity-action@v2
         with:
