@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// pack-grouper.ts delegates persistence to pf2e-db, which wraps
+// pack-grouper.ts delegates persistence to @dm-tool/db/pf2e, which wraps
 // better-sqlite3. The native addon is built against Electron's Node ABI
 // and can't load under the host Node that vitest runs in. Replace the
-// five pf2e-db exports pack-grouper uses with an in-memory Map so tests
-// exercise the real parsing/merge logic without touching SQLite.
+// five pack_mappings exports pack-grouper uses with an in-memory Map so
+// tests exercise the real parsing/merge logic without touching SQLite.
 vi.mock('@dm-tool/db/pf2e', () => {
   let store = new Map<string, string>();
   return {

@@ -1,6 +1,8 @@
-// Key/value settings table. Values are JSON-encoded on write so we can
-// round-trip strings, numbers, booleans, and objects uniformly; on read
-// we return the decoded string form (or the raw value if decoding fails).
+// Key/value settings table. Current API is string-only — set/get/replace all
+// take and return strings. Values are JSON-encoded on write (so a string `foo`
+// is stored as `"foo"`) and decoded on read; if the stored payload isn't a
+// JSON string (legacy rows from earlier experiments, or any future row with
+// a richer shape), the raw column value is passed through unchanged.
 
 import { getPf2eDb } from './connection.js';
 import { tryParseJson } from './internal.js';
