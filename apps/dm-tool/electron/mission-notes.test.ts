@@ -3,10 +3,32 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const fsMockState = vi.hoisted(() => ({
+  unreadablePath: null as string | null,
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    readFileSync: vi.fn(((path, ...args) => {
+      if (path === fsMockState.unreadablePath) {
+        throw new Error('EACCES: permission denied');
+      }
+      return actual.readFileSync(
+        path,
+        ...(args as Parameters<typeof actual.readFileSync> extends [any, ...infer Rest] ? Rest : never),
+      );
+    }) as typeof actual.readFileSync),
+  };
+});
+
 import { findNoteByPinId, safeFileName, stampPinId } from './mission-notes';
 import { parseYaml, splitFrontmatter } from './mission-parser';
 
 afterEach(() => {
+  fsMockState.unreadablePath = null;
   vi.restoreAllMocks();
 });
 
@@ -163,18 +185,14 @@ describe('findNoteByPinId', () => {
     const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
     try {
       const badPath = join(root, 'bad.md');
-      writeFileSync(badPath, '---\npin-id: pin-bad\n---\n', 'utf8');
-      const originalReadFileSync = fs.readFileSync;
-      vi.spyOn(fs, 'readFileSync').mockImplementation(((path, ...args) => {
-        if (path === badPath) {
-          throw new Error('EACCES: permission denied');
-        }
-        return originalReadFileSync(path, ...args as Parameters<typeof fs.readFileSync> extends [any, ...infer Rest] ? Rest : never);
-      }) as typeof fs.readFileSync);
+      writeFileSync(badPath, '---\npin-id: pin-good\n---\n', 'utf8');
+      fsMockState.unreadablePath = badPath;
 
       const goodPath = join(root, 'good.md');
       writeFileSync(goodPath, '---\npin-id: pin-good\n---\n', 'utf8');
+
       expect(findNoteByPinId(root, 'pin-good')).toBe(goodPath);
+      expect(vi.mocked(fs.readFileSync)).toHaveBeenCalledWith(badPath, 'utf8');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
