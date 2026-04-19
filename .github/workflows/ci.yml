@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  quality:
+  lint-and-typecheck:
     runs-on: ubuntu-latest
 
     steps:
