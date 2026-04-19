@@ -16,7 +16,7 @@
     "harness": "tsx harness/run.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.69",
+    "@ai-sdk/anthropic": "^3.0.71",
     "@dm-tool/shared": "*",
     "ai": "^6.0.158",
     "zod": "^4.3.6"
