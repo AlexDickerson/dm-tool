@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import type { AurusTeam } from '@dm-tool/shared/types';
 
 function blankTeam(): AurusTeam {
@@ -85,8 +86,8 @@ export function AurusTab() {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '1rem', gap: '0.75rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div className="flex h-full flex-col gap-3 p-4">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Aurus Leaderboard</h2>
           <p className="text-xs text-muted-foreground">
@@ -98,21 +99,21 @@ export function AurusTab() {
         </Button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 6 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead style={{ position: 'sticky', top: 0, backgroundColor: 'hsl(var(--background))', zIndex: 1 }}>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid hsl(var(--border))' }}>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 40 }}>#</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500 }}>Name</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 110 }}>Combat</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 140 }}>Value (gp)</th>
-              <th style={{ padding: '8px 12px', width: 60 }} aria-label="Actions"></th>
+      <div className="flex-1 overflow-y-auto rounded-md border border-border">
+        <table className="w-full border-collapse text-[13px]">
+          <thead className="sticky top-0 z-[1] bg-background">
+            <tr className="border-b border-border text-left">
+              <th className="w-[40px] px-3 py-2 font-medium">#</th>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="w-[110px] px-3 py-2 font-medium">Combat</th>
+              <th className="w-[140px] px-3 py-2 font-medium">Value (gp)</th>
+              <th className="w-[60px] px-3 py-2" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
             {ranked.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'hsl(var(--muted-foreground))' }}>
+                <td colSpan={5} className="p-8 text-center text-muted-foreground">
                   No teams yet. Click &ldquo;Add team&rdquo; to get started.
                 </td>
               </tr>
@@ -121,25 +122,13 @@ export function AurusTab() {
                 <tr
                   key={t.id}
                   onClick={() => setEditing(t)}
-                  style={{
-                    borderBottom: '1px solid hsl(var(--border))',
-                    cursor: 'pointer',
-                    backgroundColor: t.isPlayerParty ? 'hsl(var(--accent))' : undefined,
-                  }}
+                  className={cn('cursor-pointer border-b border-border', t.isPlayerParty && 'bg-accent')}
                 >
-                  <td style={{ padding: '8px 12px', fontWeight: 600 }}>{idx + 1}</td>
-                  <td style={{ padding: '8px 12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span
-                        style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 2,
-                          backgroundColor: t.color,
-                          display: 'inline-block',
-                        }}
-                      />
-                      <span>{t.name || <span style={{ color: 'hsl(var(--muted-foreground))' }}>(unnamed)</span>}</span>
+                  <td className="px-3 py-2 font-semibold">{idx + 1}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: t.color }} />
+                      <span>{t.name || <span className="text-muted-foreground">(unnamed)</span>}</span>
                       {t.isPlayerParty && (
                         <span className="rounded-sm bg-primary/15 px-1.5 text-[10px] uppercase tracking-wide text-primary">
                           Party
@@ -147,9 +136,9 @@ export function AurusTab() {
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: '8px 12px' }}>{t.combatPower.toLocaleString()}</td>
-                  <td style={{ padding: '8px 12px' }}>{cpToGp(t.valueReclaimedCp)}</td>
-                  <td style={{ padding: '8px 12px' }}>
+                  <td className="px-3 py-2">{t.combatPower.toLocaleString()}</td>
+                  <td className="px-3 py-2">{cpToGp(t.valueReclaimedCp)}</td>
+                  <td className="px-3 py-2">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -196,31 +185,10 @@ function TeamEditor({
   saving: boolean;
 }) {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 50,
-      }}
-      onClick={onCancel}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 480,
-          maxWidth: '90vw',
-          backgroundColor: 'hsl(var(--background))',
-          border: '1px solid hsl(var(--border))',
-          borderRadius: 8,
-          padding: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
+        className="flex w-[480px] max-w-[90vw] flex-col gap-3 rounded-lg border border-border bg-background p-6"
       >
         <h3 className="text-base font-semibold">Team details</h3>
         <div>
@@ -232,7 +200,7 @@ function TeamEditor({
             autoFocus
           />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12 }}>
+        <div className="grid grid-cols-[120px_1fr] gap-3">
           <div>
             <Label htmlFor="team-color">Color</Label>
             <Input
@@ -240,7 +208,7 @@ function TeamEditor({
               type="color"
               value={team.color}
               onChange={(e) => onChange({ ...team, color: e.target.value })}
-              style={{ padding: 2, height: 36 }}
+              className="h-9 p-0.5"
             />
           </div>
           <div>
@@ -253,10 +221,10 @@ function TeamEditor({
             />
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="team-combat">Combat power</Label>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div className="flex gap-1">
               <Button
                 type="button"
                 variant="outline"
@@ -292,7 +260,7 @@ function TeamEditor({
             />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="flex items-center gap-2">
           <input
             id="team-party"
             type="checkbox"
@@ -311,7 +279,7 @@ function TeamEditor({
             onChange={(e) => onChange({ ...team, note: e.target.value || undefined })}
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+        <div className="mt-2 flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
