@@ -192,7 +192,10 @@ describe('findNoteByPinId', () => {
       writeFileSync(goodPath, '---\npin-id: pin-good\n---\n', 'utf8');
 
       expect(findNoteByPinId(root, 'pin-good')).toBe(goodPath);
-      expect(vi.mocked(fs.readFileSync)).toHaveBeenCalledWith(badPath, 'utf8');
+      expect(vi.mocked(fs.readFileSync)).toHaveBeenCalledWith(badPath, {
+        encoding: 'utf-8',
+        flag: 'r',
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
