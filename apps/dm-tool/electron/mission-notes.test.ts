@@ -1,5 +1,8 @@
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { safeFileName, stampPinId } from './mission-notes';
+import { findNoteByPinId, safeFileName, stampPinId } from './mission-notes';
 import { parseYaml, splitFrontmatter } from './mission-parser';
 
 // ---------------------------------------------------------------------------
@@ -117,5 +120,60 @@ describe('stampPinId', () => {
     const out = stampPinId(raw, 'pin-1', 'note');
     // After the closing `---` there should be a newline before `# Body`.
     expect(out).toMatch(/---\n\n# Body/);
+  });
+});
+
+describe('findNoteByPinId', () => {
+  it('returns null when the root directory does not exist', () => {
+    const missingRoot = join(tmpdir(), `missing-root-${Date.now()}`);
+    expect(findNoteByPinId(missingRoot, 'pin-1')).toBeNull();
+  });
+
+  it('finds a matching markdown file in nested directories', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      const nestedDir = join(root, 'missions', 'chapter-1');
+      mkdirSync(nestedDir, { recursive: true });
+      const notePath = join(nestedDir, 'ambush.md');
+      writeFileSync(notePath, '---\npin-id: pin-42\n---\n\n# Encounter', 'utf8');
+      expect(findNoteByPinId(root, 'pin-42')).toBe(notePath);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('skips hidden directories when scanning', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      const hiddenDir = join(root, '.obsidian');
+      mkdirSync(hiddenDir, { recursive: true });
+      writeFileSync(join(hiddenDir, 'hidden.md'), '---\npin-id: pin-hidden\n---\n', 'utf8');
+      expect(findNoteByPinId(root, 'pin-hidden')).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores unreadable markdown entries and continues scanning', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      mkdirSync(join(root, 'bad.md'));
+      const goodPath = join(root, 'good.md');
+      writeFileSync(goodPath, '---\npin-id: pin-good\n---\n', 'utf8');
+      expect(findNoteByPinId(root, 'pin-good')).toBe(goodPath);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('returns null when pin-id is not within the first 512 bytes', () => {
+    const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
+    try {
+      const longPrefix = 'x'.repeat(520);
+      writeFileSync(join(root, 'late-pin.md'), `${longPrefix}\npin-id: pin-late\n`, 'utf8');
+      expect(findNoteByPinId(root, 'pin-late')).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
