@@ -69,7 +69,9 @@ export const THEMES: Array<{ id: ThemeId; label: string; swatch: string }> = [
 
 // --- Chat models -------------------------------------------------------------
 
-export const DEFAULT_CHAT_MODEL: ChatModel = 'claude-sonnet-4-6';
+// Default is sourced from @dm-tool/shared so agents, the tagger, and this
+// picker all agree on what "Sonnet 4.6" means.
+export { DEFAULT_CHAT_MODEL } from '@dm-tool/shared/types';
 export const CHAT_MODELS: Array<{ id: ChatModel; label: string }> = [
   { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5 — fast, cheap' },
   { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 — balanced' },

@@ -1,6 +1,6 @@
-import type { ChatModel } from '@dm-tool/shared/types';
-
-export const DEFAULT_MODEL: ChatModel = 'claude-sonnet-4-6';
+// Single source of truth lives in @dm-tool/shared/types. Re-exported here under
+// the name agents already import (DEFAULT_MODEL) to keep call sites unchanged.
+export { DEFAULT_CHAT_MODEL as DEFAULT_MODEL } from '@dm-tool/shared/types';
 
 export const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 export const ANTHROPIC_API_VERSION = '2023-06-01';

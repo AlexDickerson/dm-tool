@@ -1,11 +1,11 @@
 // Centralized constants for the Electron main process.
 // Keeps magic strings and numbers out of logic modules.
 
-import type { ChatModel } from '@dm-tool/shared/types';
-
 // --- Anthropic API -----------------------------------------------------------
 
-export const DEFAULT_MODEL: ChatModel = 'claude-sonnet-4-6';
+// Only consumer left in dm-tool is tagger.ts (templates the model into the
+// Python tagger's TOML config). Source of truth is @dm-tool/shared.
+export { DEFAULT_CHAT_MODEL as DEFAULT_MODEL } from '@dm-tool/shared/types';
 
 // --- Archives of Nethys ------------------------------------------------------
 
