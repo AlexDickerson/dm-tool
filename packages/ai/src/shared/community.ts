@@ -1,12 +1,6 @@
-// Community search — Reddit (r/Pathfinder2e, r/Pathfinder_RPG) and
-// RPG Stack Exchange. Used by the chat assistant's searchCommunity tool
-// to find discussions, rulings interpretations, and GM advice.
+// Community search — Reddit (r/Pathfinder2e, r/Pathfinder_RPG) and RPG Stack Exchange.
 
-import { stripHtml, truncate } from './util.js';
-
-// ---------------------------------------------------------------------------
-// Reddit via their public search JSON endpoint
-// ---------------------------------------------------------------------------
+import { stripHtml, truncate } from './text.js';
 
 interface RedditPost {
   title: string;
@@ -48,10 +42,6 @@ async function searchReddit(query: string): Promise<string[]> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// RPG Stack Exchange via their public API
-// ---------------------------------------------------------------------------
-
 interface SERawQuestion {
   title: string;
   link: string;
@@ -75,9 +65,7 @@ async function searchStackExchange(query: string): Promise<string[]> {
   url.searchParams.set('filter', 'withbody');
 
   try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(10_000),
-    });
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) return [];
 
     const data = (await res.json()) as SEResponse;
@@ -97,14 +85,9 @@ async function searchStackExchange(query: string): Promise<string[]> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Combined search
-// ---------------------------------------------------------------------------
-
 /**
  * Search Reddit and RPG Stack Exchange for PF2e community discussions.
- * Returns a formatted string with results from both sources.
- * Never throws.
+ * Returns a formatted string with results from both sources. Never throws.
  */
 export async function searchCommunity(query: string): Promise<string> {
   const [redditResults, seResults] = await Promise.all([searchReddit(query), searchStackExchange(query)]);

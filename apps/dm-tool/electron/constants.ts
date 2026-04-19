@@ -24,7 +24,3 @@ export const MCP_PROTOCOL_VERSION = '2025-03-26';
 
 export const THUMBNAIL_SUFFIX = '.thumb.jpg';
 
-// --- Chat tuning -------------------------------------------------------------
-
-/** Maximum tool-use round-trips before the draft pass stops. */
-export const CHAT_STEP_LIMIT = 3;

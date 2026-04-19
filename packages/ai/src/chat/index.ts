@@ -4,15 +4,15 @@
 //   • General (default) — single-pass streaming with optional tool use.
 //   • Rules (/rule)     — two-pass: draft with mandatory tools → adversarial
 //                         review → streamed final answer.
-//
-// Prompts live in prompts.ts; tool definitions live in chat-tools.ts.
 
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { streamText, generateText, stepCountIs } from 'ai';
 import type { ChatChunk, ChatMessage, ChatModel } from '@dm-tool/shared/types';
-import { DEFAULT_MODEL, CHAT_STEP_LIMIT } from './constants.js';
+import { DEFAULT_MODEL, CHAT_STEP_LIMIT } from '../shared/constants.js';
 import { CHAT_GENERAL_PROMPT, CHAT_RULES_PROMPT, CHAT_REVIEW_PROMPT } from './prompts.js';
-import { chatTools, TOOL_STATUS_LABELS } from './chat-tools.js';
+import { createChatTools, TOOL_STATUS_LABELS, type ChatToolDeps } from './tools.js';
+
+export type { ChatToolDeps } from './tools.js';
 
 function buildSystemPrompt(base: string, pageContext?: string): string {
   if (!pageContext) return base;
@@ -32,6 +32,7 @@ export async function streamChat({
   model = DEFAULT_MODEL,
   rulesMode = false,
   toolContext: pageContext,
+  toolDeps,
   onChunk,
 }: {
   apiKey: string;
@@ -39,15 +40,17 @@ export async function streamChat({
   model?: ChatModel;
   rulesMode?: boolean;
   toolContext?: string;
+  toolDeps?: ChatToolDeps;
   onChunk: (chunk: ChatChunk) => void;
 }): Promise<void> {
   const anthropic = createAnthropic({ apiKey });
+  const tools = createChatTools(toolDeps);
   const mapped = messages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
   if (rulesMode) {
-    await streamRulesMode(anthropic, model, mapped, messages, pageContext, onChunk);
+    await streamRulesMode(anthropic, model, tools, mapped, messages, pageContext, onChunk);
   } else {
-    await streamGeneralMode(anthropic, model, mapped, pageContext, onChunk);
+    await streamGeneralMode(anthropic, model, tools, mapped, pageContext, onChunk);
   }
 }
 
@@ -58,6 +61,7 @@ export async function streamChat({
 async function streamGeneralMode(
   anthropic: ReturnType<typeof createAnthropic>,
   model: ChatModel,
+  tools: ReturnType<typeof createChatTools>,
   mapped: Array<{ role: 'user' | 'assistant'; content: string }>,
   pageContext: string | undefined,
   onChunk: (chunk: ChatChunk) => void,
@@ -70,7 +74,7 @@ async function streamGeneralMode(
     model: anthropic(model),
     system: systemPrompt,
     messages: mapped,
-    tools: chatTools,
+    tools,
     stopWhen: stepCountIs(CHAT_STEP_LIMIT),
   });
 
@@ -95,6 +99,7 @@ async function streamGeneralMode(
 async function streamRulesMode(
   anthropic: ReturnType<typeof createAnthropic>,
   model: ChatModel,
+  tools: ReturnType<typeof createChatTools>,
   mapped: Array<{ role: 'user' | 'assistant'; content: string }>,
   messages: ChatMessage[],
   pageContext: string | undefined,
@@ -112,11 +117,10 @@ async function streamRulesMode(
     model: anthropic(model),
     system: systemPrompt,
     messages: mapped,
-    tools: chatTools,
+    tools,
     stopWhen: stepCountIs(CHAT_STEP_LIMIT),
   });
 
-  // Surface which tools were called for UI feedback.
   for (const step of draft.steps) {
     for (const tc of step.toolCalls) {
       const p = tc as unknown as { toolName: string; input: { query: string } };
@@ -126,7 +130,6 @@ async function streamRulesMode(
     }
   }
 
-  // Collect all tool results so the reviewer can see them.
   const toolResults = draft.steps
     .flatMap((s) => s.toolResults)
     .map((tr) => {

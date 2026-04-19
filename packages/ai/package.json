@@ -1,0 +1,26 @@
+{
+  "name": "@dm-tool/ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PF2e GM assistant agents (chat; loot/hooks/classifier to follow). Pure TS library consumed by dm-tool via workspace reference; no Electron or Node-native deps.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./chat": "./src/chat/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "harness": "tsx harness/run.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.69",
+    "@dm-tool/shared": "*",
+    "ai": "^6.0.158",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

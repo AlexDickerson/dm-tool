@@ -1,8 +1,7 @@
 // Archives of Nethys lookup via their public Elasticsearch endpoint.
-// Used by the chat assistant's tools to fetch authoritative PF2e content.
 
 import { AON_BASE_URL, AON_ELASTICSEARCH_URL } from './constants.js';
-import { stripHtml, truncate } from './util.js';
+import { stripHtml, truncate } from './text.js';
 
 interface AonHit {
   name: string;
@@ -40,7 +39,6 @@ async function queryAoN(
   const { categories, size = 3, label = 'AoN' } = opts;
 
   try {
-    // Build the ES query — add a category filter if specified.
     const esQuery: Record<string, unknown> = categories
       ? {
           bool: {
@@ -73,19 +71,14 @@ async function queryAoN(
   }
 }
 
-// --- Public search functions (one per tool) --------------------------------
-
-/** General rules search (no category filter). */
 export function searchAoN(query: string): Promise<string> {
   return queryAoN(query, { label: 'Rules' });
 }
 
-/** Creature/monster search. */
 export function searchMonster(query: string): Promise<string> {
   return queryAoN(query, { categories: ['creature'], label: 'Creature' });
 }
 
-/** Item search (equipment, weapons, armor, shields). */
 export function searchItem(query: string): Promise<string> {
   return queryAoN(query, {
     categories: ['equipment', 'weapon', 'armor', 'shield'],
@@ -93,12 +86,10 @@ export function searchItem(query: string): Promise<string> {
   });
 }
 
-/** Feat search. */
 export function searchFeat(query: string): Promise<string> {
   return queryAoN(query, { categories: ['feat'], label: 'Feat' });
 }
 
-/** Spell search. */
 export function searchSpell(query: string): Promise<string> {
   return queryAoN(query, { categories: ['spell'], label: 'Spell' });
 }

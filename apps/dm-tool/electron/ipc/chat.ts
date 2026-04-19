@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import type { ChatMessage, ChatModel } from '@dm-tool/shared/types';
-import { streamChat } from '../chat.js';
+import { streamChat } from '@dm-tool/ai/chat';
+import { searchMonsters, searchItems } from '../pf2e-db.js';
 
 /** Max characters of page text to send as tool context. ~2K tokens. */
 const TOOL_CONTEXT_LIMIT = 8000;
@@ -29,6 +30,7 @@ export function registerChatHandlers(getMainWindow: () => Electron.BrowserWindow
           model: args.model,
           rulesMode: args.rulesMode,
           toolContext: args.toolContext,
+          toolDeps: { searchMonsters, searchItems },
           onChunk: sendChunk,
         });
       } catch (err: unknown) {
