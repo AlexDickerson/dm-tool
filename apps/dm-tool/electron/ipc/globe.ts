@@ -7,6 +7,7 @@ import { listGlobePins, upsertGlobePin, deleteGlobePin, setMissionMarkdown } fro
 import type { GlobePin, GlobeDeployProgress, GlobeDeployResult, MissionData } from '@dm-tool/shared/types';
 import { missionNoteTemplate, parseMissionNote } from '../mission-parser.js';
 import { findNoteByPinId, safeFileName, stampPinId } from '../mission-notes.js';
+import { pushToSidecar } from '../sidecar-client.js';
 
 /** Default public URL shown in the "Pushed" toast if not configured. */
 const DEFAULT_PUBLIC_URL = 'http://server.ad:30002';
@@ -17,23 +18,8 @@ export function registerGlobeHandlers(cfg: DmToolConfig, getMainWindow: () => El
    *  configured. Network/5xx errors log and swallow — the SQLite write
    *  has already succeeded and the next successful push will reconcile. */
   async function pushSnapshot(): Promise<void> {
-    if (!cfg.sidecarUrl || !cfg.sidecarSecret) return;
-    try {
-      const payload = await buildExportPayload();
-      const res = await fetch(`${cfg.sidecarUrl.replace(/\/+$/, '')}/api/globe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${cfg.sidecarSecret}`,
-        },
-        body: JSON.stringify({ pins: payload.pins, updatedAt: new Date().toISOString() }),
-      });
-      if (!res.ok) {
-        console.warn(`globe sidecar push failed: ${res.status} ${res.statusText}`);
-      }
-    } catch (err) {
-      console.warn('globe sidecar push error:', (err as Error).message);
-    }
+    const payload = await buildExportPayload();
+    await pushToSidecar(cfg, '/api/globe', { pins: payload.pins, updatedAt: new Date().toISOString() }, 'globe');
   }
 
   /** Collect every pin and, for mission pins with an Obsidian vault

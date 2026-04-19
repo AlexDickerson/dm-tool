@@ -5,25 +5,10 @@ import { ipcMain } from 'electron';
 import type { DmToolConfig } from '../config.js';
 import type { AurusTeam } from '@dm-tool/shared/types';
 import { deleteAurusTeam, listAurusTeams, upsertAurusTeam } from '@dm-tool/db/pf2e';
+import { pushToSidecar } from '../sidecar-client.js';
 
 async function pushSnapshot(cfg: DmToolConfig): Promise<void> {
-  if (!cfg.sidecarUrl || !cfg.sidecarSecret) return;
-  const teams = listAurusTeams();
-  try {
-    const res = await fetch(`${cfg.sidecarUrl.replace(/\/+$/, '')}/api/aurus`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${cfg.sidecarSecret}`,
-      },
-      body: JSON.stringify({ teams, updatedAt: new Date().toISOString() }),
-    });
-    if (!res.ok) {
-      console.warn(`aurus sidecar push failed: ${res.status} ${res.statusText}`);
-    }
-  } catch (err) {
-    console.warn('aurus sidecar push error:', (err as Error).message);
-  }
+  await pushToSidecar(cfg, '/api/aurus', { teams: listAurusTeams(), updatedAt: new Date().toISOString() }, 'aurus');
 }
 
 export function registerAurusHandlers(cfg: DmToolConfig): void {

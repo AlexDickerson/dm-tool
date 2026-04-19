@@ -7,6 +7,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { api } from '@/lib/api';
 import type { PartyInventoryCategory, PartyInventoryItem } from '@dm-tool/shared/types';
 
 const CATEGORIES: PartyInventoryCategory[] = ['consumable', 'equipment', 'quest', 'treasure', 'other'];
@@ -44,7 +45,7 @@ export function InventoryTab() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const list = await window.electronAPI.inventoryList();
+    const list = await api.inventoryList();
     setItems(list);
   }, []);
 
@@ -57,7 +58,7 @@ export function InventoryTab() {
     setSaving(true);
     try {
       const next: PartyInventoryItem = { ...editing, updatedAt: new Date().toISOString() };
-      await window.electronAPI.inventoryUpsert(next);
+      await api.inventoryUpsert(next);
       await refresh();
       setEditing(null);
     } finally {
@@ -67,7 +68,7 @@ export function InventoryTab() {
 
   const handleDelete = useCallback(
     async (id: string) => {
-      await window.electronAPI.inventoryDelete(id);
+      await api.inventoryDelete(id);
       await refresh();
     },
     [refresh],
@@ -77,8 +78,8 @@ export function InventoryTab() {
   const totalValue = useMemo(() => items.reduce((sum, i) => sum + (i.valueCp ?? 0) * i.qty, 0), [items]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '1rem', gap: '0.75rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div className="flex h-full flex-col gap-3 p-4">
+      <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Party Inventory</h2>
           <p className="text-xs text-muted-foreground">
@@ -90,42 +91,38 @@ export function InventoryTab() {
         </Button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 6 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead style={{ position: 'sticky', top: 0, backgroundColor: 'hsl(var(--background))', zIndex: 1 }}>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid hsl(var(--border))' }}>
-              <th style={{ padding: '8px 12px', fontWeight: 500 }}>Name</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 70 }}>Qty</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 120 }}>Category</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 120 }}>Carried by</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 90 }}>Bulk</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, width: 110 }}>Value</th>
-              <th style={{ padding: '8px 12px', width: 60 }} aria-label="Actions"></th>
+      <div className="flex-1 overflow-y-auto rounded-md border border-border">
+        <table className="w-full border-collapse text-[13px]">
+          <thead className="sticky top-0 z-[1] bg-background">
+            <tr className="border-b border-border text-left">
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="w-[70px] px-3 py-2 font-medium">Qty</th>
+              <th className="w-[120px] px-3 py-2 font-medium">Category</th>
+              <th className="w-[120px] px-3 py-2 font-medium">Carried by</th>
+              <th className="w-[90px] px-3 py-2 font-medium">Bulk</th>
+              <th className="w-[110px] px-3 py-2 font-medium">Value</th>
+              <th className="w-[60px] px-3 py-2" aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: 'hsl(var(--muted-foreground))' }}>
+                <td colSpan={7} className="p-8 text-center text-muted-foreground">
                   No items yet. Click &ldquo;Add item&rdquo; to get started.
                 </td>
               </tr>
             ) : (
               items.map((i) => (
-                <tr
-                  key={i.id}
-                  onClick={() => setEditing(i)}
-                  style={{ borderBottom: '1px solid hsl(var(--border))', cursor: 'pointer' }}
-                >
-                  <td style={{ padding: '8px 12px' }}>
-                    <div>{i.name || <span style={{ color: 'hsl(var(--muted-foreground))' }}>(unnamed)</span>}</div>
+                <tr key={i.id} onClick={() => setEditing(i)} className="cursor-pointer border-b border-border">
+                  <td className="px-3 py-2">
+                    <div>{i.name || <span className="text-muted-foreground">(unnamed)</span>}</div>
                     {i.aonUrl && (
                       <a
                         href={i.aonUrl}
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
-                          window.electronAPI.openExternal(i.aonUrl!);
+                          api.openExternal(i.aonUrl!);
                         }}
                         className="text-[11px] text-blue-500 hover:underline"
                       >
@@ -133,12 +130,12 @@ export function InventoryTab() {
                       </a>
                     )}
                   </td>
-                  <td style={{ padding: '8px 12px' }}>{i.qty}</td>
-                  <td style={{ padding: '8px 12px' }}>{i.category}</td>
-                  <td style={{ padding: '8px 12px' }}>{i.carriedBy ?? '—'}</td>
-                  <td style={{ padding: '8px 12px' }}>{i.bulk ?? '—'}</td>
-                  <td style={{ padding: '8px 12px' }}>{i.valueCp ? formatCp(i.valueCp) : '—'}</td>
-                  <td style={{ padding: '8px 12px' }}>
+                  <td className="px-3 py-2">{i.qty}</td>
+                  <td className="px-3 py-2">{i.category}</td>
+                  <td className="px-3 py-2">{i.carriedBy ?? '—'}</td>
+                  <td className="px-3 py-2">{i.bulk ?? '—'}</td>
+                  <td className="px-3 py-2">{i.valueCp ? formatCp(i.valueCp) : '—'}</td>
+                  <td className="px-3 py-2">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -185,31 +182,10 @@ function ItemEditor({
   saving: boolean;
 }) {
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 50,
-      }}
-      onClick={onCancel}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 480,
-          maxWidth: '90vw',
-          backgroundColor: 'hsl(var(--background))',
-          border: '1px solid hsl(var(--border))',
-          borderRadius: 8,
-          padding: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
+        className="flex w-[480px] max-w-[90vw] flex-col gap-3 rounded-lg border border-border bg-background p-6"
       >
         <h3 className="text-base font-semibold">Item details</h3>
         <div>
@@ -221,7 +197,7 @@ function ItemEditor({
             autoFocus
           />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor="item-qty">Quantity</Label>
             <Input
@@ -306,7 +282,7 @@ function ItemEditor({
             onChange={(e) => onChange({ ...item, note: e.target.value || undefined })}
           />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+        <div className="mt-2 flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
