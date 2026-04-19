@@ -203,6 +203,11 @@ export interface ItemFacets {
 
 export type ChatModel = 'claude-sonnet-4-6' | 'claude-haiku-4-5-20251001' | 'claude-opus-4-6';
 
+/** Single source of truth for the Claude model used by @dm-tool/ai agents
+ *  and the renderer's picker default. Downstream constants files re-export
+ *  this under their own names (DEFAULT_MODEL, DEFAULT_CHAT_MODEL). */
+export const DEFAULT_CHAT_MODEL: ChatModel = 'claude-sonnet-4-6';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;

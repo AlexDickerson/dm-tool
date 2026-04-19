@@ -11,7 +11,7 @@ import react from '@vitejs/plugin-react';
 // via node_modules symlinks — no manual alias needed.
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@dm-tool/ai'] })],
     build: {
       rollupOptions: {
         input: {
@@ -21,7 +21,7 @@ export default defineConfig({
     },
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['@dm-tool/ai'] })],
     build: {
       rollupOptions: {
         input: {

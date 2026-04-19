@@ -3,8 +3,8 @@ import { ipcMain } from 'electron';
 import type { BookDb } from '../book-db.js';
 import type { DmToolConfig } from '../config.js';
 import type { Book, BookClassifyProgress, BookScanResult, FinalizeIngestArgs } from '@dm-tool/shared/types';
+import { classifyBook } from '@dm-tool/ai/classifier';
 import { scanBookRoot } from '../book-scanner.js';
-import { classifyBook } from '../book-classifier.js';
 
 export function registerBookHandlers(
   bookDb: BookDb | null,
@@ -107,7 +107,7 @@ export function registerBookHandlers(
         try {
           const classification = await classifyBook({
             apiKey: args.apiKey,
-            coverBlob: book.cover_blob,
+            coverImage: book.cover_blob,
             fileName,
           });
           b.saveClassification(book.id, classification);

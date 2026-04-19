@@ -4,6 +4,7 @@
 
 import Database from 'better-sqlite3';
 import type { AurusTeam, Encounter, GlobePin, PartyInventoryItem } from '@dm-tool/shared/types';
+import type { LootShortlistItem } from '@dm-tool/ai/loot';
 import { tryParseJson } from './util.js';
 import { cleanFoundryMarkup } from '@dm-tool/shared/foundry-markup';
 
@@ -1132,4 +1133,23 @@ export function getMonsterPreview(aonUrl: string): MonsterResult | null {
   const row = d.prepare('SELECT * FROM monsters WHERE aon_url = ? LIMIT 1').get(aonUrl) as MonsterRow | undefined;
   if (!row) return null;
   return rowToResult(row);
+}
+
+// --- Loot shortlist (consumed by @dm-tool/ai/loot) --------------------------
+
+/** Random, level-appropriate slice of the items table for the loot agent
+ *  to pick from. Casts a wide net (party level ±2) so the model has room
+ *  to match items to theme once mechanical fit is satisfied. */
+export function buildLootShortlist(partyLevel: number): LootShortlistItem[] {
+  const levelMin = Math.max(0, partyLevel - 2);
+  const levelMax = partyLevel + 2;
+  return requireDb()
+    .prepare(
+      `SELECT id, name, level, price, bulk, traits, usage, aon_url AS aonUrl, is_magical AS isMagical, source
+       FROM items
+       WHERE level BETWEEN ? AND ?
+       ORDER BY RANDOM()
+       LIMIT 80`,
+    )
+    .all(levelMin, levelMax) as LootShortlistItem[];
 }

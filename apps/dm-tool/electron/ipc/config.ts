@@ -1,15 +1,30 @@
 import { app, dialog, ipcMain, safeStorage, shell } from 'electron';
-import { join } from 'node:path';
+import { extname, join } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { generateEncounterHooks } from '@dm-tool/ai/hooks';
+import type { VisionMediaType } from '@dm-tool/ai/hooks';
 import type { MapDb } from '../db.js';
 import type { DmToolConfig } from '../config.js';
 import type { ConfigPaths, MapDetail, PickPathArgs } from '@dm-tool/shared/types';
 import { getMonsterPreview } from '../pf2e-db.js';
 import { fetchAonPreview } from '../aon-preview.js';
-import { generateEncounterHooks } from '../anthropic.js';
 import { appendAdditionalHooks, getAdditionalHooks } from '../hooks-store.js';
 import { writeSettings } from '../setup-ipc.js';
+import { THUMBNAIL_SUFFIX } from '../constants.js';
+
+function resolveMapImagePath(libraryPath: string, fileName: string): string {
+  const thumb = join(libraryPath, `${fileName}${THUMBNAIL_SUFFIX}`);
+  return existsSync(thumb) ? thumb : join(libraryPath, fileName);
+}
+
+function mediaTypeFor(filePath: string): VisionMediaType {
+  const ext = extname(filePath).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.gif') return 'image/gif';
+  return 'image/jpeg';
+}
 
 export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
   // --- Secure storage (API keys) -------------------------------------------
@@ -192,9 +207,16 @@ export function registerConfigHandlers(db: MapDb, cfg: DmToolConfig): void {
         additionalEncounterHooks: getAdditionalHooks(args.fileName),
       };
 
+      const imagePath = resolveMapImagePath(cfg.libraryPath, args.fileName);
+      if (!existsSync(imagePath)) {
+        throw new Error(`Map image not found at ${imagePath}`);
+      }
+      const mapImage = readFileSync(imagePath);
+
       const newHooks = await generateEncounterHooks({
         apiKey: args.apiKey,
-        libraryPath: cfg.libraryPath,
+        mapImage,
+        mediaType: mediaTypeFor(imagePath),
         detail,
       });
       return appendAdditionalHooks(args.fileName, newHooks);

@@ -1,0 +1,10 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "A frightened 2 creature ends its turn next to an ally. Does the frightened condition decrease? What exactly resets it?"
+    }
+  ],
+  "rulesMode": true,
+  "model": "claude-sonnet-4-6"
+}

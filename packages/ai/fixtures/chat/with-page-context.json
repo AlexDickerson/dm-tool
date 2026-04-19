@@ -1,0 +1,11 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Given what's on this page, what's the DC for a PC to Recall Knowledge about this creature at level 3?"
+    }
+  ],
+  "rulesMode": false,
+  "toolContext": "Creature: Goblin Warrior\nLevel: -1\nTraits: Goblin, Humanoid\nPerception: +5\nLanguages: Goblin\nSkills: Athletics +3, Stealth +7\nSTR +2, DEX +4, CON +0, INT -1, WIS +1, CHA +0\nAC 16; Fort +4, Ref +8, Will +3\nHP 6\nSpeed 25 feet\nMelee dogslicer +7 (agile, backstabber, finesse) Damage 1d6+2 slashing\nRanged shortbow +7 (deadly d10, range increment 60 ft) Damage 1d6 piercing\nGoblin Scuttle: When an ally ends a move action adjacent to the goblin warrior, it can Step as a reaction.",
+  "model": "claude-sonnet-4-6"
+}

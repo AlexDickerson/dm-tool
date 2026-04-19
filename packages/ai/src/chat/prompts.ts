@@ -1,11 +1,4 @@
-// AI prompt templates — kept separate from orchestration logic so they
-// can be reviewed, versioned, and tweaked without touching streaming code.
-
-import type { MapDetail } from '@dm-tool/shared/types';
-
-// ---------------------------------------------------------------------------
-// Chat assistant — general mode (single-pass, streaming)
-// ---------------------------------------------------------------------------
+// Chat assistant prompt templates.
 
 export const CHAT_GENERAL_PROMPT = `You are a TTRPG assistant embedded in a dungeon master's prep tool. You help a GM running Pathfinder 2e (remastered) campaigns.
 
@@ -23,10 +16,6 @@ Keep answers concise, direct, and table-ready. Prefer bullet points over paragra
 CRITICAL: When citing AoN URLs, use ONLY the exact URLs returned by the tools. NEVER construct, guess, or modify URLs.
 
 Do not apologize or hedge excessively. NEVER offer GM advice, suggest house rules, or remind the GM they can rule however they want. The user is an experienced GM.`;
-
-// ---------------------------------------------------------------------------
-// Chat assistant — /rule mode (two-pass: draft with tools → adversarial review)
-// ---------------------------------------------------------------------------
 
 export const CHAT_RULES_PROMPT = `You are a TTRPG assistant embedded in a dungeon master's prep tool. You help a GM running Pathfinder 2e (remastered) campaigns.
 
@@ -86,44 +75,3 @@ CRITICAL: Use ONLY the exact AoN URLs from the tool results. NEVER construct, gu
 Do not mention the review process, the draft, or that you are an auditor — just provide the answer.
 
 NEVER offer GM advice, suggest house rules, or remind the user they can rule however they want. The user is an experienced GM. Just state what the rules say (or don't say) and stop.`;
-
-// ---------------------------------------------------------------------------
-// Encounter hook generation
-// ---------------------------------------------------------------------------
-
-/** Build the user-side prompt for encounter hook generation. The model is
- *  asked to return a JSON array of new hooks, distinct from existing ones. */
-export function buildEncounterHookPrompt(detail: MapDetail): string {
-  const existing = [...detail.encounterHooks, ...detail.additionalEncounterHooks];
-  const existingBlock =
-    existing.length > 0
-      ? `Existing encounter hooks (do NOT repeat or paraphrase these):\n${existing
-          .map((h, i) => `${i + 1}. ${h}`)
-          .join('\n')}`
-      : 'There are no existing encounter hooks yet.';
-
-  const tags = [
-    detail.biomes.length > 0 ? `Biomes: ${detail.biomes.join(', ')}` : null,
-    detail.locationTypes.length > 0 ? `Locations: ${detail.locationTypes.join(', ')}` : null,
-    detail.mood.length > 0 ? `Mood: ${detail.mood.join(', ')}` : null,
-    detail.features.length > 0 ? `Features: ${detail.features.join(', ')}` : null,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  return [
-    `You are helping a tabletop RPG dungeon master brainstorm encounter hooks for a battlemap.`,
-    ``,
-    `Map title: ${detail.title}`,
-    detail.description ? `Map description: ${detail.description}` : null,
-    tags || null,
-    ``,
-    existingBlock,
-    ``,
-    `Look at the attached image and write 3 NEW encounter hooks that could play out on this map. Each hook should be 1–2 sentences, evocative, and directly grounded in what is visible in the image. Vary the tone (combat, social, exploration, mystery). Do not repeat anything from the existing hooks.`,
-    ``,
-    `Respond with ONLY a JSON array of strings — no preamble, no code fences, no commentary. Example format: ["First hook here.", "Second hook here.", "Third hook here."]`,
-  ]
-    .filter((line) => line !== null)
-    .join('\n');
-}
