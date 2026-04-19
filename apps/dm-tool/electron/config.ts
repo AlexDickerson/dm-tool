@@ -134,23 +134,41 @@ function findBootstrapConfigPath(): string | null {
   return existsSync(userDataConfig) ? userDataConfig : null;
 }
 
+/** Expand `%VAR%` references against process.env. Used for REG_EXPAND_SZ
+ *  values, which `reg query` returns raw (unlike Win32 API reads). Unknown
+ *  vars are left untouched so we don't silently corrupt the path. */
+function expandEnvVars(input: string): string {
+  return input.replace(/%([^%]+)%/g, (match, name: string) => {
+    const v = process.env[name];
+    return v !== undefined ? v : match;
+  });
+}
+
 /** Read the bootstrap db path from the Windows registry. Returns null on
  *  non-Windows platforms, when the key/value is missing, or on any error
  *  shelling out to `reg.exe`. We use `reg query` instead of a native module
  *  to keep the dependency footprint zero — this runs once at startup. */
 function readDbPathFromRegistry(): string | null {
   if (process.platform !== 'win32') return null;
+  // Absolute path to the system `reg.exe` so we aren't at the mercy of PATH.
+  const systemRoot = process.env.SystemRoot ?? process.env.WINDIR ?? 'C:\\Windows';
+  const regExe = join(systemRoot, 'System32', 'reg.exe');
   try {
-    const stdout = execFileSync('reg', ['query', REGISTRY_KEY, '/v', REGISTRY_VALUE], {
+    const stdout = execFileSync(regExe, ['query', REGISTRY_KEY, '/v', REGISTRY_VALUE], {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      // Suppress the transient console window when launched from a packaged
+      // Electron app (no shell attached).
+      windowsHide: true,
     });
     // Output is like:
     //   HKEY_CURRENT_USER\Software\dm-tool
     //       DbPath    REG_SZ    C:\path\to\dm-tool.db
-    const match = stdout.match(/^\s+DbPath\s+REG_(?:SZ|EXPAND_SZ)\s+(.+?)\s*$/m);
+    const pattern = new RegExp(`^\\s+${REGISTRY_VALUE}\\s+REG_(SZ|EXPAND_SZ)\\s+(.+?)\\s*$`, 'm');
+    const match = stdout.match(pattern);
     if (!match) return null;
-    const value = match[1].trim();
+    const [, type, raw] = match;
+    const value = (type === 'EXPAND_SZ' ? expandEnvVars(raw) : raw).trim();
     return value.length > 0 ? value : null;
   } catch {
     // reg.exe exits non-zero when the key/value is missing; that's expected.
