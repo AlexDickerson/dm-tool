@@ -7,6 +7,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { api } from '@/lib/api';
 import type { PartyInventoryCategory, PartyInventoryItem } from '@dm-tool/shared/types';
 
 const CATEGORIES: PartyInventoryCategory[] = ['consumable', 'equipment', 'quest', 'treasure', 'other'];
@@ -44,7 +45,7 @@ export function InventoryTab() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const list = await window.electronAPI.inventoryList();
+    const list = await api.inventoryList();
     setItems(list);
   }, []);
 
@@ -57,7 +58,7 @@ export function InventoryTab() {
     setSaving(true);
     try {
       const next: PartyInventoryItem = { ...editing, updatedAt: new Date().toISOString() };
-      await window.electronAPI.inventoryUpsert(next);
+      await api.inventoryUpsert(next);
       await refresh();
       setEditing(null);
     } finally {
@@ -67,7 +68,7 @@ export function InventoryTab() {
 
   const handleDelete = useCallback(
     async (id: string) => {
-      await window.electronAPI.inventoryDelete(id);
+      await api.inventoryDelete(id);
       await refresh();
     },
     [refresh],
@@ -125,7 +126,7 @@ export function InventoryTab() {
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
-                          window.electronAPI.openExternal(i.aonUrl!);
+                          api.openExternal(i.aonUrl!);
                         }}
                         className="text-[11px] text-blue-500 hover:underline"
                       >

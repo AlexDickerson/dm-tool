@@ -7,6 +7,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { api } from '@/lib/api';
 import type { AurusTeam } from '@dm-tool/shared/types';
 
 function blankTeam(): AurusTeam {
@@ -35,7 +36,7 @@ export function AurusTab() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const list = await window.electronAPI.aurusList();
+    const list = await api.aurusList();
     setTeams(list);
   }, []);
 
@@ -63,11 +64,11 @@ export function AurusTab() {
       if (next.isPlayerParty) {
         for (const t of teams) {
           if (t.id !== next.id && t.isPlayerParty) {
-            await window.electronAPI.aurusUpsert({ ...t, isPlayerParty: false, updatedAt: new Date().toISOString() });
+            await api.aurusUpsert({ ...t, isPlayerParty: false, updatedAt: new Date().toISOString() });
           }
         }
       }
-      await window.electronAPI.aurusUpsert(next);
+      await api.aurusUpsert(next);
       await refresh();
       setEditing(null);
     } finally {
@@ -77,7 +78,7 @@ export function AurusTab() {
 
   const handleDelete = useCallback(
     async (id: string) => {
-      await window.electronAPI.aurusDelete(id);
+      await api.aurusDelete(id);
       await refresh();
     },
     [refresh],
