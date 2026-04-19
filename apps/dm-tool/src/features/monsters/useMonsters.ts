@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useDebouncedQuery, useQuery } from '@/hooks/useDebouncedQuery';
 import type { MonsterDetail, MonsterFacets, MonsterSearchParams, MonsterSummary } from '@dm-tool/shared/types';
 
 interface AsyncState<T> {
@@ -8,33 +9,11 @@ interface AsyncState<T> {
   error: string | null;
 }
 
+const fetchMonsters = (params: MonsterSearchParams) => api.monstersSearch(params);
+const fetchMonsterDetail = (name: string) => api.monstersGetDetail(name);
+
 export function useMonsterSearch(params: MonsterSearchParams, debounceMs = 150): AsyncState<MonsterSummary[]> {
-  const [state, setState] = useState<AsyncState<MonsterSummary[]>>({
-    data: null,
-    loading: true,
-    error: null,
-  });
-  const requestIdRef = useRef(0);
-
-  useEffect(() => {
-    const id = ++requestIdRef.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const rows = await api.monstersSearch(params);
-        if (requestIdRef.current !== id) return;
-        setState({ data: rows, loading: false, error: null });
-      } catch (e) {
-        if (requestIdRef.current !== id) return;
-        setState({ data: null, loading: false, error: (e as Error).message });
-      }
-    }, debounceMs);
-
-    return () => window.clearTimeout(timer);
-  }, [params, debounceMs]);
-
-  return state;
+  return useDebouncedQuery(fetchMonsters, params, debounceMs);
 }
 
 export function useMonsterFacets(): AsyncState<MonsterFacets> {
@@ -63,33 +42,7 @@ export function useMonsterFacets(): AsyncState<MonsterFacets> {
 }
 
 export function useMonsterDetail(name: string | null): AsyncState<MonsterDetail> {
-  const [state, setState] = useState<AsyncState<MonsterDetail>>({
-    data: null,
-    loading: false,
-    error: null,
-  });
-
-  useEffect(() => {
-    if (!name) {
-      setState({ data: null, loading: false, error: null });
-      return;
-    }
-    let cancelled = false;
-    setState({ data: null, loading: true, error: null });
-    api
-      .monstersGetDetail(name)
-      .then((detail) => {
-        if (!cancelled) setState({ data: detail, loading: false, error: null });
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setState({ data: null, loading: false, error: e.message });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [name]);
-
-  return state;
+  return useQuery(fetchMonsterDetail, name);
 }
 
 export function useOpenExternal() {

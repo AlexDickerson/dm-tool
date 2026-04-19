@@ -3,8 +3,9 @@
 // If we grow to more complex caching we should pull in react-query and
 // move to that.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { useDebouncedQuery, useQuery } from '@/hooks/useDebouncedQuery';
 import type { Facets, MapDetail, MapSummary, SearchParams } from '@dm-tool/shared/types';
 
 interface AsyncState<T> {
@@ -12,6 +13,9 @@ interface AsyncState<T> {
   loading: boolean;
   error: string | null;
 }
+
+const fetchMaps = (params: SearchParams) => api.searchMaps(params);
+const fetchMapDetail = (fileName: string) => api.getMapDetail(fileName);
 
 /** Debounced search against the index. The `params` object is serialized
  *  shallowly for the debounce key — if we add array fields (which we do,
@@ -21,38 +25,7 @@ export function useMapSearch(
   params: SearchParams,
   debounceMs = 150,
 ): AsyncState<MapSummary[]> & { refresh: () => void } {
-  const [state, setState] = useState<AsyncState<MapSummary[]>>({
-    data: null,
-    loading: true,
-    error: null,
-  });
-  // Track the latest request so stale responses don't clobber fresh ones.
-  const requestIdRef = useRef(0);
-  // Bumping this key forces a re-fetch even if params haven't changed
-  // (e.g. after the tagger imports new maps into the library).
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    const id = ++requestIdRef.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
-
-    const timer = window.setTimeout(async () => {
-      try {
-        const rows = await api.searchMaps(params);
-        if (requestIdRef.current !== id) return; // a newer request already fired
-        setState({ data: rows, loading: false, error: null });
-      } catch (e) {
-        if (requestIdRef.current !== id) return;
-        setState({ data: null, loading: false, error: (e as Error).message });
-      }
-    }, debounceMs);
-
-    return () => window.clearTimeout(timer);
-  }, [params, debounceMs, refreshKey]);
-
-  const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
-
-  return { ...state, refresh };
+  return useDebouncedQuery(fetchMaps, params, debounceMs);
 }
 
 export function useFacets(): AsyncState<Facets> {
@@ -81,33 +54,7 @@ export function useFacets(): AsyncState<Facets> {
 }
 
 export function useMapDetail(fileName: string | null): AsyncState<MapDetail> {
-  const [state, setState] = useState<AsyncState<MapDetail>>({
-    data: null,
-    loading: false,
-    error: null,
-  });
-
-  useEffect(() => {
-    if (!fileName) {
-      setState({ data: null, loading: false, error: null });
-      return;
-    }
-    let cancelled = false;
-    setState({ data: null, loading: true, error: null });
-    api
-      .getMapDetail(fileName)
-      .then((detail) => {
-        if (!cancelled) setState({ data: detail, loading: false, error: null });
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setState({ data: null, loading: false, error: e.message });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fileName]);
-
-  return state;
+  return useQuery(fetchMapDetail, fileName);
 }
 
 /** Convenience helper for opening a map's containing folder in the OS
