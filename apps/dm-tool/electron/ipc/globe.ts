@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import type { DmToolConfig } from '../config.js';
-import { listGlobePins, upsertGlobePin, deleteGlobePin, setMissionMarkdown } from '../pf2e-db.js';
+import { listGlobePins, upsertGlobePin, deleteGlobePin, setMissionMarkdown } from '@dm-tool/db/pf2e';
 import type { GlobePin, GlobeDeployProgress, GlobeDeployResult, MissionData } from '@dm-tool/shared/types';
 import { missionNoteTemplate, parseMissionNote } from '../mission-parser.js';
 import { findNoteByPinId, safeFileName, stampPinId } from '../mission-notes.js';

@@ -11,7 +11,7 @@ import {
   getMonsterRowByName,
   listEncounters,
   upsertEncounter,
-} from '../pf2e-db.js';
+} from '@dm-tool/db/pf2e';
 import { tryParseJson } from '../util.js';
 import { pushEncounterActorsToFoundry } from '../encounter-push.js';
 

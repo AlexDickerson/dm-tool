@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // and can't load under the host Node that vitest runs in. Replace the
 // five pf2e-db exports pack-grouper uses with an in-memory Map so tests
 // exercise the real parsing/merge logic without touching SQLite.
-vi.mock('./pf2e-db', () => {
+vi.mock('@dm-tool/db/pf2e', () => {
   let store = new Map<string, string>();
   return {
     hasPackMappings: () => store.size > 0,
@@ -31,7 +31,7 @@ vi.mock('./pf2e-db', () => {
 
 // Import AFTER the mock is registered so pack-grouper binds to the stubs.
 const { buildGroupingPrompt, getCachedPackMapping, mergePacks, parseAndCacheMapping } = await import('./pack-grouper');
-const { __reset } = (await import('./pf2e-db')) as unknown as { __reset: () => void };
+const { __reset } = (await import('@dm-tool/db/pf2e')) as unknown as { __reset: () => void };
 
 beforeEach(() => {
   __reset();

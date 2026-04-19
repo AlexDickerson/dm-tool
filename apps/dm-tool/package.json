@@ -55,6 +55,7 @@
   },
   "dependencies": {
     "@dm-tool/ai": "*",
+    "@dm-tool/db": "*",
     "@dm-tool/shared": "*",
     "@fontsource/cinzel": "^5.2.8",
     "@fontsource/crimson-pro": "^5.2.8",

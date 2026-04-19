@@ -21,7 +21,7 @@ import { app } from 'electron';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { getAllSettings, getSetting } from './pf2e-db.js';
+import { getAllSettings, getSetting } from '@dm-tool/db/pf2e';
 
 /** Stable per-user registry location for the bootstrap db path. Kept
  *  un-versioned on purpose so it survives app upgrades. */

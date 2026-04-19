@@ -16,12 +16,12 @@ import { dirname, join, normalize, sep, resolve as resolvePath } from 'node:path
 import { pathToFileURL } from 'node:url';
 import { existsSync } from 'node:fs';
 import { isConfigured, loadBootstrapConfig, loadConfigFromDb, type DmToolConfig } from './config.js';
-import { MapDb } from './db.js';
-import { BookDb } from './book-db.js';
+import { MapDb } from '@dm-tool/db/maps';
+import { BookDb } from '@dm-tool/db/books';
 import { registerIpcHandlers } from './ipc/index.js';
 import { registerSetupIpcHandlers } from './setup-ipc.js';
 import { scanBookRoot } from './book-scanner.js';
-import { closePf2eDb, getPf2eDb, openPf2eDb } from './pf2e-db.js';
+import { closePf2eDb, getPf2eDb, openPf2eDb } from '@dm-tool/db/pf2e';
 
 // `map-file://` and `book-file://` must be registered as privileged
 // schemes BEFORE app.ready fires, otherwise the CSP rules in index.html

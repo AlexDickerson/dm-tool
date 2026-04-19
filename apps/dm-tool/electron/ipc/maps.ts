@@ -1,6 +1,6 @@
 import { ipcMain, shell } from 'electron';
 import { join } from 'node:path';
-import type { MapDb } from '../db.js';
+import type { MapDb } from '@dm-tool/db/maps';
 import type { DmToolConfig } from '../config.js';
 import type { MapDetail, SearchParams } from '@dm-tool/shared/types';
 import { getAdditionalHooks } from '../hooks-store.js';

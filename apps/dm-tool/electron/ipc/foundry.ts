@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron';
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import type { MapDb } from '../db.js';
+import type { MapDb } from '@dm-tool/db/maps';
 import type { DmToolConfig } from '../config.js';
 import { pushSceneToFoundry } from '../foundry-push.js';
 import { uvttPath } from './auto-wall.js';

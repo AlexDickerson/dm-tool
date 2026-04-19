@@ -6,7 +6,7 @@
 
 import { app, dialog, ipcMain } from 'electron';
 import type { ConfigPaths, PickPathArgs } from '@dm-tool/shared/types';
-import { replaceSettings } from './pf2e-db.js';
+import { replaceSettings } from '@dm-tool/db/pf2e';
 
 export function registerSetupIpcHandlers(_getMainWindow: () => Electron.BrowserWindow | null): void {
   ipcMain.handle('getAppMode', (): 'normal' | 'setup' => 'setup');

@@ -8,7 +8,7 @@
 // Reads/writes are synchronous since the operation is tiny and only
 // happens on explicit user action.
 
-import { getAdditionalHooksFor, upsertAdditionalHooks } from './pf2e-db.js';
+import { getAdditionalHooksFor, upsertAdditionalHooks } from '@dm-tool/db/pf2e';
 
 /** Look up the additional hooks for one map. Returns an empty array if
  *  none have been generated yet. Newest first. */

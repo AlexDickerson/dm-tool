@@ -7,7 +7,7 @@
 import { ipcMain } from 'electron';
 import type { DmToolConfig } from '../config.js';
 import type { PartyInventoryItem } from '@dm-tool/shared/types';
-import { deleteInventory, listInventory, upsertInventory } from '../pf2e-db.js';
+import { deleteInventory, listInventory, upsertInventory } from '@dm-tool/db/pf2e';
 
 async function pushSnapshot(cfg: DmToolConfig): Promise<void> {
   if (!cfg.sidecarUrl || !cfg.sidecarSecret) return;
