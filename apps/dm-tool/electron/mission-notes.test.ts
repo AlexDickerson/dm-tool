@@ -1,9 +1,14 @@
+import * as fs from 'node:fs';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { findNoteByPinId, safeFileName, stampPinId } from './mission-notes';
 import { parseYaml, splitFrontmatter } from './mission-parser';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // ---------------------------------------------------------------------------
 // safeFileName — strip illegal chars and collapse whitespace
@@ -157,7 +162,16 @@ describe('findNoteByPinId', () => {
   it('ignores unreadable markdown entries and continues scanning', () => {
     const root = mkdtempSync(join(tmpdir(), 'mission-notes-'));
     try {
-      mkdirSync(join(root, 'bad.md'));
+      const badPath = join(root, 'bad.md');
+      writeFileSync(badPath, '---\npin-id: pin-bad\n---\n', 'utf8');
+      const originalReadFileSync = fs.readFileSync;
+      vi.spyOn(fs, 'readFileSync').mockImplementation(((path, ...args) => {
+        if (path === badPath) {
+          throw new Error('EACCES: permission denied');
+        }
+        return originalReadFileSync(path, ...args as Parameters<typeof fs.readFileSync> extends [any, ...infer Rest] ? Rest : never);
+      }) as typeof fs.readFileSync);
+
       const goodPath = join(root, 'good.md');
       writeFileSync(goodPath, '---\npin-id: pin-good\n---\n', 'utf8');
       expect(findNoteByPinId(root, 'pin-good')).toBe(goodPath);
