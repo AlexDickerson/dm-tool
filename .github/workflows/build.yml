@@ -15,7 +15,7 @@ jobs:
       should_release: ${{ steps.check.outputs.SHOULD_RELEASE }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Read version from package.json
         id: version
@@ -39,7 +39,7 @@ jobs:
     needs: check-version
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # -- Python: build the standalone map-tagger.exe --
       - uses: actions/setup-python@v6
